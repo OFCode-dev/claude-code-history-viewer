@@ -84,6 +84,12 @@ export interface SubagentSession {
   tool_use_id: string | null;
   /** Workflow run this agent belongs to (wf_… dir under subagents/workflows/); null for flat subagents. */
   workflow_run_id: string | null;
+  /** Task description given when the subagent was spawned (agent-<id>.meta.json). */
+  description?: string | null;
+  /** Subagent type, e.g. "general-purpose" (agent-<id>.meta.json). */
+  agent_type?: string | null;
+  /** Model the subagent ran on (agent-<id>.meta.json). */
+  model?: string | null;
 }
 
 // ============================================================================

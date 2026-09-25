@@ -185,6 +185,7 @@ export interface AppStoreState {
   // Navigation state
   targetMessageUuid: string | null;
   shouldHighlightTarget: boolean;
+  explorerRevealRequest: import("./navigationSlice").ExplorerRevealRequest | null;
 
   // Watcher state
   watcherEnabled: boolean;
@@ -238,6 +239,8 @@ export interface AppStoreActions {
     options?: import("@/utils/webuiDeepLink").WebUINavigationOptions,
   ) => void;
   clearTargetMessage: () => void;
+  requestExplorerReveal: (path: string) => void;
+  clearExplorerRevealRequest: () => void;
 
   // Project actions
   initializeApp: () => Promise<void>;
