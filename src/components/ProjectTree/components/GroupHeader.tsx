@@ -88,6 +88,10 @@ export const GroupHeader: React.FC<GroupHeaderProps> = ({
         nested ? "px-2 py-1.5" : "px-4 py-2",
         "text-left transition-all duration-300",
         "hover:bg-accent/8",
+        // `focus:`, not `focus-visible:`: a breadcrumb reveal focuses the row
+        // programmatically after a click, which `:focus-visible` skips. Inset so
+        // the scroll container and the left border do not clip the ring.
+        "outline-none focus:ring-2 focus:ring-inset focus:ring-accent",
         "border-l-2 border-transparent",
         isExpanded && "bg-accent/5",
         isExpanded && colors.border

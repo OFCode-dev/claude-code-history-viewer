@@ -100,6 +100,25 @@ describe("ProjectTree tree semantics", () => {
     expect(groupItem).toHaveAttribute("aria-expanded", "true");
   });
 
+  it("marks a focused group header, including programmatic (reveal) focus", () => {
+    render(
+      <GroupHeader
+        groupKey="dir:/work"
+        label="work"
+        icon={<span>icon</span>}
+        count={2}
+        isExpanded={false}
+        onToggle={vi.fn()}
+        variant="directory"
+      />
+    );
+
+    // The base layer removes the outline from :focus-visible; `focus:` (not
+    // `focus-visible:`) also covers row.focus() after a breadcrumb click.
+    const groupItem = screen.getByRole("treeitem", { name: /expand work group/i });
+    expect(groupItem).toHaveClass("focus:ring-2", "focus:ring-inset", "focus:ring-accent");
+  });
+
   it("renders nested group container for expanded directory groups", () => {
     const project = createProject("/work/project-a", "project-a");
     const directoryGroup: DirectoryGroup = {
