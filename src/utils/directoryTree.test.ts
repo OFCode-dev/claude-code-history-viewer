@@ -344,6 +344,19 @@ describe("locateInDirectoryTree", () => {
       match: "exact",
     });
   });
+
+  it("keys a location without the trailing separator of its first spelling", () => {
+    const tree = buildDirectoryTree([
+      project("/home/jack/proj/", { path: "/store/codex/proj", provider: "codex" }),
+      project("/home/jack/proj"),
+      project("/home/jack/other"),
+    ]);
+    const proj = tree.roots[0]!.children.find(
+      (c): c is DirectoryProjectNode => c.kind === "project" && c.path.includes("proj")
+    );
+    expect(proj).toMatchObject({ key: "loc:/home/jack/proj", path: "/home/jack/proj" });
+    expect(proj?.location.projects).toHaveLength(2);
+  });
 });
 
 describe("getProjectExpansionKeys", () => {

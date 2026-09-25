@@ -9,7 +9,7 @@ import { ProjectTree } from "..";
 
 const store = vi.hoisted(() => {
   const state = {
-    activeProviders: ["claude"],
+    activeProviders: ["claude"] as string[],
     providers: [],
     isDetectingProviders: false,
     isLoadingProjects: false,
@@ -34,12 +34,15 @@ vi.mock("../../../store/useAppStore", () => ({
   ),
 }));
 
+// A stable `t`, like i18next's: effects that depend on it must not re-run every render.
+const translate = vi.hoisted(
+  () => (key: string, options?: string | { defaultValue?: string }) =>
+    typeof options === "string" ? options : options?.defaultValue ?? key
+);
+
 vi.mock("react-i18next", () => ({
   initReactI18next: { type: "3rdParty", init: () => {} },
-  useTranslation: () => ({
-    t: (key: string, options?: string | { defaultValue?: string }) =>
-      typeof options === "string" ? options : options?.defaultValue ?? key,
-  }),
+  useTranslation: () => ({ t: translate }),
 }));
 
 vi.mock("overlayscrollbars-react", () => ({
@@ -74,11 +77,12 @@ const projects = [
 interface TreeProps {
   groupingMode?: GroupingMode;
   onGroupingModeChange?: (mode: GroupingMode) => void;
+  selectedProject?: ClaudeProject | null;
 }
 
-function renderTree(props: TreeProps = {}) {
+function renderTree(props: TreeProps = {}, treeProjects: ClaudeProject[] = projects) {
   const baseProps = {
-    projects,
+    projects: treeProjects,
     sessions: [],
     selectedProject: null,
     selectedSession: null,
@@ -87,7 +91,7 @@ function renderTree(props: TreeProps = {}) {
     onGlobalStatsClick: vi.fn(),
     isLoading: false,
     isViewingGlobalStats: false,
-    directoryGroups: groupProjectsByDirectory(projects).groups,
+    directoryGroups: groupProjectsByDirectory(treeProjects).groups,
     onGroupingModeChange: vi.fn(),
   };
   const result = render(<ProjectTree {...baseProps} groupingMode="directory" {...props} />);
@@ -98,8 +102,11 @@ function renderTree(props: TreeProps = {}) {
   };
 }
 
+// Matched by dataset, not a CSS selector: Windows keys contain backslashes.
 const row = (key: string) =>
-  document.querySelector<HTMLElement>(`[role="treeitem"][data-tree-key="${key}"]`);
+  Array.from(document.querySelectorAll<HTMLElement>('[role="treeitem"]')).find(
+    (item) => item.dataset.treeKey === key
+  ) ?? null;
 
 const press = (key: string) => {
   fireEvent.keyDown(document.activeElement as HTMLElement, { key });
@@ -108,6 +115,7 @@ const press = (key: string) => {
 describe("ProjectTree directory tree", () => {
   beforeEach(() => {
     store.explorerRevealRequest = null;
+    store.activeProviders = ["claude"];
   });
 
   it("renders a nested tree with the root expanded on first run", () => {
@@ -195,6 +203,40 @@ describe("ProjectTree directory tree", () => {
 
     expect(row("dir:/home/jack")).toHaveAttribute("aria-expanded", "false");
     expect(row("dir:/home/jack/work")).toBeNull();
+  });
+
+  it("keeps every provider of a folder recorded with different spellings", () => {
+    store.activeProviders = ["claude", "codex"];
+    renderTree({}, [
+      project("/home/jack/proj", { last_modified: "2026-09-20T00:00:00Z" }),
+      project("/home/jack/proj/", { path: "/store/codex/proj", provider: "codex" }),
+      project("/home/jack/other"),
+    ]);
+
+    const proj = row("loc:/home/jack/proj")!;
+    expect(within(proj).getByText("Codex CLI")).toBeInTheDocument();
+    expect(within(proj).getByText("Claude Code")).toBeInTheDocument();
+    // The most recently active provider leads the row.
+    expect(proj).toHaveAttribute("data-project-path", "/store/codex/proj");
+    expect(document.querySelectorAll('[data-tree-node="project"]')).toHaveLength(2);
+  });
+
+  it("merges Windows case variants of a folder into one row with both chips", () => {
+    store.activeProviders = ["claude", "codex"];
+    const selected = project("C:\\Users\\Jack\\src\\api", { path: "/store/claude-api" });
+    renderTree({ selectedProject: selected }, [
+      selected,
+      project("c:\\users\\jack\\src\\API", { path: "/store/codex-api", provider: "codex" }),
+      project("C:\\Users\\Jack\\src\\app", { path: "/store/claude-app" }),
+    ]);
+
+    const rows = Array.from(document.querySelectorAll<HTMLElement>('[data-tree-node="project"]'));
+    expect(rows).toHaveLength(2);
+    // The selected spelling leads the merged row; the other provider is a chip.
+    const api = rows.find((item) => item.dataset.projectPath === "/store/claude-api")!;
+    expect(api).toHaveAttribute("aria-selected", "true");
+    expect(api.dataset.treeKey?.toLowerCase()).toBe("loc:c:\\users\\jack\\src\\api");
+    expect(within(api).getByText("Codex CLI")).toBeInTheDocument();
   });
 
   it("hides Collapse all in the flat list", () => {

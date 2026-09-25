@@ -226,14 +226,21 @@ export const GroupedProjectList: React.FC<GroupedProjectListProps> = ({
     const tree =
       directoryTree ?? buildDirectoryTree(directoryGroups.flatMap((group) => group.projects));
 
-    /** One row per working directory; other providers become chips. */
+    /**
+     * One row per working directory; other providers become chips. The tree
+     * already grouped the location by path identity (separators, trailing
+     * slash, Windows case), so it is not split again by the raw string.
+     */
     const renderLocation = (location: DirectoryLocation, ariaLevel: number, subtitle: string) => {
-      const [merged] = mergeByFolder(location.projects, selectedProject);
-      if (!merged) return null;
-      return renderProjectWithSessions(merged.lead, "default", ariaLevel, merged.siblings, {
-        subtitle,
-        treeKey: getLocationKey(location.path),
-      });
+      const lead = pickLocationLead(location.projects, selectedProject);
+      if (!lead) return null;
+      return renderProjectWithSessions(
+        lead,
+        "default",
+        ariaLevel,
+        location.projects.filter((project) => project !== lead),
+        { subtitle, treeKey: getLocationKey(location.path) }
+      );
     };
 
     const renderNode = (node: DirectoryTreeNode, ariaLevel: number): React.ReactNode =>
@@ -344,6 +351,29 @@ export const GroupedProjectList: React.FC<GroupedProjectListProps> = ({
     </>
   );
 };
+
+const activityTime = (project: ClaudeProject) => {
+  const time = Date.parse(project.last_modified);
+  return Number.isNaN(time) ? -Infinity : time;
+};
+
+/**
+ * Lead row of a directory-tree location: the selected project, so highlight
+ * and expansion follow the user, otherwise the most recently active provider.
+ */
+function pickLocationLead(
+  list: ClaudeProject[],
+  selectedProject: ClaudeProject | null
+): ClaudeProject | undefined {
+  const selected =
+    selectedProject != null ? list.find((p) => p.path === selectedProject.path) : undefined;
+  if (selected) return selected;
+  return list.reduce<ClaudeProject | undefined>(
+    (best, project) =>
+      best === undefined || activityTime(project) > activityTime(best) ? project : best,
+    undefined
+  );
+}
 
 /**
  * One row per working directory. Several providers (Claude Code, Codex,

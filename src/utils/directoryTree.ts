@@ -28,7 +28,7 @@ import {
 
 /** One working directory and every provider project recorded for it. */
 export interface DirectoryLocation {
-  /** Working directory (the first project's `actual_path`). */
+  /** Working directory (the first project's `actual_path`, trailing separator dropped). */
   path: string;
   /** Projects for this folder, in input order. */
   projects: ClaudeProject[];
@@ -112,6 +112,12 @@ function isSameOrInside(childIdentity: string, parentIdentity: string): boolean 
 
 function locationPathOf(project: ClaudeProject): string {
   return project.actual_path || project.path;
+}
+
+/** `/a/b/` → `/a/b`, so row keys do not depend on which spelling came first. */
+function withoutTrailingSeparator(path: string): string {
+  const trimmed = path.replace(/[\\/]+$/, "");
+  return trimmed === "" || trimmed.endsWith(":") ? path : trimmed;
 }
 
 // ---------------------------------------------------------------------------
@@ -326,7 +332,7 @@ export function buildDirectoryTree(projects: ClaudeProject[]): DirectoryTree {
       temporary.push(project);
       continue;
     }
-    const path = locationPathOf(project);
+    const path = withoutTrailingSeparator(locationPathOf(project));
     const id = getPathIdentity(path);
     const existing = locations.get(id);
     if (existing) existing.projects.push(project);
