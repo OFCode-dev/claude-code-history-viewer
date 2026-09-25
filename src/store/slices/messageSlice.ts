@@ -469,6 +469,9 @@ export const createMessageSlice: StateCreator<
     }
     const sessionId = session.actual_session_id || session.session_id;
     const currentDeepLink = readWebUIDeepLink();
+    // A subagent transcript's id cannot be resolved from a deep link, so the
+    // URL keeps pointing at the parent session: Back/Forward must never land
+    // on an id the preloader cannot open (it would clear the selection).
     writeWebUIDeepLink(
       {
         sessionId,
@@ -477,7 +480,7 @@ export const createMessageSlice: StateCreator<
             ? currentDeepLink.messageId
             : null,
       },
-      options?.history,
+      shouldTreatAsSubagent ? "none" : options?.history,
     );
     // Note: sessionSearch state reset is handled by searchSlice
 

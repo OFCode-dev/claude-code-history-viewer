@@ -187,7 +187,6 @@ export interface AppStoreState {
   isTimelineExpanded: boolean;
 
   // Filter state
-  userOnlyFilter: boolean;
   showParallelTasksInNavigator: boolean;
   messageFilter: import('./filterSlice').MessageFilter;
 
@@ -404,8 +403,6 @@ export interface AppStoreActions {
   toggleTimeline: () => void;
 
   // Filter actions
-  setUserOnlyFilter: (enabled: boolean) => void;
-  toggleUserOnlyFilter: () => void;
   setShowParallelTasksInNavigator: (enabled: boolean) => void;
   toggleShowParallelTasksInNavigator: () => void;
   toggleRole: (role: keyof import('./filterSlice').MessageFilterRoles) => void;

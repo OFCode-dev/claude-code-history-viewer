@@ -49,7 +49,10 @@ export const createNavigationSlice: StateCreator<
 
         const session = get().selectedSession;
         const sessionId = session?.actual_session_id || session?.session_id;
-        if (sessionId) {
+        // Inside a subagent transcript the URL keeps the parent session (see
+        // selectSession): a subagent id is not resolvable as a deep link.
+        const inSubagent = (get().parentSessionStack?.length ?? 0) > 0;
+        if (sessionId && !inSubagent) {
             writeWebUIDeepLink(
                 { sessionId, messageId: uuid },
                 options?.history ?? "push",

@@ -45,6 +45,12 @@ vi.mock("@/services/api", () => ({
 
 const mockToastError = vi.fn();
 const mockToastWarning = vi.fn();
+const { mockWriteDeepLink } = vi.hoisted(() => ({ mockWriteDeepLink: vi.fn() }));
+vi.mock("../utils/webuiDeepLink", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../utils/webuiDeepLink")>()),
+  writeWebUIDeepLink: mockWriteDeepLink,
+}));
+
 vi.mock("sonner", () => ({
   toast: {
     error: (...args: unknown[]) => mockToastError(...args),
@@ -637,6 +643,27 @@ describe("messageSlice — navigate guards & error branches", () => {
     expect(store.getState().parentSessionStack[0]?.file_path).toBe(
       "/tmp/parent.jsonl",
     );
+  });
+
+  it("keeps the parent session in the WebUI deep link while inside a subagent", async () => {
+    const store = createTestStore();
+    mockApi.mockImplementation((cmd: string, args: PaginatedArgs) => {
+      if (cmd === "load_provider_messages_paginated") return Promise.resolve(asPage([], args));
+      if (cmd === "get_session_subagents") return Promise.resolve([]);
+      return Promise.reject(new Error(`unexpected: ${cmd}`));
+    });
+
+    mockWriteDeepLink.mockClear();
+    await store.getState().selectSession(makeSession({ file_path: "/tmp/parent.jsonl" }));
+    // A top-level session writes its deep link as before.
+    expect(mockWriteDeepLink).toHaveBeenCalledTimes(1);
+    expect(mockWriteDeepLink.mock.calls[0]?.[1]).not.toBe("none");
+
+    mockWriteDeepLink.mockClear();
+    await store.getState().navigateToSubagent(makeSubagent("agent-1", "/tmp/sub.jsonl"));
+    // A subagent id is not resolvable from the URL, so nothing may be pushed.
+    expect(store.getState().parentSessionStack).toHaveLength(1);
+    expect(mockWriteDeepLink.mock.calls.every((call) => call[1] === "none")).toBe(true);
   });
 
   it("navigateToSubagent carries the parent session's provider into the synthetic session", async () => {

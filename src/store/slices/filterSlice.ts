@@ -116,7 +116,6 @@ const persistMessageFilter = (filter: MessageFilter): void => {
 
 export interface FilterSliceState {
     dateFilter: DateFilter;
-    userOnlyFilter: boolean;
     showParallelTasksInNavigator: boolean;
     messageFilter: MessageFilter;
 }
@@ -124,8 +123,6 @@ export interface FilterSliceState {
 export interface FilterSliceActions {
     setDateFilter: (filter: DateFilter) => void;
     clearDateFilter: () => void;
-    setUserOnlyFilter: (enabled: boolean) => void;
-    toggleUserOnlyFilter: () => void;
     setShowParallelTasksInNavigator: (enabled: boolean) => void;
     toggleShowParallelTasksInNavigator: () => void;
     toggleRole: (role: keyof MessageFilterRoles) => void;
@@ -143,7 +140,6 @@ const getInitialDateFilter = () => ({ start: null, end: null });
 // created, not once at module import — keeps the load fresh on every store creation.
 const initialFilterState = (): FilterSliceState => ({
     dateFilter: getInitialDateFilter(),
-    userOnlyFilter: false,
     showParallelTasksInNavigator: true,
     // Seed from localStorage so the user's filter survives session switches and restarts.
     messageFilter: loadPersistedMessageFilter(),
@@ -163,14 +159,6 @@ export const createFilterSlice: StateCreator<
 
     clearDateFilter: () => {
         set({ dateFilter: { start: null, end: null } });
-    },
-
-    setUserOnlyFilter: (enabled) => {
-        set({ userOnlyFilter: enabled });
-    },
-
-    toggleUserOnlyFilter: () => {
-        set((state) => ({ userOnlyFilter: !state.userOnlyFilter }));
     },
 
     setShowParallelTasksInNavigator: (enabled) => {
