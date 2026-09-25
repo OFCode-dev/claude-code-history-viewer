@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
+import type { ClaudeMessage } from "@/types";
 import {
   getCommandOutputBody,
   getSystemRecordSummary,
+  hasNonTextContent,
   isShellCommandText,
   toSystemRecordKind,
 } from "./systemRecordSummary";
@@ -102,5 +104,29 @@ describe("toSystemRecordKind", () => {
     [null, "", null],
   ] as const)("maps %s (%s) to %s", (kind, text, expected) => {
     expect(toSystemRecordKind(kind, text)).toBe(expected);
+  });
+
+  it("leaves a text-less record with other content to the default renderer", () => {
+    expect(toSystemRecordKind("empty", "", { hasOtherContent: true })).toBeNull();
+    // Other kinds are decided by their text alone.
+    expect(toSystemRecordKind("interrupt", "[Request interrupted by user]", { hasOtherContent: true })).toBe(
+      "interrupt",
+    );
+  });
+});
+
+describe("hasNonTextContent", () => {
+  const user = (extra: Record<string, unknown>) =>
+    ({ uuid: "u", sessionId: "s", timestamp: "", type: "user", role: "user", ...extra }) as unknown as ClaudeMessage;
+
+  it("detects attachments and legacy tool results", () => {
+    expect(hasNonTextContent(user({ content: [{ type: "document", source: {} }] }))).toBe(true);
+    expect(hasNonTextContent(user({ content: [], toolUseResult: { stdout: "ok" } }))).toBe(true);
+  });
+
+  it("is false for text-only records", () => {
+    expect(hasNonTextContent(user({ content: "hello" }))).toBe(false);
+    expect(hasNonTextContent(user({ content: [{ type: "text", text: "" }] }))).toBe(false);
+    expect(hasNonTextContent(user({ content: [] }))).toBe(false);
   });
 });

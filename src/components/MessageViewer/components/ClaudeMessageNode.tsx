@@ -27,7 +27,10 @@ import {
 } from "../../toolResultRenderer";
 import { PromptCard } from "../../messageRenderer/PromptCard";
 import { SystemRecordRow } from "../../messageRenderer/SystemRecordRow";
-import { toSystemRecordKind } from "../../messageRenderer/systemRecordSummary";
+import {
+  hasNonTextContent,
+  toSystemRecordKind,
+} from "../../messageRenderer/systemRecordSummary";
 import { getEffectiveContentTypes } from "../../../store/slices/filterSlice";
 import { extractClaudeMessageContent } from "../../../utils/messageUtils";
 import { getUserMessageKind, getUserMessageText } from "../../../utils/userMessageKind";
@@ -410,18 +413,15 @@ export const ClaudeMessageNode = React.memo(
     // compact muted row. Tool results and slash commands keep the default path.
     const userKind = message.type === "user" ? getUserMessageKind(message) : null;
     const userText = userKind != null ? getUserMessageText(message) : "";
-    const systemRecordKind = toSystemRecordKind(userKind, userText);
+    const systemRecordKind = toSystemRecordKind(userKind, userText, {
+      hasOtherContent: hasNonTextContent(message),
+    });
 
     if (userKind === "prompt" || systemRecordKind) {
-      const promptText = extractClaudeMessageContent(message);
-      const hasExtraBlocks =
-        userKind === "prompt" &&
-        Array.isArray(message.content) &&
-        message.content.some(
-          (block, index, blocks) =>
-            block.type !== "text" ||
-            blocks.findIndex((b) => b.type === "text") !== index,
-        );
+      // The card presents every text block (the same text the classifier and
+      // the prompt preview read); only attachments render below it.
+      const promptText = userText.trim() ? userText : null;
+      const hasAttachments = userKind === "prompt" && hasNonTextContent(message);
       return (
         <ExpandKeyProvider value={message.uuid}>
           <div
@@ -462,14 +462,14 @@ export const ClaudeMessageNode = React.memo(
                   currentMatchIndex={currentMatchIndex}
                   author={isInSubagent ? "parentAgent" : "user"}
                 >
-                  {hasExtraBlocks && Array.isArray(message.content) && (
+                  {hasAttachments && Array.isArray(message.content) && (
                     <ClaudeContentArrayRenderer
                       content={message.content}
                       searchQuery={searchQuery}
                       filterType={filterType}
                       isCurrentMatch={isCurrentMatch}
                       currentMatchIndex={currentMatchIndex}
-                      skipFirstText={!!promptText}
+                      skipText
                     />
                   )}
                 </PromptCard>

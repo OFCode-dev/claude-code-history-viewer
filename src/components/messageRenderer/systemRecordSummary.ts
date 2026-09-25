@@ -2,6 +2,7 @@
  * One-line summaries of user records that nobody typed (command output, task
  * notifications, harness context, interrupts, compaction summaries).
  */
+import type { ClaudeMessage } from "@/types";
 import type { UserMessageKind } from "@/utils/userMessageKind";
 
 /** Kinds rendered as a compact, muted row instead of a prompt card. */
@@ -45,20 +46,49 @@ export const getCommandOutputBody = (text: string): string =>
 export const isShellCommandText = (text: string) => /^\s*<bash-input>/.test(text);
 
 /**
+ * Whether a user record carries anything besides text: a non-text content
+ * block (image, document, …) or a legacy `toolUseResult`.
+ */
+export function hasNonTextContent(message: ClaudeMessage): boolean {
+  if (message.type === "user" && message.toolUseResult != null) return true;
+  const { content } = message;
+  return (
+    Array.isArray(content) &&
+    (content as unknown[]).some(
+      (block) =>
+        block != null &&
+        typeof block === "object" &&
+        (block as { type?: unknown }).type !== "text",
+    )
+  );
+}
+
+interface SystemRecordKindOptions {
+  /**
+   * The record also carries non-text content (see hasNonTextContent). An
+   * "empty" record — no text — with such content still has something to show
+   * (e.g. a document-only record), so it keeps the default renderer.
+   */
+  hasOtherContent?: boolean;
+}
+
+/**
  * The compact-row kind of a user record, or null when it renders some other
- * way (prompt card, slash-command card, tool result).
+ * way (prompt card, slash-command card, tool result, default renderer).
  */
 export function toSystemRecordKind(
   kind: UserMessageKind | null,
   text: string,
+  { hasOtherContent = false }: SystemRecordKindOptions = {},
 ): SystemRecordKind | null {
   switch (kind) {
+    case "empty":
+      return hasOtherContent ? null : kind;
     case "commandOutput":
     case "taskNotification":
     case "systemContext":
     case "interrupt":
     case "compactSummary":
-    case "empty":
       return kind;
     case "command":
       return isShellCommandText(text) ? "shellCommand" : null;

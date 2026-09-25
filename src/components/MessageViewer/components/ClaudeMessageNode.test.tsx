@@ -1,11 +1,16 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ClaudeMessage } from "@/types";
 import type { MessageFilter } from "@/store/slices/filterSlice";
 import { ClaudeMessageNode } from "./ClaudeMessageNode";
 
-const { storeState } = vi.hoisted(() => ({
+const { storeState, copyMock } = vi.hoisted(() => ({
   storeState: {} as Record<string, unknown>,
+  copyMock: vi.fn<(text: string) => Promise<void>>(),
+}));
+
+vi.mock("@/utils/clipboard", () => ({
+  copyTextToClipboard: (text: string) => copyMock(text),
 }));
 
 vi.mock("@/store/useAppStore", () => {
@@ -83,6 +88,48 @@ describe("ClaudeMessageNode user records", () => {
     const { container } = renderNode(record("user", "[Request interrupted by user]"));
     expect(container.querySelector("[data-system-record='interrupt']")).not.toBeNull();
     expect(screen.queryByRole("article")).not.toBeInTheDocument();
+  });
+
+  it("presents every text block of a multi-block prompt in the card, and copies all of it", async () => {
+    const ideNote = "<ide_opened_file>The user opened src/app.ts in the IDE.</ide_opened_file>";
+    const typed = "Why is the header misaligned?";
+    renderNode(
+      record("user", [
+        { type: "text", text: ideNote },
+        { type: "text", text: typed },
+      ]),
+    );
+    const card = screen.getByRole("article");
+    expect(card).toHaveTextContent(ideNote);
+    expect(card).toHaveTextContent(typed);
+    // Text is not rendered a second time as a separate content block.
+    expect(screen.getAllByText(new RegExp(typed))).toHaveLength(1);
+
+    fireEvent.click(screen.getByRole("button", { name: "promptCard.copy" }));
+    await waitFor(() => expect(copyMock).toHaveBeenCalledWith(`${ideNote}\n${typed}`));
+  });
+
+  it("renders attachments of a prompt below its text", () => {
+    const { container } = renderNode(
+      record("user", [
+        { type: "text", text: "What is in this screenshot?" },
+        { type: "image", source: { type: "url", url: "https://example.com/shot.png" } },
+      ]),
+    );
+    const card = screen.getByRole("article");
+    expect(card).toHaveTextContent("What is in this screenshot?");
+    expect(card.querySelector("img")).not.toBeNull();
+    expect(container.querySelectorAll("article")).toHaveLength(1);
+  });
+
+  it("keeps a document-only record on the default renderer instead of an empty row", () => {
+    const { container } = renderNode(
+      record("user", [
+        { type: "document", source: { type: "text", media_type: "text/plain", data: "Quarterly report body" }, title: "report.txt" },
+      ]),
+    );
+    expect(container.querySelector("[data-system-record='empty']")).toBeNull();
+    expect(container).not.toHaveTextContent("systemRow.empty");
   });
 
   it("keeps slash commands on the command renderer", () => {
