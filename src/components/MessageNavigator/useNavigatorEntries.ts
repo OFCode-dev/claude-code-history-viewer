@@ -7,6 +7,11 @@ import { isEmptyMessage } from "../MessageViewer/helpers/messageHelpers";
 /** Types to filter out as noise in the navigator */
 const NOISE_TYPES = new Set(["progress", "queue-operation", "file-history-snapshot"]);
 
+/** Records the navigator never lists: bookkeeping types and empty messages. */
+export function isNavigatorNoise(message: ClaudeMessage): boolean {
+  return NOISE_TYPES.has(message.type) || isEmptyMessage(message);
+}
+
 /** Strip XML tags from content for clean preview */
 function stripXmlTags(text: string): string {
   return text
@@ -36,11 +41,8 @@ export function useNavigatorEntries(messages: ClaudeMessage[]): NavigatorEntryDa
     let turnIndex = 0;
 
     for (const message of messages) {
-      // Filter out noise types
-      if (NOISE_TYPES.has(message.type)) continue;
-
-      // Filter out empty messages
-      if (isEmptyMessage(message)) continue;
+      // Filter out noise types and empty messages
+      if (isNavigatorNoise(message)) continue;
 
       // Extract preview text
       const rawContent = extractClaudeMessageContent(message);

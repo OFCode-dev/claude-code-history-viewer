@@ -12,6 +12,8 @@ interface NavigatorEntryProps {
   onFocus: () => void;
   onNavigate: (event: React.KeyboardEvent<HTMLButtonElement>) => void;
   registerRef: (element: HTMLButtonElement | null) => void;
+  /** Position in the virtual list (read by the virtualizer when measuring). */
+  index?: number;
   style?: React.CSSProperties;
 }
 
@@ -30,6 +32,7 @@ export const NavigatorEntry = React.memo<NavigatorEntryProps>(({
   onFocus,
   onNavigate,
   registerRef,
+  index,
   style,
 }) => {
   const { t } = useTranslation();
@@ -46,6 +49,7 @@ export const NavigatorEntry = React.memo<NavigatorEntryProps>(({
     <button
       type="button"
       ref={registerRef}
+      data-index={index}
       tabIndex={isFocused ? 0 : -1}
       className={cn(
         "w-full text-left px-3 py-2 cursor-pointer border-l-2 transition-colors outline-none",
