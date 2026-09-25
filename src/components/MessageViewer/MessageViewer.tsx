@@ -722,6 +722,13 @@ export const MessageViewer: React.FC<MessageViewerProps> = ({
       );
 
       if (index === -1) {
+        // Loaded but not rendered (a display filter hides it): there is
+        // nothing to scroll to, so drop the target instead of leaving it set
+        // (it would hold off following new messages and pin highlights).
+        if (messages.some((message) => message.uuid === targetMessageUuid)) {
+          clearTargetMessage();
+          return;
+        }
         // Target may live in an unloaded older page — extend the window.
         // The effect re-runs when flattenedMessages grows and then scrolls.
         const p = useAppStore.getState().pagination;
@@ -771,7 +778,7 @@ export const MessageViewer: React.FC<MessageViewerProps> = ({
         };
       }
     }
-  }, [targetMessageUuid, scrollElementReady, flattenedMessages, virtualizer, clearTargetMessage, ensureMessageLoaded, getScrollElement]);
+  }, [targetMessageUuid, scrollElementReady, flattenedMessages, messages, virtualizer, clearTargetMessage, ensureMessageLoaded, getScrollElement]);
 
   // 검색어 초기화 핸들러
   const handleClearSearch = useCallback(() => {

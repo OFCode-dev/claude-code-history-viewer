@@ -2,6 +2,7 @@ import React, { useCallback } from "react";
 import { Wrench } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
+import { formatPromptTime } from "../../utils/promptNavigation";
 import type { NavigatorEntryData } from "./types";
 
 interface NavigatorEntryProps {
@@ -9,12 +10,16 @@ interface NavigatorEntryProps {
   isActive: boolean;
   isFocused: boolean;
   onClick: (uuid: string) => void;
-  onFocus: () => void;
+  onFocus: (index: number) => void;
   onNavigate: (event: React.KeyboardEvent<HTMLButtonElement>) => void;
-  registerRef: (element: HTMLButtonElement | null) => void;
+  /** Keeps the list's key → element map for roving focus. */
+  registerRef: (key: string, element: HTMLButtonElement | null) => void;
+  /** The virtualizer's `measureElement`, so real row heights are used. */
+  measureRef: (element: HTMLElement | null) => void;
   /** Position in the virtual list (read by the virtualizer when measuring). */
-  index?: number;
-  style?: React.CSSProperties;
+  index: number;
+  /** Row offset inside the virtual list, in px. */
+  start: number;
 }
 
 const ROLE_STYLES = {
@@ -32,23 +37,30 @@ export const NavigatorEntry = React.memo<NavigatorEntryProps>(({
   onFocus,
   onNavigate,
   registerRef,
+  measureRef,
   index,
-  style,
+  start,
 }) => {
   const { t } = useTranslation();
   const handleClick = useCallback(() => onClick(entry.uuid), [onClick, entry.uuid]);
+  const handleFocus = useCallback(() => onFocus(index), [onFocus, index]);
+  const setRef = useCallback(
+    (element: HTMLButtonElement | null) => {
+      registerRef(entry.uuid, element);
+      measureRef(element);
+    },
+    [registerRef, measureRef, entry.uuid]
+  );
 
   const roleStyle = ROLE_STYLES[entry.role] || ROLE_STYLES.system;
   const roleLabel = t(`navigator.role.${entry.role}`, { defaultValue: entry.role });
 
-  const formattedTime = entry.timestamp
-    ? new Date(entry.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-    : "";
+  const formattedTime = formatPromptTime(entry.timestamp);
 
   return (
     <button
       type="button"
-      ref={registerRef}
+      ref={setRef}
       data-index={index}
       tabIndex={isFocused ? 0 : -1}
       className={cn(
@@ -59,9 +71,15 @@ export const NavigatorEntry = React.memo<NavigatorEntryProps>(({
           ? "border-l-accent bg-accent/5"
           : "border-l-transparent"
       )}
-      style={style}
+      style={{
+        position: "absolute",
+        top: 0,
+        left: 0,
+        width: "100%",
+        transform: `translateY(${start}px)`,
+      }}
       onClick={handleClick}
-      onFocus={onFocus}
+      onFocus={handleFocus}
       onKeyDown={onNavigate}
       role="option"
       aria-selected={isActive}

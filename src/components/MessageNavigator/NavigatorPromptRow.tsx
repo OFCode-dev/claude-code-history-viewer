@@ -2,6 +2,7 @@ import React, { useCallback } from "react";
 import { Bot } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
+import { formatPromptTime } from "../../utils/promptNavigation";
 import type { PromptListRow } from "./promptEntries";
 
 interface NavigatorPromptRowProps {
@@ -17,14 +18,8 @@ interface NavigatorPromptRowProps {
   onNavigate: (event: React.KeyboardEvent<HTMLButtonElement>) => void;
   registerRef: (key: string, element: HTMLButtonElement | null) => void;
   measureRef: (element: HTMLElement | null) => void;
-  style: React.CSSProperties;
-}
-
-function formatTime(timestamp: string): string {
-  if (!timestamp) return "";
-  const date = new Date(timestamp);
-  if (Number.isNaN(date.getTime())) return "";
-  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  /** Row offset inside the virtual list, in px. */
+  start: number;
 }
 
 /** One row of the Prompts list: a prompt (turn) or a subagent it spawned. */
@@ -40,7 +35,7 @@ export const NavigatorPromptRow = React.memo<NavigatorPromptRowProps>(
     onNavigate,
     registerRef,
     measureRef,
-    style,
+    start,
   }) => {
     const { t } = useTranslation();
 
@@ -61,7 +56,13 @@ export const NavigatorPromptRow = React.memo<NavigatorPromptRowProps>(
       onClick: () => onActivate(row),
       onFocus: () => onFocus(index),
       onKeyDown: onNavigate,
-      style,
+      style: {
+        position: "absolute",
+        top: 0,
+        left: 0,
+        width: "100%",
+        transform: `translateY(${start}px)`,
+      } satisfies React.CSSProperties,
     };
 
     if (row.kind === "spawn") {
@@ -87,7 +88,7 @@ export const NavigatorPromptRow = React.memo<NavigatorPromptRowProps>(
     }
 
     const { entry } = row;
-    const time = formatTime(entry.timestamp);
+    const time = formatPromptTime(entry.timestamp);
     const turnLabel = showTurnNumber
       ? t("navigator.turn", { number: entry.turnNumber })
       : null;

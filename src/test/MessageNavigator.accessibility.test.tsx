@@ -7,6 +7,7 @@ const {
   navigateToMessageMock,
   toggleShowParallelTasksMock,
   setNavigatorModeMock,
+  scrollToIndexMock,
   useAppStoreMock,
   storeState,
 } = vi.hoisted(() => {
@@ -22,9 +23,11 @@ const {
     navigatorMode: "all" as "all" | "prompts",
     setNavigatorMode,
     pagination: { hasMore: false },
+    selectedSession: { file_path: "/s.jsonl" } as { file_path: string } | null,
   };
 
   return {
+    scrollToIndexMock: vi.fn(),
     navigateToMessageMock: navigateToMessage,
     toggleShowParallelTasksMock: toggleShowParallelTasks,
     setNavigatorModeMock: setNavigatorMode,
@@ -39,6 +42,8 @@ vi.mock("@/store/useAppStore", () => ({
 }));
 
 vi.mock("react-i18next", () => ({
+  // Loaded by the app's i18n setup, which the time formatting imports.
+  initReactI18next: { type: "3rdParty", init: () => undefined },
   useTranslation: () => ({
     t: (key: string, options?: Record<string, unknown> | string) =>
       typeof options === "object" && ("count" in options || "number" in options)
@@ -55,7 +60,7 @@ vi.mock("@tanstack/react-virtual", () => ({
         start: index * 40,
       })),
     getTotalSize: () => count * 40,
-    scrollToIndex: vi.fn(),
+    scrollToIndex: scrollToIndexMock,
     measureElement: vi.fn(),
   }),
 }));
@@ -196,7 +201,134 @@ describe("MessageNavigator prompts mode", () => {
     storeState.navigatorMode = "prompts";
     storeState.targetMessageUuid = null;
     storeState.pagination = { hasMore: false };
+    storeState.showParallelTasksInNavigator = true;
+    storeState.selectedSession = { file_path: "/s.jsonl" };
     useViewportAnchorStore.getState().reset();
+  });
+
+  function publishTrack(messages: never[], anchorUuid: string) {
+    act(() => {
+      const anchors = useViewportAnchorStore.getState();
+      anchors.setPromptTrack(buildPromptTrack("/s.jsonl", messages));
+      anchors.publishAnchor("/s.jsonl", anchorUuid);
+    });
+  }
+
+  it("builds rows from the list the conversation renders", () => {
+    renderNavigator();
+    // Tool calls hidden by the conversation's filter: the spawning record is
+    // not rendered, so there is no spawn row pointing at it.
+    publishTrack(
+      promptSession.filter((message) => (message as { uuid: string }).uuid !== "a1"),
+      "p1"
+    );
+
+    const options = screen.getAllByRole("option");
+    expect(options.map((option) => option.getAttribute("aria-label"))).toEqual([
+      "navigator.a11y.promptLabel",
+      "navigator.a11y.promptLabel",
+    ]);
+    expect(screen.queryByText("Check migrations")).not.toBeInTheDocument();
+
+    fireEvent.click(options[1]!);
+    expect(navigateToMessageMock).toHaveBeenLastCalledWith("p2");
+  });
+
+  it("ignores a rendered list that belongs to another session", () => {
+    storeState.selectedSession = { file_path: "/other.jsonl" };
+    renderNavigator();
+    publishTrack([promptSession[4]!], "p2");
+
+    expect(screen.getAllByRole("option")).toHaveLength(3);
+  });
+
+  it("keeps following the active turn after a row was clicked", () => {
+    renderNavigator();
+    publishTrack(promptSession, "a1");
+    const [prompt] = screen.getAllByRole("option");
+
+    act(() => {
+      prompt!.focus();
+    });
+    fireEvent.click(prompt!);
+    scrollToIndexMock.mockClear();
+
+    // The reader scrolls the conversation into the second turn; focus is
+    // still on the clicked row, and the list must follow anyway.
+    act(() => {
+      useViewportAnchorStore.getState().publishAnchor("/s.jsonl", "a2");
+    });
+
+    expect(scrollToIndexMock).toHaveBeenCalledWith(2, { align: "auto" });
+  });
+
+  it("does not move the list while it is used with the keyboard", () => {
+    renderNavigator();
+    publishTrack(promptSession, "a1");
+    const [prompt] = screen.getAllByRole("option");
+
+    act(() => {
+      prompt!.focus();
+    });
+    fireEvent.keyDown(prompt!, { key: "ArrowDown" });
+    scrollToIndexMock.mockClear();
+
+    act(() => {
+      useViewportAnchorStore.getState().publishAnchor("/s.jsonl", "a2");
+    });
+
+    expect(scrollToIndexMock).not.toHaveBeenCalled();
+  });
+
+  it("applies the parallel-task switch to the Prompts list", () => {
+    storeState.showParallelTasksInNavigator = false;
+    const parallelTurn = [
+      { uuid: "p1", type: "user", content: "Audit both services", timestamp: "2026-02-27T10:00:00Z" },
+      {
+        uuid: "a1",
+        type: "assistant",
+        // Two subagent calls in one record: a parallel task.
+        provider: "opencode",
+        content: [
+          { type: "tool_use", id: "t1", name: "Task", input: { description: "Audit api" } },
+          { type: "tool_use", id: "t2", name: "Task", input: { description: "Audit web" } },
+        ],
+        timestamp: "2026-02-27T10:01:00Z",
+      },
+    ] as never[];
+    render(
+      <MessageNavigator
+        messages={parallelTurn}
+        width={260}
+        isResizing={false}
+        onResizeStart={vi.fn()}
+        isCollapsed={false}
+        onToggleCollapse={vi.fn()}
+      />
+    );
+
+    expect(screen.queryByText("Audit api")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "navigator.showParallelTasks" })
+    ).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("counts the prompts left by the text filter", () => {
+    renderNavigator();
+    const count = screen.getByTitle("navigator.promptCount:2");
+    expect(count).toHaveTextContent("2");
+
+    fireEvent.change(screen.getByRole("textbox", { name: "navigator.filterPrompts" }), {
+      target: { value: "changelog" },
+    });
+
+    expect(count).toHaveTextContent("1");
+  });
+
+  it("marks the list so Alt+Arrow reaches the global prompt jump", () => {
+    renderNavigator();
+
+    expect(screen.getByRole("listbox")).toHaveAttribute("data-prompt-jump-passthrough");
   });
 
   it("lists human prompts and their subagent spawns, not the noise", () => {
