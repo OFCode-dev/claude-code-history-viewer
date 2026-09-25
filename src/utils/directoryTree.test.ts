@@ -315,7 +315,9 @@ describe("locateInDirectoryTree", () => {
       key: "dir:/home/jack/repo",
       kind: "folder",
       match: "exact",
+      selfKey: "loc:/home/jack/repo",
     });
+    expect(locateInDirectoryTree(tree, "/home/jack/work")).not.toHaveProperty("selfKey");
   });
 
   it("resolves bucket projects inside their bucket", () => {

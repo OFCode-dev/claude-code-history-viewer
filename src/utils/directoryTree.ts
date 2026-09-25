@@ -387,6 +387,11 @@ export interface TreeLocateResult {
    * `path` (the path sits above it). `ancestor`: the deepest folder containing it.
    */
   match: "exact" | "descendant" | "ancestor";
+  /**
+   * Exact folder match that is itself a project: the key of that project's
+   * row, the folder's first child (visible only while the folder is expanded).
+   */
+  selfKey?: string;
 }
 
 function matchesExactly(node: DirectoryTreeNode, identity: string): boolean {
@@ -435,7 +440,9 @@ export function locateInDirectoryTree(
     const depth = ancestors.length;
     const base = { key: node.key, kind: node.kind, ancestorKeys: ancestors };
     if (matchesExactly(node, identity)) {
-      return { ...base, match: "exact" };
+      return node.kind === "folder" && node.self
+        ? { ...base, match: "exact", selfKey: getLocationKey(node.self.path) }
+        : { ...base, match: "exact" };
     }
     const nodeIdentity = getPathIdentity(node.path);
     if (isSameOrInside(nodeIdentity, identity)) {

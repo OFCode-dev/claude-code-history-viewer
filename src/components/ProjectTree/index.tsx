@@ -45,6 +45,7 @@ import {
 import {
   buildDirectoryTree,
   getAllFolderKeys,
+  getPathIdentity,
   getProjectExpansionKeys,
   locateInDirectoryTree,
   TEMPORARY_BUCKET_KEY,
@@ -774,6 +775,9 @@ export const ProjectTree: React.FC<ProjectTreeProps> = ({
   // ancestors of the requested path, then scroll to and focus its row. Each
   // step that changes props/state returns and resumes on the next run.
   const [revealFocusKey, setRevealFocusKey] = useState<string | null>(null);
+  const selectedProjectPath = selectedProject
+    ? selectedProject.actual_path || selectedProject.path
+    : null;
   const handledRevealNonceRef = useRef<number | null>(null);
   // Side effects already requested for a nonce; the effect re-runs until the
   // props catch up and must not toggle the sidebar or save settings again.
@@ -835,6 +839,17 @@ export const ProjectTree: React.FC<ProjectTreeProps> = ({
       clearExplorerRevealRequest();
       return;
     }
+    // The selected project's crumb means that project's row: when its folder
+    // also holds other projects, the row is the folder's first child, so the
+    // folder opens too. Other crumbs keep focusing the folder row.
+    const isSelectedProject =
+      selectedProjectPath !== null &&
+      getPathIdentity(selectedProjectPath) === getPathIdentity(request.path);
+    if (target.selfKey && isSelectedProject) {
+      expandGroups([...target.ancestorKeys, target.key]);
+      setRevealFocusKey(target.selfKey);
+      return;
+    }
     expandGroups(target.ancestorKeys);
     setRevealFocusKey(target.key);
   }, [
@@ -849,6 +864,7 @@ export const ProjectTree: React.FC<ProjectTreeProps> = ({
     onGroupingModeChange,
     onToggleCollapse,
     searchTerm,
+    selectedProjectPath,
   ]);
 
   useEffect(() => {
