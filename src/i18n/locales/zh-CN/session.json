@@ -257,6 +257,8 @@
   "sessionPicker.empty": "没有匹配的会话",
   "sessionPicker.cancelled": "启动会话提示已取消",
   "session.pane.title": "会话",
+  "session.pane.collapse": "折叠会话列表",
+  "session.pane.expand": "展开会话列表",
   "project.temporaryGroup": "临时位置",
   "project.switchProvider": "打开 {{provider}} 会话（{{count}}）"
 }

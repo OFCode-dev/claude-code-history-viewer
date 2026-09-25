@@ -257,6 +257,8 @@
   "sessionPicker.empty": "一致するセッションがありません",
   "sessionPicker.cancelled": "起動時のセッションヒントをキャンセルしました",
   "session.pane.title": "セッション",
+  "session.pane.collapse": "セッション一覧を折りたたむ",
+  "session.pane.expand": "セッション一覧を展開",
   "project.temporaryGroup": "一時的な場所",
   "project.switchProvider": "{{provider}} のセッションを開く（{{count}}）"
 }

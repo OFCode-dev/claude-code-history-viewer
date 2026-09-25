@@ -5,8 +5,8 @@
  * 직접 수정하지 마세요.
  *
  * 생성 명령: pnpm run generate:i18n-types
- * 생성 시간: 2026-09-13T09:40:55.294Z
- * 총 키 개수: 1962
+ * 생성 시간: 2026-09-25T19:46:44.061Z
+ * 총 키 개수: 1974
  * Namespace 수: 11
  */
 
@@ -40,7 +40,7 @@ export type I18nNamespace =
   | 'recentEdits';
 
 /**
- * common namespace의 번역 키 (202개)
+ * common namespace의 번역 키 (212개)
  * 파일: locales/{lang}/common.json
  */
 export type CommonKeys =
@@ -225,6 +225,16 @@ export type CommonKeys =
   | 'copyButton.copy'
   | 'copyButton.copying'
   | 'copyButton.error'
+  | 'header.breadcrumb.backTo'
+  | 'header.breadcrumb.label'
+  | 'header.breadcrumb.reveal'
+  | 'header.breadcrumb.showHidden'
+  | 'header.breadcrumb.subagent'
+  | 'header.breadcrumb.untitledSession'
+  | 'header.focusMode.label'
+  | 'header.focusMode.shortcut'
+  | 'header.history.back'
+  | 'header.history.forward'
   | 'header.views'
   | 'status.checking'
   | 'status.initializing'
@@ -442,7 +452,7 @@ export type AnalyticsKeys =
   | 'analytics.weeklyActivity';
 
 /**
- * session namespace의 번역 키 (260개)
+ * session namespace의 번역 키 (262개)
  * 파일: locales/{lang}/session.json
  */
 export type SessionKeys =
@@ -652,6 +662,8 @@ export type SessionKeys =
   | 'session.nativeRename.warningCodex'
   | 'session.nativeRename.warningForgeCode'
   | 'session.nativeRename.warningOpenCode'
+  | 'session.pane.collapse'
+  | 'session.pane.expand'
   | 'session.pane.title'
   | 'session.refreshAllConversations'
   | 'session.rename'
@@ -2752,6 +2764,16 @@ export type TranslationKey =
   | 'globalSearch.tips.navigate'
   | 'globalSearch.title'
   | 'globalSearch.unknownProject'
+  | 'header.breadcrumb.backTo'
+  | 'header.breadcrumb.label'
+  | 'header.breadcrumb.reveal'
+  | 'header.breadcrumb.showHidden'
+  | 'header.breadcrumb.subagent'
+  | 'header.breadcrumb.untitledSession'
+  | 'header.focusMode.label'
+  | 'header.focusMode.shortcut'
+  | 'header.history.back'
+  | 'header.history.forward'
   | 'header.views'
   | 'imageRenderer.cannotLoadImage'
   | 'imageRenderer.close'
@@ -3208,6 +3230,8 @@ export type TranslationKey =
   | 'session.nativeRename.warningCodex'
   | 'session.nativeRename.warningForgeCode'
   | 'session.nativeRename.warningOpenCode'
+  | 'session.pane.collapse'
+  | 'session.pane.expand'
   | 'session.pane.title'
   | 'session.refreshAllConversations'
   | 'session.rename'
