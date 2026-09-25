@@ -76,6 +76,8 @@ export interface ProjectItemProps {
   subtitle?: string;
   /** Row identity for keyboard/reveal lookups (`data-tree-key`). */
   treeKey?: string;
+  /** Row inside a nested directory folder: compact padding, no hover shift. */
+  nested?: boolean;
 }
 
 export interface SessionListProps {
@@ -106,4 +108,8 @@ export interface GroupHeaderProps {
   variant: "directory" | "worktree" | "unavailable" | "temporary";
   /** Tooltip for the label (e.g. a folder's full path); defaults to the label. */
   title?: string;
+  /** Row inside a nested directory folder: compact padding. */
+  nested?: boolean;
+  /** Id of the `role="group"` holding this row's children (`aria-owns`). */
+  ownsId?: string;
 }

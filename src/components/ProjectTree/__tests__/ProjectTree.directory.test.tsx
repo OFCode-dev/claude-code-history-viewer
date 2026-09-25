@@ -155,8 +155,15 @@ describe("ProjectTree directory tree", () => {
 
     const chain = row("dir:/home/jack/work/crawl")!;
     expect(chain).toHaveAttribute("aria-level", "3");
-    expect(within(chain).getByText("crawl/reports")).toBeInTheDocument();
+    // The label keeps its last folder whole; the path before it may truncate.
+    const label = within(chain).getByTitle("/home/jack/work/crawl/reports");
+    expect(label).toHaveTextContent("crawl/reports");
+    expect(within(label).getByText("reports")).toHaveClass("shrink-0");
     expect(row("loc:/home/jack/work/crawl/reports/daily")).toHaveAttribute("aria-level", "4");
+    // Each group row owns its sibling role="group" container.
+    const group = document.getElementById(chain.getAttribute("aria-owns")!);
+    expect(group).toHaveAttribute("role", "group");
+    expect(group).toContainElement(row("loc:/home/jack/work/crawl/reports/daily"));
     expect(
       document.querySelectorAll('[role="group"] [role="group"] [role="group"]')
     ).toHaveLength(1);

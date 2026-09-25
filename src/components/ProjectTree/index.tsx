@@ -1167,20 +1167,6 @@ export const ProjectTree: React.FC<ProjectTreeProps> = ({
                   </button>
                 </div>
               )}
-              {groupingMode !== "none" && (
-                <button
-                  type="button"
-                  onClick={collapseAllGroups}
-                  className={cn(
-                    "p-1 rounded-md transition-colors",
-                    "text-muted-foreground hover:text-accent hover:bg-accent/10"
-                  )}
-                  title={t("project.collapseAll", "Collapse all")}
-                  aria-label={t("project.collapseAll", "Collapse all")}
-                >
-                  <ChevronsDownUp className="w-3 h-3" aria-hidden="true" />
-                </button>
-              )}
               <span className="text-xs font-mono text-accent bg-accent/10 px-2 py-0.5 rounded-full">
                 {filteredProjects.length}
               </span>
@@ -1237,6 +1223,22 @@ export const ProjectTree: React.FC<ProjectTreeProps> = ({
               >
                 <RotateCcw className="w-3 h-3" />
               </button>
+              {/* In this row rather than next to the grouping tabs: the title
+                  row has no room left at the minimum explorer width. */}
+              {groupingMode !== "none" && (
+                <button
+                  type="button"
+                  onClick={collapseAllGroups}
+                  className={cn(
+                    "inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-transparent",
+                    "bg-muted/30 text-muted-foreground transition-colors hover:bg-accent/8 hover:text-accent"
+                  )}
+                  title={t("project.collapseAll", "Collapse all")}
+                  aria-label={t("project.collapseAll", "Collapse all")}
+                >
+                  <ChevronsDownUp className="w-3.5 h-3.5" aria-hidden="true" />
+                </button>
+              )}
             </div>
             <CollapsibleContent>
               <div className="mt-2 space-y-2 max-h-52 overflow-y-auto pr-1">

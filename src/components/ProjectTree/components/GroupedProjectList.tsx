@@ -74,6 +74,16 @@ export const GroupedProjectList: React.FC<GroupedProjectListProps> = ({
   inlineSessions = true,
 }) => {
   const { t } = useTranslation();
+  const groupIdPrefix = React.useId();
+  /**
+   * The `role="group"` of a group row sits next to its treeitem (a button
+   * cannot contain it), so the row claims it with `aria-owns`.
+   */
+  const groupIdOf = (groupKey: string) =>
+    `${groupIdPrefix}group-${groupKey.replace(
+      /[^A-Za-z0-9_-]/g,
+      (char) => `_${char.charCodeAt(0).toString(16)}_`
+    )}`;
 
   const toggleGroup = (groupKey: string, projectsInGroup: ClaudeProject[]) => {
     setExpandedProjects((prev) => {
@@ -109,7 +119,7 @@ export const GroupedProjectList: React.FC<GroupedProjectListProps> = ({
     variant: "default" | "main" | "worktree" = "default",
     ariaLevel = 1,
     providerSiblings: ClaudeProject[] = [],
-    row: { subtitle?: string; treeKey?: string } = {}
+    row: { subtitle?: string; treeKey?: string; nested?: boolean } = {}
   ) => {
     const isExpanded = isProjectExpanded(project.path);
     const showSessions = inlineSessions && isExpanded && selectedProject?.path === project.path;
@@ -139,6 +149,7 @@ export const GroupedProjectList: React.FC<GroupedProjectListProps> = ({
           hasInlineChildren={inlineSessions}
           subtitle={row.subtitle}
           treeKey={row.treeKey}
+          nested={row.nested}
         />
         {showSessions && (
           <div role="none">
@@ -193,10 +204,12 @@ export const GroupedProjectList: React.FC<GroupedProjectListProps> = ({
           ariaLevel={1}
           onToggle={() => toggleGroup(groupKey, bucketProjects)}
           variant={kind}
+          ownsId={groupIdOf(groupKey)}
         />
         {isGroupExpanded && (
           <div
             role="group"
+            id={groupIdOf(groupKey)}
             className={
               isTemporary
                 ? "ml-4 pl-3 border-l-2 border-border space-y-0.5"
@@ -239,7 +252,7 @@ export const GroupedProjectList: React.FC<GroupedProjectListProps> = ({
         "default",
         ariaLevel,
         location.projects.filter((project) => project !== lead),
-        { subtitle, treeKey: getLocationKey(location.path) }
+        { subtitle, treeKey: getLocationKey(location.path), nested: ariaLevel > 1 }
       );
     };
 
@@ -250,6 +263,7 @@ export const GroupedProjectList: React.FC<GroupedProjectListProps> = ({
 
     const renderFolder = (node: DirectoryFolderNode, ariaLevel: number) => {
       const isFolderExpanded = expandedProjects.has(node.key);
+      const groupId = groupIdOf(node.key);
       return (
         <div key={node.key} className="space-y-0.5" role="none">
           <GroupHeader
@@ -262,13 +276,18 @@ export const GroupedProjectList: React.FC<GroupedProjectListProps> = ({
             ariaLevel={ariaLevel}
             onToggle={() => toggleFolder(node.key)}
             variant="directory"
+            nested={ariaLevel > 1}
+            ownsId={groupId}
           />
           {isFolderExpanded && (
             <div
               role="group"
+              id={groupId}
+              // The guide line sits under the parent's chevron; nested rows use
+              // compact padding, so each level costs ~18px of name width.
               className={cn(
                 "border-l-2 border-info/20 space-y-0.5",
-                ariaLevel === 1 ? "ml-4 pl-3" : "ml-3 pl-2"
+                ariaLevel === 1 ? "ml-6" : "ml-4"
               )}
             >
               {/* The folder is itself a project: its row comes first. */}
@@ -319,9 +338,14 @@ export const GroupedProjectList: React.FC<GroupedProjectListProps> = ({
                 ariaLevel={1}
                 onToggle={() => toggleGroup(groupKey, allGroupProjects)}
                 variant="worktree"
+                ownsId={groupIdOf(groupKey)}
               />
               {isGroupExpanded && (
-                <div role="group" className="ml-4 pl-3 border-l-2 border-success/20 space-y-0.5">
+                <div
+                  role="group"
+                  id={groupIdOf(groupKey)}
+                  className="ml-4 pl-3 border-l-2 border-success/20 space-y-0.5"
+                >
                   {allGroupProjects.map((project, idx) =>
                     renderProjectWithSessions(project, idx === 0 ? "main" : "worktree", 2)
                   )}
