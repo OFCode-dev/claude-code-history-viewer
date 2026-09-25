@@ -29,6 +29,7 @@
   "promptCard.taskAriaLabel": "親エージェントからのタスク",
   "promptCard.copy": "プロンプトをコピー",
   "promptCard.copied": "プロンプトをコピーしました",
+  "promptCard.copyFailed": "プロンプトをコピーできませんでした",
   "promptCard.expand": "プロンプト全体を表示",
   "promptCard.collapse": "プロンプトを折りたたむ",
   "promptCard.hiddenLines_one": "残り{{count}}行 · プロンプト全体を表示",
@@ -40,6 +41,8 @@
   "systemRow.compactSummary": "会話の要約",
   "systemRow.empty": "空のメッセージ",
   "systemRow.shellCommand": "シェルコマンド",
+  "systemRow.expand": "詳細を表示",
+  "systemRow.collapse": "詳細を隠す",
   "messageViewer.allMessagesLoaded": "すべてのメッセージを読み込みました ({{count}}件)",
   "messageViewer.branch": "ブランチ",
   "messageViewer.checkConsole": "詳細なエラー情報はコンソールで確認してください。",
@@ -119,6 +122,12 @@
   "filter.reset": "フィルターをリセット",
   "filter.active": "フィルター有効",
   "filter.showing": "{{filtered}} / {{total}}",
+  "filter.hiddenMatches_one": "{{count}}件の一致が現在のフィルターで非表示です",
+  "filter.hiddenMatches_other": "{{count}}件の一致が現在のフィルターで非表示です",
+  "filter.emptyWindow": "読み込んだ範囲に現在のフィルターに一致するメッセージがありません",
+  "filter.showAll": "すべて表示",
+  "filter.targetHidden": "リンク先のメッセージは現在のフィルターで非表示です",
   "dialogue.toggle": "対話",
-  "dialogue.tooltip": "自分のプロンプトとアシスタントの返答だけを表示"
+  "dialogue.tooltip": "自分のプロンプトとアシスタントの返答だけを表示",
+  "dialogue.emptyWindow": "読み込んだメッセージにプロンプトや返信がありません"
 }

@@ -5,8 +5,8 @@
  * 직접 수정하지 마세요.
  *
  * 생성 명령: pnpm run generate:i18n-types
- * 생성 시간: 2026-09-25T19:36:39.297Z
- * 총 키 개수: 1983
+ * 생성 시간: 2026-09-25T21:06:02.002Z
+ * 총 키 개수: 1992
  * Namespace 수: 11
  */
 
@@ -1370,10 +1370,11 @@ export type ErrorKeys =
   | 'error.viewDetails';
 
 /**
- * message namespace의 번역 키 (122개)
+ * message namespace의 번역 키 (131개)
  * 파일: locales/{lang}/message.json
  */
 export type MessageKeys =
+  | 'dialogue.emptyWindow'
   | 'dialogue.toggle'
   | 'dialogue.tooltip'
   | 'filter.active'
@@ -1383,11 +1384,16 @@ export type MessageKeys =
   | 'filter.content.thinking'
   | 'filter.content.toolCalls'
   | 'filter.contentTypes'
+  | 'filter.emptyWindow'
+  | 'filter.hiddenMatches_one'
+  | 'filter.hiddenMatches_other'
   | 'filter.reset'
   | 'filter.role.assistant'
   | 'filter.role.user'
   | 'filter.roles'
+  | 'filter.showAll'
   | 'filter.showing'
+  | 'filter.targetHidden'
   | 'filter.title'
   | 'message.allLoaded'
   | 'message.branch'
@@ -1482,6 +1488,7 @@ export type MessageKeys =
   | 'promptCard.collapse'
   | 'promptCard.copied'
   | 'promptCard.copy'
+  | 'promptCard.copyFailed'
   | 'promptCard.expand'
   | 'promptCard.hiddenLines_one'
   | 'promptCard.hiddenLines_other'
@@ -1489,9 +1496,11 @@ export type MessageKeys =
   | 'promptCard.taskAriaLabel'
   | 'promptCard.turn'
   | 'promptCard.you'
+  | 'systemRow.collapse'
   | 'systemRow.commandOutput'
   | 'systemRow.compactSummary'
   | 'systemRow.empty'
+  | 'systemRow.expand'
   | 'systemRow.interrupt'
   | 'systemRow.shellCommand'
   | 'systemRow.systemContext'
@@ -2598,6 +2607,7 @@ export type TranslationKey =
   | 'copyButton.copy'
   | 'copyButton.copying'
   | 'copyButton.error'
+  | 'dialogue.emptyWindow'
   | 'dialogue.toggle'
   | 'dialogue.tooltip'
   | 'diffViewer.advancedAnalysis'
@@ -2721,11 +2731,16 @@ export type TranslationKey =
   | 'filter.content.thinking'
   | 'filter.content.toolCalls'
   | 'filter.contentTypes'
+  | 'filter.emptyWindow'
+  | 'filter.hiddenMatches_one'
+  | 'filter.hiddenMatches_other'
   | 'filter.reset'
   | 'filter.role.assistant'
   | 'filter.role.user'
   | 'filter.roles'
+  | 'filter.showAll'
   | 'filter.showing'
+  | 'filter.targetHidden'
   | 'filter.title'
   | 'folderPicker.backButton'
   | 'folderPicker.change'
@@ -2939,6 +2954,7 @@ export type TranslationKey =
   | 'promptCard.collapse'
   | 'promptCard.copied'
   | 'promptCard.copy'
+  | 'promptCard.copyFailed'
   | 'promptCard.expand'
   | 'promptCard.hiddenLines_one'
   | 'promptCard.hiddenLines_other'
@@ -3871,9 +3887,11 @@ export type TranslationKey =
   | 'systemMessageRenderer.subtypes.turnDuration'
   | 'systemMessageRenderer.title'
   | 'systemMessageRenderer.trigger'
+  | 'systemRow.collapse'
   | 'systemRow.commandOutput'
   | 'systemRow.compactSummary'
   | 'systemRow.empty'
+  | 'systemRow.expand'
   | 'systemRow.interrupt'
   | 'systemRow.shellCommand'
   | 'systemRow.systemContext'

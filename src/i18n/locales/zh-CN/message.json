@@ -29,6 +29,7 @@
   "promptCard.taskAriaLabel": "来自父代理的任务",
   "promptCard.copy": "复制提示",
   "promptCard.copied": "已复制提示",
+  "promptCard.copyFailed": "无法复制提示",
   "promptCard.expand": "显示完整提示",
   "promptCard.collapse": "收起提示",
   "promptCard.hiddenLines_one": "还有 {{count}} 行 · 显示完整提示",
@@ -40,6 +41,8 @@
   "systemRow.compactSummary": "对话摘要",
   "systemRow.empty": "空消息",
   "systemRow.shellCommand": "Shell 命令",
+  "systemRow.expand": "显示详情",
+  "systemRow.collapse": "隐藏详情",
   "messageViewer.allMessagesLoaded": "已加载所有消息 ({{count}}条)",
   "messageViewer.branch": "分支",
   "messageViewer.checkConsole": "请查看控制台以获取详细错误信息。",
@@ -119,6 +122,12 @@
   "filter.reset": "重置筛选",
   "filter.active": "筛选已启用",
   "filter.showing": "{{filtered}} / {{total}}",
+  "filter.hiddenMatches_one": "{{count}} 个匹配项被当前筛选隐藏",
+  "filter.hiddenMatches_other": "{{count}} 个匹配项被当前筛选隐藏",
+  "filter.emptyWindow": "已加载的消息中没有符合当前筛选的消息",
+  "filter.showAll": "全部显示",
+  "filter.targetHidden": "链接的消息被当前筛选隐藏",
   "dialogue.toggle": "对话",
-  "dialogue.tooltip": "仅显示你的提示和助手的回复"
+  "dialogue.tooltip": "仅显示你的提示和助手的回复",
+  "dialogue.emptyWindow": "已加载的消息中没有提示或回复"
 }

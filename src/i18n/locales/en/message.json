@@ -29,6 +29,7 @@
   "promptCard.taskAriaLabel": "Task from the parent agent",
   "promptCard.copy": "Copy prompt",
   "promptCard.copied": "Prompt copied",
+  "promptCard.copyFailed": "Could not copy the prompt",
   "promptCard.expand": "Show full prompt",
   "promptCard.collapse": "Collapse prompt",
   "promptCard.hiddenLines_one": "{{count}} more line · show full prompt",
@@ -40,6 +41,8 @@
   "systemRow.compactSummary": "Conversation summary",
   "systemRow.empty": "Empty message",
   "systemRow.shellCommand": "Shell command",
+  "systemRow.expand": "Show details",
+  "systemRow.collapse": "Hide details",
   "messageViewer.allMessagesLoaded": "All messages loaded ({{count}} messages)",
   "messageViewer.branch": "Branch",
   "messageViewer.checkConsole": "Check the console for detailed error information.",
@@ -119,6 +122,12 @@
   "filter.reset": "Reset Filters",
   "filter.active": "Filters active",
   "filter.showing": "{{filtered}} / {{total}}",
+  "filter.hiddenMatches_one": "{{count}} match is hidden by the current filter",
+  "filter.hiddenMatches_other": "{{count}} matches are hidden by the current filter",
+  "filter.emptyWindow": "No messages in the loaded range match the current filter",
+  "filter.showAll": "Show all",
+  "filter.targetHidden": "The linked message is hidden by the current filter",
   "dialogue.toggle": "Dialogue",
-  "dialogue.tooltip": "Show only your prompts and the assistant's replies"
+  "dialogue.tooltip": "Show only your prompts and the assistant's replies",
+  "dialogue.emptyWindow": "No prompts or replies in the loaded messages"
 }

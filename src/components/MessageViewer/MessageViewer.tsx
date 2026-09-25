@@ -18,11 +18,13 @@ import { VirtualizedMessageRow } from "./components/VirtualizedMessageRow";
 import { FloatingDateOverlay } from "./components/FloatingDateOverlay";
 import { CaptureModeToolbar } from "./components/CaptureModeToolbar";
 import { FilterToolbar } from "./components/FilterToolbar";
+import { FilterHiddenNotice } from "./components/FilterHiddenNotice";
 import { OffScreenCaptureRenderer } from "./components/OffScreenCaptureRenderer";
 import { ScreenshotPreviewModal } from "./components/ScreenshotPreviewModal";
 import { useSearchState } from "./hooks/useSearchState";
 import { useScrollNavigation } from "./hooks/useScrollNavigation";
 import { useMessageVirtualization } from "./hooks/useMessageVirtualization";
+import { useFilteredViewGuards } from "./hooks/useFilteredViewGuards";
 import { useCapturePreview } from "../../hooks/useCapturePreview";
 import { MAX_CAPTURE_MESSAGES } from "../../hooks/useCaptureScreenshot";
 import {
@@ -176,6 +178,12 @@ export const MessageViewer: React.FC<MessageViewerProps> = ({
     () => applyMessageDisplayFilter(messages, messageFilter),
     [messages, messageFilter],
   );
+  useFilteredViewGuards({
+    sessionId: selectedSession?.session_id,
+    messageFilter,
+    messages,
+    displayMessages,
+  });
 
   // Message pagination state + actions (store holds a chat-style window)
   const pagination = useAppStore((s) => s.pagination);
@@ -340,7 +348,11 @@ export const MessageViewer: React.FC<MessageViewerProps> = ({
   // Reserve a top scroll-margin equal to the sticky "all messages loaded"
   // header height so the first virtualized rows aren't hidden behind it as a
   // blank gap (#371).
-  const hasMessageListHeader = displayMessages.length > 0 && !sessionSearch.query;
+  // Based on the loaded window, not the filtered rows: when the filter hides
+  // every loaded message, "Load earlier" must stay reachable.
+  const hasMessageListHeader = messages.length > 0 && !sessionSearch.query;
+  const isFilteredWindowEmpty =
+    messages.length > 0 && displayMessages.length === 0 && !sessionSearch.query;
 
   useEffect(() => {
     if (!hasMessageListHeader) {
@@ -1014,6 +1026,13 @@ export const MessageViewer: React.FC<MessageViewerProps> = ({
           hasParallelTasks={hasParallelTasks}
         />
       )}
+      {!isCaptureMode && sessionSearch.query && sessionSearch.hiddenMatchCount > 0 && (
+        <FilterHiddenNotice
+          variant="searchMatches"
+          hiddenCount={sessionSearch.hiddenMatchCount}
+          className="px-4 py-1.5 border-b border-border/50 bg-muted/30"
+        />
+      )}
 
       {/* Capture Mode Toolbar */}
       {isCaptureMode && (
@@ -1189,6 +1208,10 @@ export const MessageViewer: React.FC<MessageViewerProps> = ({
               </div>
             )}
           </div>
+        )}
+
+        {isFilteredWindowEmpty && !pagination.isLoadingMore && (
+          <FilterHiddenNotice variant="emptyWindow" className="max-w-4xl mx-auto pb-6" />
         )}
 
         {/* 스크롤 준비 중 로딩 오버레이 */}
