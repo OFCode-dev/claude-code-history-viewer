@@ -148,12 +148,20 @@ export const Header = ({ analyticsActions, analyticsComputed, updater }: HeaderP
         />
         <div className="flex flex-col min-w-0">
           <div className="flex items-center gap-2 min-w-0">
-            <h1 className="text-sm font-semibold text-foreground hidden md:block shrink-0">
+            {/* With a project selected, the project name carries the context:
+                the long app name only shows on very wide screens, otherwise a
+                wide (monospace) title runs into the centre controls. */}
+            <h1
+              className={cn(
+                "text-sm font-semibold text-foreground truncate min-w-0",
+                selectedProject ? "hidden 2xl:block" : "hidden md:block"
+              )}
+            >
               {t('common.appName')}
             </h1>
             {selectedProject && (
               <>
-                <span className="text-muted-foreground/40 hidden md:block">/</span>
+                <span className="text-muted-foreground/40 hidden 2xl:block">/</span>
                 <span className="text-sm text-muted-foreground truncate min-w-0 pointer-events-auto" title={selectedProject.actual_path}>
                   {getProjectDisplayName(selectedProject)}
                 </span>
@@ -175,7 +183,7 @@ export const Header = ({ analyticsActions, analyticsComputed, updater }: HeaderP
                 `${t("session.title")} ${selectedSession.session_id.slice(-8)}`}
             </p>
           ) : (
-            <p className="text-2xs text-muted-foreground hidden md:block">{t('common.appDescription')}</p>
+            <p className="text-2xs text-muted-foreground hidden md:block truncate min-w-0">{t('common.appDescription')}</p>
           )}
         </div>
       </div>
