@@ -119,7 +119,7 @@ describe("ProjectTree tree semantics", () => {
         selectedProject={null}
         selectedSession={null}
         isLoading={false}
-        expandedProjects={new Set([`dir:${directoryGroup.path}`])}
+        expandedProjects={new Set(["dir:/"])}
         setExpandedProjects={vi.fn()}
         isProjectExpanded={() => false}
         handleProjectClick={vi.fn()}
@@ -133,5 +133,47 @@ describe("ProjectTree tree semantics", () => {
     expect(treeItems[0]).toHaveAttribute("aria-level", "1");
     expect(treeItems[1]).toHaveAttribute("aria-level", "2");
     expect(screen.getByRole("group")).toBeInTheDocument();
+  });
+
+  it("renders a folder's own project first, lifted subtitles and provider chips", () => {
+    const repo = createProject("/home/jack/repo", "repo");
+    const repoCodex = { ...createProject("/home/jack/repo", "repo"), path: "/codex/repo", provider: "codex" };
+    const tool = createProject("/home/jack/repo/tools/deep/cli", "cli");
+    const directoryGroups: DirectoryGroup[] = [
+      { name: "jack", path: "/home/jack", displayPath: "~", projects: [repo, repoCodex] },
+      { name: "deep", path: "/home/jack/repo/tools/deep", displayPath: "~/repo/tools/deep", projects: [tool] },
+    ];
+
+    render(
+      <GroupedProjectList
+        groupingMode="directory"
+        projects={[]}
+        directoryGroups={directoryGroups}
+        worktreeGroups={[]}
+        sessions={[]}
+        selectedProject={null}
+        selectedSession={null}
+        isLoading={false}
+        expandedProjects={new Set(["dir:/home/jack"])}
+        setExpandedProjects={vi.fn()}
+        isProjectExpanded={() => false}
+        handleProjectClick={vi.fn()}
+        handleContextMenu={vi.fn()}
+        onSessionSelect={vi.fn()}
+        formatTimeAgo={(date) => date}
+      />
+    );
+
+    // Root compacts into `~/repo`, which is itself a project.
+    const items = screen.getAllByRole("treeitem");
+    expect(items.map((item) => item.getAttribute("data-tree-key"))).toEqual([
+      "dir:/home/jack",
+      "loc:/home/jack/repo",
+      "loc:/home/jack/repo/tools/deep/cli",
+    ]);
+    expect(items[0]).toHaveTextContent("~/repo");
+    expect(items[0]).toHaveTextContent("2");
+    expect(items[1]).toHaveTextContent("Codex");
+    expect(items[2]).toHaveTextContent("tools/deep");
   });
 });

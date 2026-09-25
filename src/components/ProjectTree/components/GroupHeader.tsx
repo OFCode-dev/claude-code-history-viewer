@@ -5,6 +5,15 @@ import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import type { GroupHeaderProps } from "../types";
 
+/**
+ * `~/projects/app/src` → [`~/projects/app/`, `src`]: a compacted folder label
+ * keeps its last folder visible and truncates the middle of the path instead.
+ */
+function splitLabelTail(label: string): [head: string, tail: string] {
+  const cut = Math.max(label.lastIndexOf("/"), label.lastIndexOf("\\")) + 1;
+  return cut > 0 && cut < label.length ? [label.slice(0, cut), label.slice(cut)] : ["", label];
+}
+
 export const GroupHeader: React.FC<GroupHeaderProps> = ({
   groupKey,
   label,
@@ -14,6 +23,9 @@ export const GroupHeader: React.FC<GroupHeaderProps> = ({
   ariaLevel = 1,
   onToggle,
   variant,
+  title,
+  nested = false,
+  ownsId,
 }) => {
   const { t } = useTranslation();
   const variantColors = {
@@ -48,6 +60,8 @@ export const GroupHeader: React.FC<GroupHeaderProps> = ({
   };
 
   const colors = variantColors[variant];
+  const [labelHead, labelTail] =
+    variant === "directory" ? splitLabelTail(label) : ["", label];
 
   return (
     <button
@@ -60,6 +74,7 @@ export const GroupHeader: React.FC<GroupHeaderProps> = ({
       onClick={onToggle}
       tabIndex={-1}
       aria-expanded={isExpanded}
+      aria-owns={isExpanded ? ownsId : undefined}
       aria-label={t("project.a11y.groupToggleLabel", {
         action: isExpanded
           ? t("project.a11y.collapseGroup", "Collapse")
@@ -69,7 +84,8 @@ export const GroupHeader: React.FC<GroupHeaderProps> = ({
         defaultValue: `${isExpanded ? "Collapse" : "Expand"} ${label} group (${count} projects)`,
       })}
       className={cn(
-        "w-full px-4 py-2 flex items-center gap-2.5",
+        "w-full flex items-center gap-2.5",
+        nested ? "px-2 py-1.5" : "px-4 py-2",
         "text-left transition-all duration-300",
         "hover:bg-accent/8",
         "border-l-2 border-transparent",
@@ -105,12 +121,13 @@ export const GroupHeader: React.FC<GroupHeaderProps> = ({
       {/* Label */}
       <span
         className={cn(
-          "text-sm truncate flex-1 transition-colors duration-300",
+          "flex min-w-0 flex-1 text-sm transition-colors duration-300",
           isExpanded ? `${colors.text} font-semibold` : "text-sidebar-foreground/80"
         )}
-        title={label}
+        title={title ?? label}
       >
-        {label}
+        {labelHead && <span className="min-w-0 truncate opacity-70">{labelHead}</span>}
+        <span className="min-w-0 max-w-full shrink-0 truncate">{labelTail}</span>
       </span>
 
       {/* Count Badge */}

@@ -5,8 +5,8 @@
  * 직접 수정하지 마세요.
  *
  * 생성 명령: pnpm run generate:i18n-types
- * 생성 시간: 2026-09-25T22:21:17.382Z
- * 총 키 개수: 2042
+ * 생성 시간: 2026-09-25T22:23:17.845Z
+ * 총 키 개수: 2044
  * Namespace 수: 11
  */
 
@@ -452,7 +452,7 @@ export type AnalyticsKeys =
   | 'analytics.weeklyActivity';
 
 /**
- * session namespace의 번역 키 (281개)
+ * session namespace의 번역 키 (283개)
  * 파일: locales/{lang}/session.json
  */
 export type SessionKeys =
@@ -462,8 +462,10 @@ export type SessionKeys =
   | 'project.a11y.expandedState'
   | 'project.a11y.groupToggleLabel'
   | 'project.a11y.keyboardHelp'
+  | 'project.a11y.keyboardHelpFolders'
   | 'project.a11y.selectedState'
   | 'project.addPattern'
+  | 'project.collapseAll'
   | 'project.collapseSidebar'
   | 'project.copyLastKnownPath'
   | 'project.copyPath'
@@ -2993,8 +2995,10 @@ export type TranslationKey =
   | 'project.a11y.expandedState'
   | 'project.a11y.groupToggleLabel'
   | 'project.a11y.keyboardHelp'
+  | 'project.a11y.keyboardHelpFolders'
   | 'project.a11y.selectedState'
   | 'project.addPattern'
+  | 'project.collapseAll'
   | 'project.collapseSidebar'
   | 'project.copyLastKnownPath'
   | 'project.copyPath'

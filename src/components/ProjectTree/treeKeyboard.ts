@@ -28,6 +28,43 @@ export function getNextTreeItemIndex(
   }
 }
 
+/**
+ * Index of the closest preceding item one level up (the parent row), or -1.
+ * `levels` are the `aria-level`s of the visible tree items in DOM order.
+ */
+export function findParentTreeItemIndex(levels: number[], index: number): number {
+  const level = levels[index];
+  if (level === undefined || level <= 1) return -1;
+  for (let i = index - 1; i >= 0; i -= 1) {
+    const candidate = levels[i];
+    if (candidate !== undefined && candidate < level) {
+      return candidate === level - 1 ? i : -1;
+    }
+  }
+  return -1;
+}
+
+/** Index of the first child row (the next item, one level deeper), or -1. */
+export function findFirstChildTreeItemIndex(levels: number[], index: number): number {
+  const level = levels[index];
+  const next = levels[index + 1];
+  return level !== undefined && next === level + 1 ? index + 1 : -1;
+}
+
+/** Indexes of the items sharing the parent and level of `index` (itself excluded). */
+export function findSiblingTreeItemIndexes(levels: number[], index: number): number[] {
+  const level = levels[index];
+  if (level === undefined) return [];
+  const parent = findParentTreeItemIndex(levels, index);
+  const siblings: number[] = [];
+  for (let i = parent + 1; i < levels.length; i += 1) {
+    const candidate = levels[i];
+    if (candidate === undefined || candidate < level) break;
+    if (candidate === level && i !== index) siblings.push(i);
+  }
+  return siblings;
+}
+
 export function normalizeTypeaheadLabel(label: string): string {
   return label.trim().toLowerCase();
 }

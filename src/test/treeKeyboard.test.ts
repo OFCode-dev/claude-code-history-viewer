@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   buildTreeItemAnnouncement,
+  findFirstChildTreeItemIndex,
+  findParentTreeItemIndex,
+  findSiblingTreeItemIndexes,
   findTypeaheadMatchIndex,
   getNextTreeItemIndex,
 } from "@/components/ProjectTree/treeKeyboard";
@@ -56,5 +59,34 @@ describe("getNextTreeItemIndex", () => {
     );
 
     expect(result).toBe("Explorer");
+  });
+});
+
+describe("tree hierarchy helpers", () => {
+  // global, ~, work, app, api, notes, /, opt-app
+  const levels = [1, 1, 2, 3, 3, 2, 1, 2];
+
+  it("finds the parent row one level up", () => {
+    expect(findParentTreeItemIndex(levels, 3)).toBe(2);
+    expect(findParentTreeItemIndex(levels, 4)).toBe(2);
+    expect(findParentTreeItemIndex(levels, 5)).toBe(1);
+    expect(findParentTreeItemIndex(levels, 7)).toBe(6);
+    expect(findParentTreeItemIndex(levels, 1)).toBe(-1);
+    expect(findParentTreeItemIndex(levels, 99)).toBe(-1);
+  });
+
+  it("finds the first child only when the next row is one level deeper", () => {
+    expect(findFirstChildTreeItemIndex(levels, 1)).toBe(2);
+    expect(findFirstChildTreeItemIndex(levels, 2)).toBe(3);
+    expect(findFirstChildTreeItemIndex(levels, 3)).toBe(-1);
+    expect(findFirstChildTreeItemIndex(levels, 5)).toBe(-1);
+    expect(findFirstChildTreeItemIndex(levels, 7)).toBe(-1);
+  });
+
+  it("lists siblings under the same parent only", () => {
+    expect(findSiblingTreeItemIndexes(levels, 3)).toEqual([4]);
+    expect(findSiblingTreeItemIndexes(levels, 2)).toEqual([5]);
+    expect(findSiblingTreeItemIndexes(levels, 1)).toEqual([0, 6]);
+    expect(findSiblingTreeItemIndexes(levels, 7)).toEqual([]);
   });
 });

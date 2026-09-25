@@ -30,6 +30,9 @@ export const ProjectItem: React.FC<ProjectItemProps> = ({
   providerSiblings = [],
   onSelectSibling,
   hasInlineChildren = true,
+  subtitle,
+  treeKey,
+  nested = false,
 }) => {
   const { t } = useTranslation();
 
@@ -50,7 +53,8 @@ export const ProjectItem: React.FC<ProjectItemProps> = ({
     ? `${baseProviderLabel} (${project.custom_directory_label})`
     : baseProviderLabel;
   const shouldShowParentPath = !isGrouped && isAbsolutePath(actualPath);
-  const parentPath = shouldShowParentPath ? getCompactParentPath(actualPath) : "";
+  const parentPath =
+    subtitle ?? (shouldShowParentPath ? getCompactParentPath(actualPath) : "");
   const displayName = isMain
     ? t("project.main", "main")
     : isWorktree
@@ -63,6 +67,7 @@ export const ProjectItem: React.FC<ProjectItemProps> = ({
       role="treeitem"
       data-tree-node="project"
       data-project-path={project.path}
+      data-tree-key={treeKey}
       aria-level={ariaLevel}
       aria-selected={isSelected}
       aria-expanded={isExpandable && hasInlineChildren ? isExpanded : undefined}
@@ -85,12 +90,16 @@ export const ProjectItem: React.FC<ProjectItemProps> = ({
       className={cn(
         "w-full flex items-center gap-2",
         "text-left transition-all duration-200 rounded-md cursor-pointer outline-none",
-        isGrouped ? "px-2 py-1.5" : "px-4 py-2.5",
+        isGrouped || nested ? "px-2 py-1.5" : "px-4 py-2.5",
         isGrouped ? "focus:ring-2 focus:ring-accent" : "focus:ring-2 focus:ring-accent",
         isGrouped
           ? "hover:bg-accent/10"
-          : "hover:bg-accent/8 hover:pl-5 border-l-2 border-transparent",
-        !isGrouped && isExpanded && "bg-accent/10 border-l-accent pl-5",
+          : cn(
+              "hover:bg-accent/8 border-l-2 border-transparent",
+              // Nested rows keep their indent: the hover shift would eat name width.
+              !nested && "hover:pl-5"
+            ),
+        !isGrouped && isExpanded && cn("bg-accent/10 border-l-accent", !nested && "pl-5"),
         isGrouped && isMain && "hover:bg-accent/10",
         isGrouped && isWorktree && "hover:bg-success/10",
         isGrouped && isExpanded && (isMain ? "bg-accent/15" : "bg-success/15")
