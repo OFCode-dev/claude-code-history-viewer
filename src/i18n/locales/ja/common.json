@@ -199,7 +199,7 @@
   "common.settings.claudeOnly": "{{name}}（Claude のみ）",
   "header.views": "表示",
   "header.breadcrumb.label": "パンくずリスト",
-  "header.breadcrumb.showHidden": "非表示のフォルダーを表示",
+  "header.breadcrumb.showCollapsed": "折りたたまれたフォルダーを表示",
   "header.breadcrumb.reveal": "エクスプローラーで表示: {{path}}",
   "header.breadcrumb.backTo": "{{title}} に戻る",
   "header.breadcrumb.untitledSession": "セッション {{id}}",

@@ -188,7 +188,7 @@ describe("HeaderBreadcrumb", () => {
     // 7 items (700px) do not fit; folding goes on until ~ … api session
     // (400px) does, which hides every middle directory. The ends stay.
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "header.breadcrumb.showHidden" })).toBeInTheDocument(),
+      expect(screen.getByRole("button", { name: "header.breadcrumb.showCollapsed" })).toBeInTheDocument(),
     );
     expect(crumbButtons().map((b) => b.textContent)).toContain("~");
     expect(screen.getByRole("button", { name: "api" })).toBeInTheDocument();
@@ -205,7 +205,7 @@ describe("HeaderBreadcrumb", () => {
 
   it("keeps everything visible when the trail fits", () => {
     render(<HeaderBreadcrumb project={project} />);
-    expect(screen.queryByRole("button", { name: "header.breadcrumb.showHidden" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "header.breadcrumb.showCollapsed" })).toBeNull();
   });
 
   it("folds again from scratch once web fonts have loaded", async () => {
@@ -231,7 +231,7 @@ describe("HeaderBreadcrumb", () => {
     try {
       const deepProject = { ...project, actual_path: "/home/me/a/b/c/d/api" };
       render(<HeaderBreadcrumb project={deepProject} />);
-      expect(screen.queryByRole("button", { name: "header.breadcrumb.showHidden" })).toBeNull();
+      expect(screen.queryByRole("button", { name: "header.breadcrumb.showCollapsed" })).toBeNull();
 
       crumbWidth = 100;
       await act(async () => {
@@ -240,7 +240,7 @@ describe("HeaderBreadcrumb", () => {
       });
 
       await waitFor(() =>
-        expect(screen.getByRole("button", { name: "header.breadcrumb.showHidden" })).toBeInTheDocument(),
+        expect(screen.getByRole("button", { name: "header.breadcrumb.showCollapsed" })).toBeInTheDocument(),
       );
       expect(within(screen.getByTestId("hidden-crumbs")).getAllByRole("button")).toHaveLength(4);
     } finally {

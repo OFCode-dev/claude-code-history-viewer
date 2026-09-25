@@ -199,7 +199,7 @@
   "common.settings.claudeOnly": "{{name}} (Claude 전용)",
   "header.views": "보기",
   "header.breadcrumb.label": "탐색 경로",
-  "header.breadcrumb.showHidden": "숨겨진 폴더 보기",
+  "header.breadcrumb.showCollapsed": "접힌 폴더 보기",
   "header.breadcrumb.reveal": "탐색기에서 보기: {{path}}",
   "header.breadcrumb.backTo": "{{title}}(으)로 돌아가기",
   "header.breadcrumb.untitledSession": "세션 {{id}}",

@@ -256,8 +256,8 @@ export function HeaderBreadcrumb({ project, onShowTranscript }: HeaderBreadcrumb
                 <button
                   type="button"
                   className={cn(crumbButtonClass, "px-1.5")}
-                  aria-label={t("header.breadcrumb.showHidden")}
-                  title={t("header.breadcrumb.showHidden")}
+                  aria-label={t("header.breadcrumb.showCollapsed")}
+                  title={t("header.breadcrumb.showCollapsed")}
                 >
                   <MoreHorizontal className="w-3.5 h-3.5" aria-hidden="true" />
                 </button>

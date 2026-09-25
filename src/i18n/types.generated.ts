@@ -5,7 +5,7 @@
  * 직접 수정하지 마세요.
  *
  * 생성 명령: pnpm run generate:i18n-types
- * 생성 시간: 2026-09-25T19:46:44.061Z
+ * 생성 시간: 2026-09-25T21:19:46.381Z
  * 총 키 개수: 1974
  * Namespace 수: 11
  */
@@ -228,7 +228,7 @@ export type CommonKeys =
   | 'header.breadcrumb.backTo'
   | 'header.breadcrumb.label'
   | 'header.breadcrumb.reveal'
-  | 'header.breadcrumb.showHidden'
+  | 'header.breadcrumb.showCollapsed'
   | 'header.breadcrumb.subagent'
   | 'header.breadcrumb.untitledSession'
   | 'header.focusMode.label'
@@ -2767,7 +2767,7 @@ export type TranslationKey =
   | 'header.breadcrumb.backTo'
   | 'header.breadcrumb.label'
   | 'header.breadcrumb.reveal'
-  | 'header.breadcrumb.showHidden'
+  | 'header.breadcrumb.showCollapsed'
   | 'header.breadcrumb.subagent'
   | 'header.breadcrumb.untitledSession'
   | 'header.focusMode.label'

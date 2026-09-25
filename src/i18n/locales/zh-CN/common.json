@@ -199,7 +199,7 @@
   "common.settings.claudeOnly": "{{name}}（仅限 Claude）",
   "header.views": "视图",
   "header.breadcrumb.label": "面包屑导航",
-  "header.breadcrumb.showHidden": "显示隐藏的文件夹",
+  "header.breadcrumb.showCollapsed": "显示折叠的文件夹",
   "header.breadcrumb.reveal": "在资源管理器中显示：{{path}}",
   "header.breadcrumb.backTo": "返回 {{title}}",
   "header.breadcrumb.untitledSession": "会话 {{id}}",

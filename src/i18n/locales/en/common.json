@@ -199,7 +199,7 @@
   "common.settings.claudeOnly": "{{name}} (Claude only)",
   "header.views": "Views",
   "header.breadcrumb.label": "Breadcrumb",
-  "header.breadcrumb.showHidden": "Show hidden folders",
+  "header.breadcrumb.showCollapsed": "Show collapsed folders",
   "header.breadcrumb.reveal": "Show in explorer: {{path}}",
   "header.breadcrumb.backTo": "Back to {{title}}",
   "header.breadcrumb.untitledSession": "Session {{id}}",

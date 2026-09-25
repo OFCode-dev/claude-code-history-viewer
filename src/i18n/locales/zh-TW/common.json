@@ -199,7 +199,7 @@
   "common.settings.claudeOnly": "{{name}}（僅限 Claude）",
   "header.views": "檢視",
   "header.breadcrumb.label": "階層導覽",
-  "header.breadcrumb.showHidden": "顯示隱藏的資料夾",
+  "header.breadcrumb.showCollapsed": "顯示摺疊的資料夾",
   "header.breadcrumb.reveal": "在檔案總管中顯示：{{path}}",
   "header.breadcrumb.backTo": "返回 {{title}}",
   "header.breadcrumb.untitledSession": "會話 {{id}}",
