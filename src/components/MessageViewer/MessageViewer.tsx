@@ -16,6 +16,7 @@ import { LoadingSpinner, LoadingState } from "@/components/ui/loading";
 import type { MessageViewerProps } from "./types";
 import { VirtualizedMessageRow } from "./components/VirtualizedMessageRow";
 import { FloatingDateOverlay } from "./components/FloatingDateOverlay";
+import { StickyPromptBar } from "./components/StickyPromptBar";
 import { CaptureModeToolbar } from "./components/CaptureModeToolbar";
 import { FilterToolbar } from "./components/FilterToolbar";
 import { OffScreenCaptureRenderer } from "./components/OffScreenCaptureRenderer";
@@ -23,6 +24,11 @@ import { ScreenshotPreviewModal } from "./components/ScreenshotPreviewModal";
 import { useSearchState } from "./hooks/useSearchState";
 import { useScrollNavigation } from "./hooks/useScrollNavigation";
 import { useMessageVirtualization } from "./hooks/useMessageVirtualization";
+import {
+  scrollRowIntoTopView,
+  usePositionRestore,
+  useViewportAnchorPublisher,
+} from "./hooks/useReadingPosition";
 import { useCapturePreview } from "../../hooks/useCapturePreview";
 import { MAX_CAPTURE_MESSAGES } from "../../hooks/useCaptureScreenshot";
 import {
@@ -558,6 +564,19 @@ export const MessageViewer: React.FC<MessageViewerProps> = ({
     return () => clearTimeout(timer);
   }, [captureToast]);
 
+  // Reading position: resume a revisited session where it was left, and
+  // publish the first visible row (navigator scroll-spy, sticky prompt bar).
+  const positionRestoringRef = useRef(false);
+  const restoringUuid = usePositionRestore({
+    sessionPath: selectedSession?.file_path ?? null,
+    uuidToIndexMap,
+    virtualizer,
+    getScrollElement,
+    scrollElementReady,
+    targetMessageUuid,
+    suppressAutoLoadRef: positionRestoringRef,
+  });
+
   // Scroll navigation with virtualizer support
   const {
     showScrollToTop,
@@ -575,9 +594,18 @@ export const MessageViewer: React.FC<MessageViewerProps> = ({
     virtualizer,
     getScrollIndex,
     scrollElementReady,
-    targetMessageUuid,
+    targetMessageUuid: targetMessageUuid ?? restoringUuid,
     onNearBottomChange: setActiveSessionNearBottom,
     firstItemKey: messages[0]?.uuid ?? null,
+  });
+
+  useViewportAnchorPublisher({
+    sessionPath: selectedSession?.file_path ?? null,
+    displayMessages,
+    flattenedMessages,
+    virtualizer,
+    getScrollElement,
+    viewportKey: scrollReadyForSessionId,
   });
 
   // ─── Load-earlier (chat-style message pagination) ──────────────────────
@@ -662,7 +690,7 @@ export const MessageViewer: React.FC<MessageViewerProps> = ({
 
     const NEAR_TOP_AUTOLOAD_PX = 300;
     const handleScroll = () => {
-      if (anchorRestoringRef.current) return;
+      if (anchorRestoringRef.current || positionRestoringRef.current) return;
       if (viewport.scrollTop >= NEAR_TOP_AUTOLOAD_PX) return;
       const { pagination: p } = useAppStore.getState();
       if (!p.hasMore || p.isLoadingMore) return;
@@ -717,16 +745,17 @@ export const MessageViewer: React.FC<MessageViewerProps> = ({
         // real heights. Re-issuing scrollToIndex after each render pass lets
         // TanStack Virtual recompute against the now-measured totals and
         // converge on the target.
+        // The target lands just below the sticky prompt bar's strip.
         const initialPass = setTimeout(() => {
-          virtualizer.scrollToIndex(index, { align: "start" });
+          scrollRowIntoTopView(virtualizer, getScrollElement(), index);
         }, 50);
 
         const correctionPass = setTimeout(() => {
-          virtualizer.scrollToIndex(index, { align: "start" });
+          scrollRowIntoTopView(virtualizer, getScrollElement(), index);
         }, 200);
 
         const finalPass = setTimeout(() => {
-          virtualizer.scrollToIndex(index, { align: "start", behavior: "smooth" });
+          scrollRowIntoTopView(virtualizer, getScrollElement(), index, "smooth");
         }, 450);
 
         // Auto-clear the target after a few seconds so the highlight fades
@@ -742,7 +771,7 @@ export const MessageViewer: React.FC<MessageViewerProps> = ({
         };
       }
     }
-  }, [targetMessageUuid, scrollElementReady, flattenedMessages, virtualizer, clearTargetMessage, ensureMessageLoaded]);
+  }, [targetMessageUuid, scrollElementReady, flattenedMessages, virtualizer, clearTargetMessage, ensureMessageLoaded, getScrollElement]);
 
   // 검색어 초기화 핸들러
   const handleClearSearch = useCallback(() => {
@@ -1062,6 +1091,11 @@ export const MessageViewer: React.FC<MessageViewerProps> = ({
       )}
 
       <div className="relative flex-1 min-h-0">
+        {/* Current prompt while reading inside a long turn */}
+        {flattenedMessages.length > 0 && scrollElementReady && (
+          <StickyPromptBar messages={displayMessages} />
+        )}
+
         {/* Floating date overlay — outside scroll container to stay fixed */}
         {flattenedMessages.length > 0 && scrollElementReady && (
           <FloatingDateOverlay

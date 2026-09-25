@@ -13,6 +13,10 @@ import React, { useMemo, useState, useEffect, useRef } from "react";
 import type { VirtualItem } from "@tanstack/react-virtual";
 import { cn } from "@/lib/utils";
 import { formatDateDivider } from "../../../utils/time";
+import {
+  selectIsPromptBarVisible,
+  useViewportAnchorStore,
+} from "../../../store/viewportAnchorStore";
 import type { FlattenedMessage } from "../types";
 
 type FloatingDateOverlayProps = {
@@ -54,6 +58,8 @@ export const FloatingDateOverlay: React.FC<FloatingDateOverlayProps> = React.mem
     const [isVisible, setIsVisible] = useState(true);
     const fadeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const prevIndexRef = useRef<number>(-1);
+    // The sticky prompt bar occupies the top edge; sit just below it.
+    const isBelowPromptBar = useViewportAnchorStore(selectIsPromptBarVisible);
 
     // Derive first visible index
     const firstVisibleIndex = virtualRows.length > 0 ? virtualRows[0]!.index : -1;
@@ -104,7 +110,8 @@ export const FloatingDateOverlay: React.FC<FloatingDateOverlayProps> = React.mem
     return (
       <div
         className={cn(
-          "absolute top-2 left-1/2 -translate-x-1/2 z-20",
+          "absolute left-1/2 -translate-x-1/2 z-20",
+          isBelowPromptBar ? "top-12" : "top-2",
           "px-3 py-1 rounded-full",
           "bg-popover/90 backdrop-blur-sm",
           "border border-border/50 shadow-sm",
