@@ -40,13 +40,13 @@ describe("useProjectTreeState", () => {
       result.current.ensureProjectExpanded("/store/app", "dir:/home/jack");
     });
 
-    expect(stored()).toEqual({ keys: ["dir:/home/jack"], rootsInitialized: false });
+    expect(stored()).toEqual({ keys: ["dir:/home/jack"], seenRoots: [] });
   });
 
   it("restores persisted group keys on the next mount", () => {
     localStorage.setItem(
       EXPANDED_GROUPS_STORAGE_KEY,
-      JSON.stringify({ keys: ["dir:/home/jack", "/not-a-group", 42], rootsInitialized: true }),
+      JSON.stringify({ keys: ["dir:/home/jack", "/not-a-group", 42], seenRoots: ["dir:/home/jack"] }),
     );
 
     const { result } = renderHook(() => useProjectTreeState("directory"));
@@ -62,7 +62,7 @@ describe("useProjectTreeState", () => {
     expect(result.current.expandedProjects).toEqual(new Set());
   });
 
-  it("expands default roots only once", () => {
+  it("expands each default root only the first time it appears", () => {
     const { result, unmount } = renderHook(() => useProjectTreeState("directory"));
 
     act(() => result.current.expandDefaultRoots(["dir:/home/jack"]));
@@ -71,12 +71,38 @@ describe("useProjectTreeState", () => {
     act(() => result.current.collapseAllGroups());
     act(() => result.current.expandDefaultRoots(["dir:/home/jack"]));
     expect(result.current.expandedProjects).toEqual(new Set());
-    expect(stored()).toEqual({ keys: [], rootsInitialized: true });
+    expect(stored()).toEqual({ keys: [], seenRoots: ["dir:/home/jack"] });
 
     unmount();
     const next = renderHook(() => useProjectTreeState("directory"));
     act(() => next.result.current.expandDefaultRoots(["dir:/home/jack"]));
     expect(next.result.current.expandedProjects).toEqual(new Set());
+
+    // A root that shows up later (a new drive, the first project outside home) opens.
+    act(() => next.result.current.expandDefaultRoots(["dir:/home/jack", "dir:D:\\"]));
+    expect(next.result.current.expandedProjects).toEqual(new Set(["dir:D:\\"]));
+    expect(stored().seenRoots).toEqual(["dir:/home/jack", "dir:D:\\"]);
+  });
+
+  it("caps the stored group keys, keeping the most recent", () => {
+    const { result } = renderHook(() => useProjectTreeState("directory"));
+    const keys = Array.from({ length: 510 }, (_, index) => `dir:/f${index}`);
+
+    act(() => result.current.expandGroups(keys));
+
+    const saved = stored().keys as string[];
+    expect(saved).toHaveLength(500);
+    expect(saved[0]).toBe("dir:/f10");
+    expect(saved.at(-1)).toBe("dir:/f509");
+  });
+
+  it("collapses several groups at once", () => {
+    const { result } = renderHook(() => useProjectTreeState("directory"));
+
+    act(() => result.current.expandGroups(["dir:/a", "dir:/b", "dir:/c"]));
+    act(() => result.current.collapseGroups(["dir:/a", "dir:/c"]));
+
+    expect(result.current.expandedProjects).toEqual(new Set(["dir:/b"]));
   });
 
   it("collapse all keeps expanded project rows", () => {

@@ -156,7 +156,7 @@ describe("ProjectTree directory tree", () => {
     const stored = JSON.parse(localStorage.getItem(EXPANDED_GROUPS_STORAGE_KEY) ?? "{}");
     expect(stored).toEqual({
       keys: ["dir:/home/jack", "dir:/home/jack/work"],
-      rootsInitialized: true,
+      seenRoots: ["dir:/home/jack"],
     });
   });
 

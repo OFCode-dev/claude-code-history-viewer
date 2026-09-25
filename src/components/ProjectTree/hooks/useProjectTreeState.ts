@@ -9,9 +9,19 @@ export const EXPANDED_GROUPS_STORAGE_KEY = "projectTree.expandedGroups";
 
 interface StoredExpansion {
   keys: string[];
-  /** The directory roots were expanded once by default; the user owns them since. */
-  rootsInitialized: boolean;
+  /**
+   * Directory roots already expanded once by default; the user owns their
+   * state since. A root seen for the first time (a new drive) starts open.
+   */
+  seenRoots: string[];
 }
+
+/** Bounds the stored lists; folders that no longer exist are never pruned otherwise. */
+const MAX_STORED_GROUP_KEYS = 500;
+const MAX_STORED_ROOTS = 50;
+
+const onlyStrings = (value: unknown): string[] =>
+  Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
 
 /** Group rows (`dir:` folders, `group:` buckets and worktree groups), not projects. */
 export function isGroupExpansionKey(key: string): boolean {
@@ -25,10 +35,8 @@ function loadStoredExpansion(): StoredExpansion | null {
     const parsed = JSON.parse(raw) as Partial<StoredExpansion>;
     if (!Array.isArray(parsed.keys)) return null;
     return {
-      keys: parsed.keys.filter(
-        (key): key is string => typeof key === "string" && isGroupExpansionKey(key)
-      ),
-      rootsInitialized: parsed.rootsInitialized === true,
+      keys: onlyStrings(parsed.keys).filter(isGroupExpansionKey),
+      seenRoots: onlyStrings(parsed.seenRoots),
     };
   } catch {
     return null;
@@ -53,7 +61,7 @@ export function useProjectTreeState(groupingMode: GroupingMode) {
     () => new Set(initialExpansion?.keys ?? [])
   );
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
-  const rootsInitializedRef = useRef(initialExpansion?.rootsInitialized ?? false);
+  const seenRootsRef = useRef<string[]>(initialExpansion?.seenRoots ?? []);
 
   // Grouping mode change: project rows belong to the old layout, group keys
   // are namespaced and persisted, so only project expansion is reset.
@@ -66,9 +74,10 @@ export function useProjectTreeState(groupingMode: GroupingMode) {
   }, [groupingMode]);
 
   useEffect(() => {
+    // Set order is insertion order, so the most recently opened keys survive the cap.
     saveStoredExpansion({
-      keys: Array.from(groupKeysOf(expandedProjects)),
-      rootsInitialized: rootsInitializedRef.current,
+      keys: Array.from(groupKeysOf(expandedProjects)).slice(-MAX_STORED_GROUP_KEYS),
+      seenRoots: seenRootsRef.current.slice(-MAX_STORED_ROOTS),
     });
   }, [expandedProjects]);
 
@@ -108,21 +117,27 @@ export function useProjectTreeState(groupingMode: GroupingMode) {
     );
   }, []);
 
-  const collapseGroup = useCallback((groupKey: string) => {
+  const collapseGroups = useCallback((groupKeys: string[]) => {
     setExpandedProjects((prev) => {
-      if (!prev.has(groupKey)) return prev;
+      if (!groupKeys.some((key) => prev.has(key))) return prev;
       const next = new Set(prev);
-      next.delete(groupKey);
+      for (const key of groupKeys) next.delete(key);
       return next;
     });
   }, []);
 
-  /** First run only: open the directory roots; later launches keep the user's state. */
+  const collapseGroup = useCallback(
+    (groupKey: string) => collapseGroups([groupKey]),
+    [collapseGroups]
+  );
+
+  /** Open each directory root the first time it appears; after that the user owns it. */
   const expandDefaultRoots = useCallback((rootKeys: string[]) => {
-    if (rootsInitializedRef.current || rootKeys.length === 0) return;
-    rootsInitializedRef.current = true;
-    // Always a new Set so the persist effect records `rootsInitialized`.
-    setExpandedProjects((prev) => new Set([...prev, ...rootKeys]));
+    const unseen = rootKeys.filter((key) => !seenRootsRef.current.includes(key));
+    if (unseen.length === 0) return;
+    seenRootsRef.current = [...seenRootsRef.current, ...unseen];
+    // Always a new Set so the persist effect records the seen roots.
+    setExpandedProjects((prev) => new Set([...prev, ...unseen]));
   }, []);
 
   /** Collapse every group row; expanded projects stay as they are. */
@@ -171,6 +186,7 @@ export function useProjectTreeState(groupingMode: GroupingMode) {
     ensureProjectExpanded,
     expandGroups,
     collapseGroup,
+    collapseGroups,
     expandDefaultRoots,
     collapseAllGroups,
     isProjectExpanded,
