@@ -16,7 +16,13 @@ const NON_TEXT_INPUT_TYPES = new Set([
 
 export function isEditableTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
-  if (target.isContentEditable) return true;
+  // `closest` as well: jsdom does not implement `isContentEditable`.
+  if (
+    target.isContentEditable ||
+    target.closest('[contenteditable=""], [contenteditable="true"]')
+  ) {
+    return true;
+  }
   const tag = target.tagName;
   if (tag === "TEXTAREA" || tag === "SELECT") return true;
   if (tag !== "INPUT") return false;

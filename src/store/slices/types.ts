@@ -206,6 +206,11 @@ export interface AppStoreState {
   navigatorMode: import("./navigatorSlice").NavigatorMode;
   pendingPositionRestore: import("./navigatorSlice").PendingPositionRestore | null;
 
+  // Panel layout state (explorer / sessions pane collapse, focus mode)
+  isExplorerCollapsed: boolean;
+  isSessionsPaneCollapsed: boolean;
+  focusModeSnapshot: import("./layoutSlice").PanelLayoutSnapshot | null;
+
   // Recent Edits panel state
   recentEditsMode: import('./recentEditsPanelSlice').RecentEditsMode;
   recentEditsDensityPage: import('./recentEditsPanelSlice').RecentEditsDensity;
@@ -421,6 +426,13 @@ export interface AppStoreActions {
   setNavigatorOpen: (open: boolean) => void;
   setNavigatorMode: (mode: import("./navigatorSlice").NavigatorMode) => void;
   clearPendingPositionRestore: () => void;
+
+  // Panel layout actions
+  toggleExplorerCollapsed: () => void;
+  setExplorerCollapsed: (collapsed: boolean) => void;
+  toggleSessionsPaneCollapsed: () => void;
+  setSessionsPaneCollapsed: (collapsed: boolean) => void;
+  toggleFocusMode: () => void;
 
   // Recent Edits panel actions
   setRecentEditsMode: (mode: import('./recentEditsPanelSlice').RecentEditsMode) => void;

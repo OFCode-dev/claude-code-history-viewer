@@ -19,8 +19,10 @@ import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 import { getAssetPath, isMacOS, isTauri } from "@/utils/platform";
 import { SettingDropdown } from "./SettingDropdown";
-import { getProjectDisplayName } from "@/utils/pathUtils";
 import { SessionCopyMenu } from "./SessionCopyMenu";
+import { HeaderBreadcrumb } from "./HeaderBreadcrumb";
+import { HistoryNavButtons } from "./HistoryNavButtons";
+import { FocusModeButton } from "./FocusModeButton";
 
 interface HeaderProps {
   analyticsActions: UseAnalyticsReturn["actions"];
@@ -139,53 +141,34 @@ export const Header = ({ analyticsActions, analyticsComputed, updater }: HeaderP
           through to this layer. */}
       <div data-tauri-drag-region className="absolute inset-0" />
 
-      {/* Left: Logo & Title */}
-      <div className="relative z-10 flex items-center gap-2.5 min-w-0 flex-1 pointer-events-none">
+      {/* Left: Logo, history and location */}
+      <div className="relative z-10 flex items-center gap-2 min-w-0 flex-1 pointer-events-none">
         <img
           src={getAssetPath("app-icon.png")}
           alt="Claude Code History"
           className="w-6 h-6 hidden md:block"
         />
-        <div className="flex flex-col min-w-0">
-          <div className="flex items-center gap-2 min-w-0">
-            {/* With a project selected, the project name carries the context:
-                the long app name only shows on very wide screens, otherwise a
-                wide (monospace) title runs into the centre controls. */}
-            <h1
-              className={cn(
-                "text-sm font-semibold text-foreground truncate min-w-0",
-                selectedProject ? "hidden 2xl:block" : "hidden md:block"
-              )}
-            >
-              {t('common.appName')}
+        <HistoryNavButtons className="hidden md:flex pointer-events-auto" />
+        {selectedProject ? (
+          <>
+            {/* The breadcrumb names what is on screen; the app name stays
+                available to assistive technology as the page heading. */}
+            <h1 className="sr-only">{t("common.appName")}</h1>
+            <HeaderBreadcrumb
+              project={selectedProject}
+              onShowTranscript={() => {
+                if (!computed.isMessagesView) analyticsActions.switchToMessages();
+              }}
+            />
+          </>
+        ) : (
+          <div className="flex flex-col min-w-0">
+            <h1 className="text-sm font-semibold text-foreground truncate min-w-0">
+              {t("common.appName")}
             </h1>
-            {selectedProject && (
-              <>
-                <span className="text-muted-foreground/40 hidden 2xl:block">/</span>
-                <span className="text-sm text-muted-foreground truncate min-w-0 pointer-events-auto" title={selectedProject.actual_path}>
-                  {getProjectDisplayName(selectedProject)}
-                </span>
-              </>
-            )}
-            {!selectedProject && (
-              <h1 className="text-sm font-semibold text-foreground md:hidden">
-                {t('common.appName')}
-              </h1>
-            )}
-          </div>
-          {selectedSession ? (
-            <p
-              className="text-2xs text-muted-foreground truncate min-w-0 max-w-[60ch] pointer-events-auto"
-              title={selectedSession.summary || undefined}
-            >
-              <span className="text-muted-foreground/60 hidden md:inline">{t("session.title")}</span>{" "}
-              {selectedSession.summary ||
-                `${t("session.title")} ${selectedSession.session_id.slice(-8)}`}
-            </p>
-          ) : (
             <p className="text-2xs text-muted-foreground hidden md:block truncate min-w-0">{t('common.appDescription')}</p>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* Center: Quick Stats (when session selected) */}
@@ -289,6 +272,8 @@ export const Header = ({ analyticsActions, analyticsComputed, updater }: HeaderP
           </div>
         )}
 
+        <FocusModeButton className="hidden md:inline-flex" />
+
         {/* Refresh — rescans projects and reloads the selected session, so a
             second per-session refresh button is redundant. */}
         <TooltipButton
@@ -323,7 +308,9 @@ export const Header = ({ analyticsActions, analyticsComputed, updater }: HeaderP
   );
 };
 
-/* Segmented view tab: icon always, label from xl up. */
+/* Segmented view tab: icon always, plus the label of the active tab from xl
+   up. Inactive tabs stay icon-only (named by their tooltip and aria-label) so
+   the breadcrumb keeps its room even on wide screens. */
 interface ViewTabProps {
   icon: React.ComponentType<{ className?: string }>;
   label: string;
@@ -349,7 +336,7 @@ const ViewTab = ({ icon: Icon, label, isActive, isLoading, onClick, disabled }: 
       content={label}
     >
       <Icon className={cn("w-4 h-4", isLoading && "animate-spin")} />
-      <span className="hidden xl:inline">{label}</span>
+      {isActive && <span className="hidden xl:inline">{label}</span>}
     </TooltipButton>
   );
 };
