@@ -5,8 +5,8 @@
  * 직접 수정하지 마세요.
  *
  * 생성 명령: pnpm run generate:i18n-types
- * 생성 시간: 2026-09-25T22:04:41.695Z
- * 총 키 개수: 2014
+ * 생성 시간: 2026-09-25T22:05:55.217Z
+ * 총 키 개수: 2030
  * Namespace 수: 11
  */
 
@@ -442,7 +442,7 @@ export type AnalyticsKeys =
   | 'analytics.weeklyActivity';
 
 /**
- * session namespace의 번역 키 (260개)
+ * session namespace의 번역 키 (279개)
  * 파일: locales/{lang}/session.json
  */
 export type SessionKeys =
@@ -705,7 +705,26 @@ export type SessionKeys =
   | 'sessionPicker.cancelled'
   | 'sessionPicker.empty'
   | 'sessionPicker.subtitle'
-  | 'sessionPicker.title';
+  | 'sessionPicker.title'
+  | 'subagent.agentType'
+  | 'subagent.backTo'
+  | 'subagent.backToParent'
+  | 'subagent.contextAria'
+  | 'subagent.contextLabel'
+  | 'subagent.lastActivity'
+  | 'subagent.listAria'
+  | 'subagent.listTitle'
+  | 'subagent.model'
+  | 'subagent.next'
+  | 'subagent.nextTo'
+  | 'subagent.openTranscript'
+  | 'subagent.openTranscriptOf'
+  | 'subagent.position'
+  | 'subagent.positionAria'
+  | 'subagent.previous'
+  | 'subagent.previousTo'
+  | 'subagent.toggleList'
+  | 'subagent.workflowGroup';
 
 /**
  * settings namespace의 번역 키 (537개)
@@ -1529,7 +1548,7 @@ export type MessageKeys =
   | 'systemRow.taskNotification';
 
 /**
- * renderers namespace의 번역 키 (393개)
+ * renderers namespace의 번역 키 (390개)
  * 파일: locales/{lang}/renderers.json
  */
 export type RenderersKeys =
@@ -1791,17 +1810,14 @@ export type RenderersKeys =
   | 'rendererLabels.subject'
   | 'rendererLabels.task'
   | 'rendererLabels.type'
-  | 'renderers.agentTool.backToParent'
   | 'renderers.agentTool.background'
   | 'renderers.agentTool.isolation'
   | 'renderers.agentTool.messages'
   | 'renderers.agentTool.prompt'
   | 'renderers.agentTool.result'
-  | 'renderers.agentTool.subagentSessions'
   | 'renderers.agentTool.title'
   | 'renderers.agentTool.togglePrompt'
   | 'renderers.agentTool.toggleResult'
-  | 'renderers.agentTool.viewConversation'
   | 'renderers.containerUpload.description'
   | 'renderers.containerUpload.title'
   | 'renderers.globToolRenderer.path'
@@ -3101,17 +3117,14 @@ export type TranslationKey =
   | 'rendererLabels.subject'
   | 'rendererLabels.task'
   | 'rendererLabels.type'
-  | 'renderers.agentTool.backToParent'
   | 'renderers.agentTool.background'
   | 'renderers.agentTool.isolation'
   | 'renderers.agentTool.messages'
   | 'renderers.agentTool.prompt'
   | 'renderers.agentTool.result'
-  | 'renderers.agentTool.subagentSessions'
   | 'renderers.agentTool.title'
   | 'renderers.agentTool.togglePrompt'
   | 'renderers.agentTool.toggleResult'
-  | 'renderers.agentTool.viewConversation'
   | 'renderers.containerUpload.description'
   | 'renderers.containerUpload.title'
   | 'renderers.globToolRenderer.path'
@@ -3919,6 +3932,25 @@ export type TranslationKey =
   | 'structuredPatch.filePath'
   | 'structuredPatch.updatedFile'
   | 'structuredPatch.updatedFileContent'
+  | 'subagent.agentType'
+  | 'subagent.backTo'
+  | 'subagent.backToParent'
+  | 'subagent.contextAria'
+  | 'subagent.contextLabel'
+  | 'subagent.lastActivity'
+  | 'subagent.listAria'
+  | 'subagent.listTitle'
+  | 'subagent.model'
+  | 'subagent.next'
+  | 'subagent.nextTo'
+  | 'subagent.openTranscript'
+  | 'subagent.openTranscriptOf'
+  | 'subagent.position'
+  | 'subagent.positionAria'
+  | 'subagent.previous'
+  | 'subagent.previousTo'
+  | 'subagent.toggleList'
+  | 'subagent.workflowGroup'
   | 'summaryMessageRenderer.title'
   | 'systemMessageRenderer.empty'
   | 'systemMessageRenderer.hooks'
@@ -4203,6 +4235,7 @@ export type TranslationPrefix =
   | 'sizeGuard'
   | 'status'
   | 'structuredPatch'
+  | 'subagent'
   | 'summaryMessageRenderer'
   | 'systemMessageRenderer'
   | 'systemRow'

@@ -92,6 +92,17 @@ export interface SubagentSession {
   model?: string | null;
 }
 
+/**
+ * One level of subagent navigation, kept parallel to `parentSessionStack`:
+ * the subagent being viewed at that level and the parent's subagent list it
+ * was opened from, so previous/next sibling navigation survives loading the
+ * child transcript.
+ */
+export interface SubagentNavFrame {
+  subagent: SubagentSession;
+  siblings: SubagentSession[];
+}
+
 // ============================================================================
 // Search Filters
 // ============================================================================

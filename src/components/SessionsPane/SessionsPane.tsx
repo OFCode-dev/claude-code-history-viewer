@@ -4,6 +4,7 @@ import { MessageSquare } from "lucide-react";
 import { OverlayScrollbarsComponent } from "overlayscrollbars-react";
 import { cn } from "@/lib/utils";
 import { SessionList } from "@/components/ProjectTree/components/SessionList";
+import { SubagentsSection } from "./SubagentsSection";
 import { getProviderBadgeStyle, getProviderId, getProviderLabel } from "@/utils/providers";
 import type { ClaudeProject, ClaudeSession } from "@/types";
 
@@ -121,6 +122,11 @@ export function SessionsPane({
             />
           </OverlayScrollbarsComponent>
         </div>
+
+        {/* Docked below the list: it appears only once the subagents of a
+            newly selected session have loaded, so above the list it would
+            shift the rows under the pointer on every session switch. */}
+        <SubagentsSection />
       </div>
 
       {onResizeStart && (

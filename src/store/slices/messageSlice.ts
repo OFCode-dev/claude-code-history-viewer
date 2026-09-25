@@ -15,6 +15,7 @@ import type {
   ProjectStatsSummary,
   SessionComparison,
   SubagentSession,
+  SubagentNavFrame,
 } from "../../types";
 import { AppErrorType } from "../../types";
 import type { StateCreator } from "zustand";
@@ -36,6 +37,8 @@ import { nextRequestId, getRequestId } from "../../utils/requestId";
 import { supportsConversationBreakdown } from "../../utils/providers";
 import { normalizeDateFilterOptions } from "../../utils/date";
 import { getAgentIdFromProgress } from "../../components/MessageViewer/helpers/agentProgressHelpers";
+import { getActiveSubagentFrame } from "../../utils/subagentNavigation";
+import { getSubagentLabel } from "../../utils/subagentLabel";
 import {
   type WebUINavigationOptions,
   readWebUIDeepLink,
@@ -65,6 +68,12 @@ export interface MessageSliceState {
   // SubAgent navigation
   subagentSessions: SubagentSession[];
   parentSessionStack: ClaudeSession[];
+  /**
+   * One frame per `parentSessionStack` entry: the subagent viewed at that
+   * level plus the parent's subagent list (for previous/next). Read it through
+   * `getActiveSubagentFrame`, which ignores frames that fell out of sync.
+   */
+  subagentNavStack: SubagentNavFrame[];
   /** parentToolUseID → subagent file_path 매핑 (progress 메시지 기반, file_path는 유일 식별자) */
   toolUseToSubagentMap: Map<string, string>;
 }
@@ -177,6 +186,7 @@ const initialMessageState: MessageSliceState = {
   projectTokenStatsPagination: createInitialPaginationWithCount(TOKENS_STATS_PAGE_SIZE),
   subagentSessions: [],
   parentSessionStack: [],
+  subagentNavStack: [],
   toolUseToSubagentMap: EMPTY_SUBAGENT_MAP as Map<string, string>,
 };
 
@@ -439,7 +449,7 @@ export const createMessageSlice: StateCreator<
         isLoadingMessages: true,
         subagentSessions: [],
         toolUseToSubagentMap: EMPTY_SUBAGENT_MAP as Map<string, string>,
-        ...(preserveStack ? {} : { parentSessionStack: [] }),
+        ...(preserveStack ? {} : { parentSessionStack: [], subagentNavStack: [] }),
       });
 
       // Message filters intentionally persist across session switches (see
@@ -1056,38 +1066,70 @@ export const createMessageSlice: StateCreator<
 
   navigateToSubagent: async (subagent: SubagentSession) => {
     if (subagentNavInFlight) return;
-    const currentSession = get().selectedSession;
+    const state = get();
+    const currentSession = state.selectedSession;
     if (!currentSession) return;
+    // Already on screen — reloading would push the subagent onto its own stack.
+    if (currentSession.file_path === subagent.file_path) return;
 
     subagentNavInFlight = true;
     try {
-    // Push current session onto the navigation stack
-    set((state) => ({
-      parentSessionStack: [...state.parentSessionStack, currentSession],
-    }));
+      // A sibling of the subagent on screen replaces it at the same level so
+      // "Back" still returns to the shared parent; anything else (a subagent
+      // of the current session) opens one level deeper.
+      const activeFrame = getActiveSubagentFrame(state);
+      const isSibling =
+        activeFrame != null &&
+        activeFrame.siblings.some((s) => s.file_path === subagent.file_path);
 
-    // Create a synthetic ClaudeSession for the subagent
-    const syntheticSession: ClaudeSession = {
-      session_id: subagent.file_path,
-      actual_session_id: subagent.agent_id,
-      file_path: subagent.file_path,
-      project_name: currentSession.project_name,
-      message_count: subagent.message_count,
-      first_message_time: subagent.first_message_time ?? "",
-      last_message_time: subagent.last_message_time ?? "",
-      last_modified: subagent.last_message_time ?? "",
-      has_tool_use: false,
-      has_errors: false,
-      summary: subagent.summary ?? subagent.agent_id,
-      // Subagent files live under the parent session's provider storage, so
-      // they inherit its provider; leaving this unset would make selectSession
-      // fall back to "claude" and load an empty message list for other
-      // providers (codex, opencode, gemini, ...).
-      provider: currentSession.provider ?? "claude",
-    };
+      if (isSibling) {
+        set((s) => ({
+          subagentNavStack: [
+            ...s.subagentNavStack.slice(0, -1),
+            { subagent, siblings: activeFrame.siblings },
+          ],
+        }));
+      } else {
+        // Keep the parent's list with the frame: loading the child replaces
+        // `subagentSessions`, but previous/next must still see the siblings.
+        const siblings = state.subagentSessions.some(
+          (s) => s.file_path === subagent.file_path,
+        )
+          ? state.subagentSessions
+          : [subagent];
+        set((s) => ({
+          parentSessionStack: [...s.parentSessionStack, currentSession],
+          subagentNavStack: [...s.subagentNavStack, { subagent, siblings }],
+        }));
+      }
 
-    isSubagentNav = true;
-    await get().selectSession(syntheticSession);
+      // Sibling navigation keeps the parent of the subagent being replaced.
+      const parentSession = isSibling
+        ? get().parentSessionStack[get().parentSessionStack.length - 1] ?? currentSession
+        : currentSession;
+
+      // Create a synthetic ClaudeSession for the subagent
+      const syntheticSession: ClaudeSession = {
+        session_id: subagent.file_path,
+        actual_session_id: subagent.agent_id,
+        file_path: subagent.file_path,
+        project_name: parentSession.project_name,
+        message_count: subagent.message_count,
+        first_message_time: subagent.first_message_time ?? "",
+        last_message_time: subagent.last_message_time ?? "",
+        last_modified: subagent.last_message_time ?? "",
+        has_tool_use: false,
+        has_errors: false,
+        summary: getSubagentLabel(subagent),
+        // Subagent files live under the parent session's provider storage, so
+        // they inherit its provider; leaving this unset would make selectSession
+        // fall back to "claude" and load an empty message list for other
+        // providers (codex, opencode, gemini, ...).
+        provider: parentSession.provider ?? "claude",
+      };
+
+      isSubagentNav = true;
+      await get().selectSession(syntheticSession);
     } finally {
       subagentNavInFlight = false;
     }
@@ -1102,7 +1144,10 @@ export const createMessageSlice: StateCreator<
     try {
       const parentSession = stack[stack.length - 1]!;
       const remainingStack = stack.slice(0, -1);
-      set({ parentSessionStack: remainingStack });
+      set((s) => ({
+        parentSessionStack: remainingStack,
+        subagentNavStack: s.subagentNavStack.slice(0, remainingStack.length),
+      }));
 
       // remainingStack이 비어있으면 top-level로 복귀 → isSubagentNav=false여야
       // selectSession에서 sidechain 필터가 정상 적용됨.

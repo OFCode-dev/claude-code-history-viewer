@@ -1,0 +1,121 @@
+import { fireEvent, render, screen, within } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+import type { SubagentSession } from "@/types";
+import { englishT } from "@/test/utils/englishTranslator";
+import { SubagentList } from "./SubagentList";
+
+vi.mock("react-i18next", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("react-i18next")>()),
+  useTranslation: () => ({ t: englishT }),
+}));
+
+const sub = (agent_id: string, overrides: Partial<SubagentSession> = {}): SubagentSession => ({
+  agent_id,
+  file_path: `/p/s/subagents/agent-${agent_id}.jsonl`,
+  message_count: 12,
+  file_size: 10,
+  first_message_time: "2026-09-20T10:00:00Z",
+  last_message_time: "2026-09-20T10:05:00Z",
+  summary: "first prompt line of the task",
+  tool_use_id: `toolu_${agent_id}`,
+  workflow_run_id: null,
+  ...overrides,
+});
+
+const described = sub("a1", {
+  description: "Map the API error codes",
+  agent_type: "Explore",
+  model: "sonnet",
+});
+const summaryOnly = sub("b2", { summary: "Audit   the\nwebhook retries", message_count: 3 });
+const workflowAgent = sub("w3", {
+  description: "Run release workflow",
+  agent_type: "general-purpose",
+  model: "opus",
+  tool_use_id: null,
+  workflow_run_id: "wf_24f7",
+});
+
+describe("SubagentList", () => {
+  it("labels rows with the description, falling back to the summary", () => {
+    render(<SubagentList subagents={[described, summaryOnly]} onSelect={vi.fn()} />);
+
+    const rows = screen.getAllByRole("button");
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toHaveTextContent("Map the API error codes");
+    expect(rows[0]).not.toHaveTextContent("first prompt line");
+    expect(rows[1]).toHaveTextContent("Audit the webhook retries");
+  });
+
+  it("shows agent type and model badges and the message count", () => {
+    render(<SubagentList subagents={[described, summaryOnly]} onSelect={vi.fn()} />);
+
+    const row = screen.getByRole("button", { name: /Map the API error codes/ });
+    expect(within(row).getByTitle("Agent type: Explore")).toHaveTextContent("Explore");
+    expect(within(row).getByTitle("Model: sonnet")).toHaveTextContent("sonnet");
+    expect(row).toHaveTextContent("12 messages");
+
+    // No meta.json → no badges, but the row still lists.
+    const plain = screen.getByRole("button", { name: /Audit the webhook retries/ });
+    expect(within(plain).queryByTitle(/Agent type/)).toBeNull();
+    expect(within(plain).queryByTitle(/Model/)).toBeNull();
+    expect(plain).toHaveTextContent("3 messages");
+  });
+
+  it("groups workflow agents under their run after the flat subagents", () => {
+    render(
+      <SubagentList subagents={[workflowAgent, described, summaryOnly]} onSelect={vi.fn()} />,
+    );
+
+    const lists = screen.getAllByRole("list");
+    expect(lists).toHaveLength(2);
+    expect(within(lists[0]!).getAllByRole("button").map((b) => b.getAttribute("title"))).toEqual([
+      "Map the API error codes",
+      "Audit the webhook retries",
+    ]);
+    expect(screen.getByRole("list", { name: "Workflow wf_24f7" })).toBe(lists[1]);
+    expect(within(lists[1]!).getByRole("button")).toHaveTextContent("Run release workflow");
+  });
+
+  it("marks the active subagent with aria-current", () => {
+    render(
+      <SubagentList
+        subagents={[described, summaryOnly]}
+        activeFilePath={summaryOnly.file_path}
+        onSelect={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: /Audit/ })).toHaveAttribute("aria-current", "true");
+    expect(screen.getByRole("button", { name: /Map the API/ })).not.toHaveAttribute("aria-current");
+  });
+
+  it("calls onSelect with the clicked subagent", () => {
+    const onSelect = vi.fn();
+    render(<SubagentList subagents={[described, summaryOnly]} onSelect={onSelect} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /Audit/ }));
+    expect(onSelect).toHaveBeenCalledWith(summaryOnly);
+  });
+
+  it("moves focus with the arrow, Home and End keys across groups", () => {
+    render(
+      <SubagentList subagents={[described, summaryOnly, workflowAgent]} onSelect={vi.fn()} />,
+    );
+    const [first, second, third] = screen.getAllByRole("button");
+
+    first!.focus();
+    fireEvent.keyDown(first!, { key: "ArrowDown" });
+    expect(second).toHaveFocus();
+    fireEvent.keyDown(second!, { key: "ArrowDown" });
+    expect(third).toHaveFocus();
+    fireEvent.keyDown(third!, { key: "ArrowDown" });
+    expect(third).toHaveFocus();
+    fireEvent.keyDown(third!, { key: "Home" });
+    expect(first).toHaveFocus();
+    fireEvent.keyDown(first!, { key: "End" });
+    expect(third).toHaveFocus();
+    fireEvent.keyDown(third!, { key: "ArrowUp" });
+    expect(second).toHaveFocus();
+  });
+});

@@ -197,7 +197,7 @@ export {
 // ============================================================================
 
 // Session State
-export type { AppState, SubagentSession } from "./session.types";
+export type { AppState, SubagentNavFrame, SubagentSession } from "./session.types";
 
 // Stats Types
 export type {

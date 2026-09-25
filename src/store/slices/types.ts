@@ -25,6 +25,7 @@ import type {
   StatsMode,
   MetricMode,
   SubagentSession,
+  SubagentNavFrame,
 } from "../../types";
 import type { ProjectTokenStatsPagination } from "./messageSlice";
 import type { AnalyticsState, AnalyticsViewType } from "../../types/analytics";
@@ -130,6 +131,8 @@ export interface AppStoreState {
   projectTokenStatsPagination: ProjectTokenStatsPagination;
   subagentSessions: SubagentSession[];
   parentSessionStack: ClaudeSession[];
+  /** Parallel to `parentSessionStack`; read it through `getActiveSubagentFrame`. */
+  subagentNavStack: SubagentNavFrame[];
   toolUseToSubagentMap: Map<string, string>;
 
   // Search state

@@ -12,6 +12,8 @@ import { Renderer } from "@/shared/RendererHeader";
 import { getVariantStyles, layout } from "../../renderers";
 import { Markdown } from "../../common/Markdown";
 import { useAppStore } from "../../../store/useAppStore";
+import { getSubagentLabel } from "@/utils/subagentLabel";
+import { SubagentMetaBadges } from "../../subagents/SubagentMetaBadges";
 import type { Props } from "./shared";
 import { str, isError } from "./shared";
 import { StatusBadge } from "./StatusBadge";
@@ -126,14 +128,17 @@ export const WorkflowCard = memo(function WorkflowCard({ toolUse, toolResults }:
                     onClick={() => { void navigateToSubagent(agent); }}
                     className={cn(
                       "w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-primary/5 transition-colors",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
                       layout.smallText,
                     )}
-                    aria-label={t("renderers.agentTool.viewConversation", { defaultValue: "View Conversation" })}
+                    aria-label={t("subagent.openTranscriptOf", { label: getSubagentLabel(agent) })}
+                    title={getSubagentLabel(agent)}
                   >
-                    <ExternalLink className="w-3.5 h-3.5 shrink-0 text-primary" />
+                    <ExternalLink className="w-3.5 h-3.5 shrink-0 text-primary" aria-hidden="true" />
                     <span className="truncate flex-1 text-foreground/90">
-                      {agent.summary || agent.agent_id}
+                      {getSubagentLabel(agent)}
                     </span>
+                    <SubagentMetaBadges subagent={agent} className="shrink-0 hidden sm:inline-flex" />
                     <span className="shrink-0 text-muted-foreground">
                       {t("renderers.agentTool.messages", {
                         defaultValue: "{{count}} messages",

@@ -16,6 +16,9 @@ import { str, isError } from "./shared";
 import { StatusBadge } from "./StatusBadge";
 import { ResultBlock } from "./ResultBlock";
 import { ToolIdBadge } from "./ToolIdBadge";
+import { useAppStore } from "../../../store/useAppStore";
+import { useSubagentForToolUse } from "../../subagents/useSubagentForToolUse";
+import { getSubagentLabel } from "@/utils/subagentLabel";
 
 function extractAgentResultText(results: ToolResultLike[]): string | null {
   for (const r of results) {
@@ -46,12 +49,15 @@ function formatTokens(n: number): string {
   return `${(n / 1_000_000).toFixed(1)}M`;
 }
 
-export const AgentCard = memo(function AgentCard({ toolUse, toolResults, onViewSubagent }: Props) {
+export const AgentCard = memo(function AgentCard({ toolUse, toolResults }: Props) {
   const { t } = useTranslation();
   const [isPromptOpen, setIsPromptOpen] = useState(false);
   const [isResultOpen, setIsResultOpen] = useState(false);
 
   const toolId = (toolUse.id as string) || "";
+  // The transcript this call spawned, when the session's subagents identify it.
+  const subagent = useSubagentForToolUse(toolId);
+  const navigateToSubagent = useAppStore((s) => s.navigateToSubagent);
   const input = (toolUse.input as Record<string, unknown>) ?? {};
   const description = str(input, "description") ?? "";
   const prompt = str(input, "prompt") ?? "";
@@ -88,6 +94,33 @@ export const AgentCard = memo(function AgentCard({ toolUse, toolResults, onViewS
               <span className={cn("px-1.5 py-0.5", layout.rounded, "bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30")}>
                 {t("renderers.agentTool.background", { defaultValue: "background" })}
               </span>
+            )}
+            {/* Open the spawned subagent's transcript — in the header so it
+                stays reachable while the card is collapsed; left out of
+                screenshot captures, where it cannot be clicked. */}
+            {subagent && (
+              <button
+                type="button"
+                onClick={() => {
+                  void navigateToSubagent(subagent);
+                }}
+                className={cn(
+                  "inline-flex items-center gap-1 px-2 py-0.5 font-medium",
+                  "in-[[data-capture-root]]:hidden",
+                  layout.rounded,
+                  "bg-primary/10 text-primary hover:bg-primary/20 transition-colors",
+                  "border border-primary/20",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                )}
+                aria-label={t("subagent.openTranscriptOf", { label: getSubagentLabel(subagent) })}
+                title={t("renderers.agentTool.messages", {
+                  defaultValue: "{{count}} messages",
+                  count: subagent.message_count,
+                })}
+              >
+                <ExternalLink className="w-3 h-3" aria-hidden="true" />
+                {t("subagent.openTranscript")}
+              </button>
             )}
             <StatusBadge results={toolResults} />
             <ToolIdBadge toolId={toolId} badgeClassName={taskStyles.badge} badgeTextClassName={taskStyles.badgeText} />
@@ -145,26 +178,6 @@ export const AgentCard = memo(function AgentCard({ toolUse, toolResults, onViewS
           </div>
         ) : (
           <ResultBlock results={toolResults} />
-        )}
-
-        {/* View SubAgent conversation */}
-        {onViewSubagent && (
-          <button
-            type="button"
-            onClick={() => {
-              onViewSubagent(toolId);
-            }}
-            className={cn(
-              "mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium",
-              layout.rounded,
-              "bg-primary/10 text-primary hover:bg-primary/20 transition-colors",
-              "border border-primary/20",
-            )}
-            aria-label={t("renderers.agentTool.viewConversation", { defaultValue: "View Conversation" })}
-          >
-            <ExternalLink className="w-3.5 h-3.5" />
-            {t("renderers.agentTool.viewConversation", { defaultValue: "View Conversation" })}
-          </button>
         )}
       </Renderer.Content>
     </Renderer>
