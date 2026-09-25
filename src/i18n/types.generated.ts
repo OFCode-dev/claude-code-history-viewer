@@ -5,8 +5,8 @@
  * 직접 수정하지 마세요.
  *
  * 생성 명령: pnpm run generate:i18n-types
- * 생성 시간: 2026-09-25T19:35:52.609Z
- * 총 키 개수: 1964
+ * 생성 시간: 2026-09-25T19:36:39.297Z
+ * 총 키 개수: 1983
  * Namespace 수: 11
  */
 
@@ -1370,7 +1370,7 @@ export type ErrorKeys =
   | 'error.viewDetails';
 
 /**
- * message namespace의 번역 키 (103개)
+ * message namespace의 번역 키 (122개)
  * 파일: locales/{lang}/message.json
  */
 export type MessageKeys =
@@ -1476,7 +1476,26 @@ export type MessageKeys =
   | 'navigator.showParallelTasks'
   | 'navigator.title'
   | 'navigator.toggle'
-  | 'navigator.userOnly';
+  | 'navigator.userOnly'
+  | 'promptCard.ariaLabel'
+  | 'promptCard.ariaLabelWithTurn'
+  | 'promptCard.collapse'
+  | 'promptCard.copied'
+  | 'promptCard.copy'
+  | 'promptCard.expand'
+  | 'promptCard.hiddenLines_one'
+  | 'promptCard.hiddenLines_other'
+  | 'promptCard.parentAgent'
+  | 'promptCard.taskAriaLabel'
+  | 'promptCard.turn'
+  | 'promptCard.you'
+  | 'systemRow.commandOutput'
+  | 'systemRow.compactSummary'
+  | 'systemRow.empty'
+  | 'systemRow.interrupt'
+  | 'systemRow.shellCommand'
+  | 'systemRow.systemContext'
+  | 'systemRow.taskNotification';
 
 /**
  * renderers namespace의 번역 키 (393개)
@@ -2915,6 +2934,18 @@ export type TranslationKey =
   | 'project.worktreeGroup'
   | 'project.worktreeGrouping'
   | 'project.worktrees'
+  | 'promptCard.ariaLabel'
+  | 'promptCard.ariaLabelWithTurn'
+  | 'promptCard.collapse'
+  | 'promptCard.copied'
+  | 'promptCard.copy'
+  | 'promptCard.expand'
+  | 'promptCard.hiddenLines_one'
+  | 'promptCard.hiddenLines_other'
+  | 'promptCard.parentAgent'
+  | 'promptCard.taskAriaLabel'
+  | 'promptCard.turn'
+  | 'promptCard.you'
   | 'queueOperationRenderer.descriptions.dequeue'
   | 'queueOperationRenderer.descriptions.enqueue'
   | 'queueOperationRenderer.descriptions.popAll'
@@ -3840,6 +3871,13 @@ export type TranslationKey =
   | 'systemMessageRenderer.subtypes.turnDuration'
   | 'systemMessageRenderer.title'
   | 'systemMessageRenderer.trigger'
+  | 'systemRow.commandOutput'
+  | 'systemRow.compactSummary'
+  | 'systemRow.empty'
+  | 'systemRow.interrupt'
+  | 'systemRow.shellCommand'
+  | 'systemRow.systemContext'
+  | 'systemRow.taskNotification'
   | 'taskNotification.agentTask'
   | 'taskNotification.agentTasks'
   | 'taskNotification.details'
@@ -4087,6 +4125,7 @@ export type TranslationPrefix =
   | 'navigator'
   | 'progressRenderer'
   | 'project'
+  | 'promptCard'
   | 'queueOperationRenderer'
   | 'recentEdits'
   | 'redactedThinkingRenderer'
@@ -4104,6 +4143,7 @@ export type TranslationPrefix =
   | 'structuredPatch'
   | 'summaryMessageRenderer'
   | 'systemMessageRenderer'
+  | 'systemRow'
   | 'taskNotification'
   | 'taskOperation'
   | 'terminalExecutionResultRenderer'

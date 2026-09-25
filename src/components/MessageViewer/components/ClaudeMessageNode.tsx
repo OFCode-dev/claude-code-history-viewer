@@ -25,8 +25,12 @@ import {
   AgentTaskGroupRenderer,
   TaskOperationGroupRenderer,
 } from "../../toolResultRenderer";
+import { PromptCard } from "../../messageRenderer/PromptCard";
+import { SystemRecordRow } from "../../messageRenderer/SystemRecordRow";
+import { toSystemRecordKind } from "../../messageRenderer/systemRecordSummary";
 import { getEffectiveContentTypes } from "../../../store/slices/filterSlice";
 import { extractClaudeMessageContent } from "../../../utils/messageUtils";
+import { getUserMessageKind, getUserMessageText } from "../../../utils/userMessageKind";
 import { isEmptyMessage } from "../helpers/messageHelpers";
 import {
   isToolUseContent,
@@ -395,6 +399,81 @@ export const ClaudeMessageNode = React.memo(
                 currentMatchIndex={currentMatchIndex}
                 expandKey={message.uuid}
               />
+            </div>
+          </div>
+        </ExpandKeyProvider>
+      );
+    }
+
+    // User records: a person's prompt renders as a prompt card; records nobody
+    // typed (command output, notifications, harness context, interrupts…) as a
+    // compact muted row. Tool results and slash commands keep the default path.
+    const userKind = message.type === "user" ? getUserMessageKind(message) : null;
+    const userText = userKind != null ? getUserMessageText(message) : "";
+    const systemRecordKind = toSystemRecordKind(userKind, userText);
+
+    if (userKind === "prompt" || systemRecordKind) {
+      const promptText = extractClaudeMessageContent(message);
+      const hasExtraBlocks =
+        userKind === "prompt" &&
+        Array.isArray(message.content) &&
+        message.content.some(
+          (block, index, blocks) =>
+            block.type !== "text" ||
+            blocks.findIndex((b) => b.type === "text") !== index,
+        );
+      return (
+        <ExpandKeyProvider value={message.uuid}>
+          <div
+            data-message-uuid={message.uuid}
+            onClick={handleSelectionClick}
+            className={cn(
+              "relative w-full px-2 md:px-4 transition-all duration-200",
+              systemRecordKind ? "py-0.5" : "py-2",
+              isCurrentMatch && "bg-highlight-current ring-2 ring-warning",
+              isMatch && !isCurrentMatch && "bg-highlight",
+              isCaptureMode &&
+                !isCurrentMatch &&
+                !isMatch &&
+                !isSelected &&
+                CAPTURE_HOVER_BG,
+              selectionHighlight,
+              selectionCursor,
+            )}
+          >
+            {CaptureHideButton}
+            <div className="max-w-4xl mx-auto">
+              {systemRecordKind ? (
+                <SystemRecordRow
+                  kind={systemRecordKind}
+                  text={userText}
+                  timestamp={message.timestamp}
+                  searchQuery={searchQuery}
+                  isCurrentMatch={isCurrentMatch}
+                  currentMatchIndex={currentMatchIndex}
+                />
+              ) : (
+                <PromptCard
+                  uuid={message.uuid}
+                  timestamp={message.timestamp}
+                  text={promptText}
+                  searchQuery={searchQuery}
+                  isCurrentMatch={isCurrentMatch}
+                  currentMatchIndex={currentMatchIndex}
+                  author={isInSubagent ? "parentAgent" : "user"}
+                >
+                  {hasExtraBlocks && Array.isArray(message.content) && (
+                    <ClaudeContentArrayRenderer
+                      content={message.content}
+                      searchQuery={searchQuery}
+                      filterType={filterType}
+                      isCurrentMatch={isCurrentMatch}
+                      currentMatchIndex={currentMatchIndex}
+                      skipFirstText={!!promptText}
+                    />
+                  )}
+                </PromptCard>
+              )}
             </div>
           </div>
         </ExpandKeyProvider>

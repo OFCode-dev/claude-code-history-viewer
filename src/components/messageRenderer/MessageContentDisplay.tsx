@@ -10,6 +10,7 @@ import { layout } from "@/components/renderers";
 import { cn } from "@/lib/utils";
 import { REMARK_PLUGINS, REHYPE_PLUGINS } from "@/lib/markdownPlugins";
 import { useCaptureExpandState } from "@/contexts/CaptureExpandContext";
+import { CONVERSATION_CARD_WIDTH } from "./conversationLayout";
 
 // Source lines shown before "Show more". 3 collapsed almost every reply behind
 // a click; 12 keeps typical answers fully visible and only folds long dumps.
@@ -201,9 +202,12 @@ export const MessageContentDisplay: React.FC<MessageContentDisplayProps> = ({
     const showPreview = textInfo.needsExpand && !isExpanded && !searchQuery;
     const displayContent = showPreview ? textInfo.preview : content;
 
+    // Human prompts render as PromptCard; this is the fallback for other user
+    // records that carry plain text. Left-aligned and neutral so it does not
+    // read as something the person typed.
     return (
-      <div className="mb-3 flex justify-end">
-        <div className="max-w-[85%] md:max-w-md lg:max-w-lg bg-accent text-accent-foreground rounded-2xl px-4 py-3 relative group shadow-sm">
+      <div className="mb-3 flex justify-start">
+        <div className={cn(CONVERSATION_CARD_WIDTH, "bg-muted/40 text-foreground rounded-lg px-4 py-2.5 relative group border border-border")}>
           <div className={cn(
             "whitespace-pre-wrap break-words",
             layout.bodyText
@@ -226,7 +230,7 @@ export const MessageContentDisplay: React.FC<MessageContentDisplayProps> = ({
               onClick={() => setIsExpanded(prev => !prev)}
               className={cn(
                 "flex items-center gap-1 mt-1.5 text-2xs",
-                "text-accent-foreground/70 hover:text-accent-foreground",
+                "text-muted-foreground hover:text-foreground",
                 "transition-colors"
               )}
             >
@@ -245,7 +249,7 @@ export const MessageContentDisplay: React.FC<MessageContentDisplayProps> = ({
           <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
             <TooltipButton
               onClick={() => navigator.clipboard.writeText(content)}
-              className="p-1 rounded-full transition-colors bg-accent/80 hover:bg-accent/60 text-accent-foreground"
+              className="p-1 rounded-full transition-colors bg-muted hover:bg-muted/80 text-muted-foreground"
               content={t("messageContentDisplay.copyMessage")}
             >
               <Copy className={layout.iconSizeSmall} />
@@ -260,7 +264,7 @@ export const MessageContentDisplay: React.FC<MessageContentDisplayProps> = ({
 
     return (
       <div className="mb-3 flex justify-start">
-        <div className="max-w-[95%] md:max-w-2xl bg-secondary text-secondary-foreground rounded-2xl px-4 py-3 relative group shadow-sm border border-border">
+        <div className={cn(CONVERSATION_CARD_WIDTH, "bg-secondary text-secondary-foreground rounded-2xl px-4 py-3 relative group shadow-sm border border-border")}>
           {/* 검색 중일 때는 plain text로 렌더링 (성능 + 하이라이팅) */}
           {searchQuery ? (
             <div className={`whitespace-pre-wrap break-words ${layout.bodyText}`}>
