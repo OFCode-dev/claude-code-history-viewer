@@ -3,7 +3,8 @@
  * Nested directory tree for the explorer's "Group by directory" mode.
  *
  * Projects are placed by their working directory (`actual_path`) under a root:
- * the user's home (`~`), a Windows drive (`C:`) or the POSIX root (`/`).
+ * the user's home (`~`), a Windows drive (`C:`), a UNC share
+ * (`\\server\share`) or the POSIX root (`/`).
  *
  * - A folder row exists only when its subtree holds at least two projects; a
  *   lone project is lifted to the nearest folder row and keeps the skipped
@@ -39,7 +40,10 @@ export interface DirectoryFolderNode {
   key: string;
   /** Absolute path of the deepest folder in a compacted chain. */
   path: string;
-  /** Row label: `~`, `/`, `C:`, a folder name or a compacted chain (`crawl/reports`). */
+  /**
+   * Row label: `~`, `/`, `C:`, a folder name or a compacted chain
+   * (`crawl/reports`; Windows paths join with `\`).
+   */
   label: string;
   isRoot: boolean;
   /** Number of projects (working directories) in the subtree, `self` included. */
@@ -87,6 +91,11 @@ function isWindowsStyle(path: string): boolean {
   return /^[\\/]?[A-Za-z]:(?:[\\/]|$)/.test(path) || path.includes("\\");
 }
 
+/** `\\server\share\…` (or `//server/share/…`). */
+function isUncPath(path: string): boolean {
+  return /^[\\/]{2}[^\\/]/.test(path);
+}
+
 /** Comparable form of a path: `/`-joined parts, lower-cased for Windows paths. */
 export function getPathIdentity(path: string): string {
   const joined = splitPathParts(path).join("/");
@@ -112,16 +121,22 @@ function locationPathOf(project: ClaudeProject): string {
 interface RootSpec {
   id: string;
   label: string;
-  /** Absolute base path (`/home/jack`, `C:\`, `/`). */
+  /** Absolute base path (`/home/jack`, `C:\`, `\\server\share`, `/`). */
   path: string;
   order: number;
+}
+
+/** `detectHomeDir` plus the POSIX superuser's home, which is not under `/home`. */
+function homeDirOf(path: string): string | null {
+  if (/^\/root(?:\/|$)/.test(path)) return "/root";
+  return detectHomeDir([path]);
 }
 
 /** The home directory shared by most projects; other users' homes sit under `/`. */
 function pickHomeDir(paths: string[]): string | null {
   const counts = new Map<string, { home: string; count: number }>();
   for (const path of paths) {
-    const home = detectHomeDir([path]);
+    const home = homeDirOf(path);
     if (!home) continue;
     const id = getPathIdentity(home);
     const entry = counts.get(id);
@@ -156,6 +171,14 @@ function resolveRoot(
     }
   }
 
+  if (isUncPath(path) && parts.length >= 2) {
+    const label = `\\\\${parts[0]}\\${parts[1]}`;
+    return {
+      root: { id: `unc:${label.toLowerCase()}`, label, path: label, order: 2 },
+      rest: parts.slice(2),
+    };
+  }
+
   const drive = parts[0];
   if (drive && /^[A-Za-z]:$/.test(drive)) {
     const label = drive.toUpperCase();
@@ -165,7 +188,7 @@ function resolveRoot(
     };
   }
 
-  return { root: { id: "posix", label: "/", path: "/", order: 2 }, rest: parts };
+  return { root: { id: "posix", label: "/", path: "/", order: 3 }, rest: parts };
 }
 
 function joinPath(base: string, segments: string[]): string {
@@ -175,11 +198,17 @@ function joinPath(base: string, segments: string[]): string {
   return `${trimmed}${separator}${segments.join(separator)}`;
 }
 
-function joinLabel(base: string, segments: string[]): string {
+/** Labels follow the root's platform: `C:\Users\me` and `~\src` on Windows. */
+function labelSeparator(rootPath: string): string {
+  return isWindowsStyle(rootPath) ? "\\" : "/";
+}
+
+function joinLabel(base: string, segments: string[], rootPath: string): string {
   if (segments.length === 0) return base;
-  return base.endsWith("/")
-    ? `${base}${segments.join("/")}`
-    : [base, ...segments].join("/");
+  const separator = labelSeparator(rootPath);
+  return base.endsWith(separator)
+    ? `${base}${segments.join(separator)}`
+    : [base, ...segments].join(separator);
 }
 
 // ---------------------------------------------------------------------------
@@ -202,13 +231,14 @@ function firstChild(node: TrieNode): TrieNode | undefined {
   return node.children.values().next().value;
 }
 
-const compareNames = (a: string, b: string) =>
-  a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
+// One shared collator: `localeCompare` with options builds a new one per call.
+const nameCollator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
+const compareNames = (a: string, b: string) => nameCollator.compare(a, b);
 
 const leafOf = (path: string) => splitPathParts(path).at(-1) ?? path;
 
 /** A subtree holding one project: walk down to it, remembering the skipped folders. */
-function liftSingleProject(node: TrieNode): DirectoryProjectNode {
+function liftSingleProject(node: TrieNode, rootPath: string): DirectoryProjectNode {
   const skipped: string[] = [];
   let current = node;
   // count === 1 without an own location → exactly one child holds the project.
@@ -224,18 +254,24 @@ function liftSingleProject(node: TrieNode): DirectoryProjectNode {
     key: getLocationKey(location.path),
     path: location.path,
     location,
-    relativeParent: skipped.join("/"),
+    relativeParent: skipped.join(labelSeparator(rootPath)),
   };
 }
 
-function buildChildren(node: TrieNode, folderPath: string): DirectoryTreeNode[] {
+function buildChildren(
+  node: TrieNode,
+  folderPath: string,
+  rootPath: string
+): DirectoryTreeNode[] {
   const folders: DirectoryFolderNode[] = [];
   const projects: DirectoryProjectNode[] = [];
   for (const child of node.children.values()) {
     if (child.count === 1) {
-      projects.push(liftSingleProject(child));
+      projects.push(liftSingleProject(child, rootPath));
     } else if (child.count > 1) {
-      folders.push(buildFolder(child, joinPath(folderPath, [child.name]), child.name, false));
+      folders.push(
+        buildFolder(child, joinPath(folderPath, [child.name]), child.name, false, rootPath)
+      );
     }
   }
   folders.sort((a, b) => compareNames(a.label, b.label));
@@ -248,7 +284,8 @@ function buildFolder(
   node: TrieNode,
   ownPath: string,
   baseLabel: string,
-  isRoot: boolean
+  isRoot: boolean,
+  rootPath: string
 ): DirectoryFolderNode {
   const chain: string[] = [];
   let current = node;
@@ -266,11 +303,11 @@ function buildFolder(
     kind: "folder",
     key: getFolderKey(ownPath),
     path,
-    label: joinLabel(baseLabel, chain),
+    label: joinLabel(baseLabel, chain, rootPath),
     isRoot,
     projectCount: current.count,
     self: current.location,
-    children: buildChildren(current, path),
+    children: buildChildren(current, path, rootPath),
   };
 }
 
@@ -324,7 +361,7 @@ export function buildDirectoryTree(projects: ClaudeProject[]): DirectoryTree {
 
   const rootNodes = Array.from(roots.values())
     .sort((a, b) => a.spec.order - b.spec.order || compareNames(a.spec.label, b.spec.label))
-    .map(({ spec, trie }) => buildFolder(trie, spec.path, spec.label, true));
+    .map(({ spec, trie }) => buildFolder(trie, spec.path, spec.label, true, spec.path));
 
   return { roots: rootNodes, temporary, unavailable };
 }

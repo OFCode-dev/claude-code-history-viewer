@@ -177,7 +177,7 @@ describe("buildDirectoryTree", () => {
       project("D:\\work\\lib"),
     ]);
 
-    expect(tree.roots.map((root) => root.label)).toEqual(["~/src", "D:/work"]);
+    expect(tree.roots.map((root) => root.label)).toEqual(["~\\src", "D:\\work"]);
     expect(tree.roots[0]).toMatchObject({ key: "dir:C:\\Users\\Jack", path: "C:\\Users\\Jack\\src" });
     expect(tree.roots[1]).toMatchObject({ key: "dir:D:\\", path: "D:\\work" });
     const api = tree.roots[0]!.children.find(
@@ -185,6 +185,29 @@ describe("buildDirectoryTree", () => {
     );
     expect(api?.location.projects).toHaveLength(2);
     expect(tree.roots[0]!.projectCount).toBe(2);
+  });
+
+  it("gives UNC shares their own root with Windows separators", () => {
+    const tree = buildDirectoryTree([
+      project("\\\\nas\\team\\repos\\a"),
+      project("\\\\nas\\team\\repos\\deep\\b"),
+      project("/srv/x"),
+    ]);
+
+    expect(tree.roots.map((root) => root.label)).toEqual(["\\\\nas\\team\\repos", "/"]);
+    expect(tree.roots[0]).toMatchObject({
+      key: "dir:\\\\nas\\team",
+      path: "\\\\nas\\team\\repos",
+    });
+    expect(outline(tree.roots[0]!)).toBe("\\\\nas\\team\\repos[2]{a,b(deep)}");
+    expect(outline(tree.roots[1]!)).toBe("/[1]{x(srv)}");
+  });
+
+  it("treats /root as the home directory", () => {
+    const tree = buildDirectoryTree([project("/root/a"), project("/root/b"), project("/opt/c")]);
+
+    expect(tree.roots.map((root) => root.label)).toEqual(["~", "/"]);
+    expect(tree.roots[0]!.path).toBe("/root");
   });
 
   it("merges providers recording the same folder into one location", () => {
