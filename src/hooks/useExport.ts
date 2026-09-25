@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import type { ExportFormat } from "@/types/export";
 import type { ClaudeMessage } from "@/types";
 import { useAppStore } from "@/store/useAppStore";
+import { getEffectiveContentTypes } from "@/store/slices/filterSlice";
 
 function sanitizeFilename(name: string): string {
   // Remove filesystem-invalid characters (Windows: <>:"/\|?*, also control chars)
@@ -55,7 +56,8 @@ export function useExport(
         let mimeType: string;
 
         // Pass content type filter to exporters when filters are active
-        const ctFilter = isMessageFilterActive() ? messageFilter.contentTypes : undefined;
+        // The dialogue view exports prose only, like it displays.
+        const ctFilter = isMessageFilterActive() ? getEffectiveContentTypes(messageFilter) : undefined;
         // When exporting a subagent session directly, its messages are all
         // sidechain — keep them instead of filtering them out (issue #433).
         const exportOptions = { includeSidechain };

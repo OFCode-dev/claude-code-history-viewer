@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { create, type StoreApi } from "zustand";
 import {
   createFilterSlice,
+  getEffectiveContentTypes,
   type FilterSlice,
 } from "../store/slices/filterSlice";
 import type { FullAppStore } from "../store/slices/types";
@@ -89,8 +90,71 @@ describe("filterSlice message-filter persistence", () => {
         commands: true,
         parallelTasks: true,
       },
+      dialogue: false,
     });
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ roles: { user: "nope" } }));
     expect(makeStore().getState().messageFilter.roles.user).toBe(true);
+  });
+
+  it("toggles the dialogue view without touching the individual toggles", () => {
+    const store = makeStore();
+    store.getState().toggleContentType("thinking");
+    store.getState().toggleDialogue();
+
+    const { messageFilter } = store.getState();
+    expect(messageFilter.dialogue).toBe(true);
+    expect(messageFilter.contentTypes.thinking).toBe(false);
+    expect(messageFilter.contentTypes.toolCalls).toBe(true);
+    expect(store.getState().isMessageFilterActive()).toBe(true);
+    expect(readSaved().dialogue).toBe(true);
+
+    store.getState().toggleDialogue();
+    expect(store.getState().messageFilter.dialogue).toBe(false);
+    // The toggles the user set before entering the dialogue view come back.
+    expect(store.getState().messageFilter.contentTypes.thinking).toBe(false);
+    expect(store.getState().messageFilter.contentTypes.toolCalls).toBe(true);
+  });
+
+  it("restores the dialogue flag on a fresh slice and resets it with the filters", () => {
+    makeStore().getState().toggleDialogue();
+    const restored = makeStore();
+    expect(restored.getState().messageFilter.dialogue).toBe(true);
+
+    restored.getState().resetMessageFilter();
+    expect(restored.getState().messageFilter.dialogue).toBe(false);
+    expect(restored.getState().isMessageFilterActive()).toBe(false);
+  });
+
+  it("treats a missing or malformed dialogue flag as off", () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      roles: { user: true, assistant: true },
+      contentTypes: { text: true, thinking: true, toolCalls: true, commands: true, parallelTasks: true },
+      dialogue: "yes",
+    }));
+    expect(makeStore().getState().messageFilter.dialogue).toBe(false);
+  });
+});
+
+describe("getEffectiveContentTypes", () => {
+  const base = {
+    roles: { user: true, assistant: false },
+    contentTypes: { text: false, thinking: true, toolCalls: true, commands: true, parallelTasks: true },
+  };
+
+  it("returns the individual toggles when the dialogue view is off", () => {
+    expect(getEffectiveContentTypes({ ...base, dialogue: false })).toEqual(base.contentTypes);
+  });
+
+  it("keeps only text when the dialogue view is on", () => {
+    // parallelTasks stays true: the dialogue rules already drop tool calls and
+    // notifications, and category filtering would also drop assistant prose that
+    // happens to share a record with a parallel spawn.
+    expect(getEffectiveContentTypes({ ...base, dialogue: true })).toEqual({
+      text: true,
+      thinking: false,
+      toolCalls: false,
+      commands: false,
+      parallelTasks: true,
+    });
   });
 });

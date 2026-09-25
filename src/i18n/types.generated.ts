@@ -5,8 +5,8 @@
  * 직접 수정하지 마세요.
  *
  * 생성 명령: pnpm run generate:i18n-types
- * 생성 시간: 2026-09-13T09:40:55.294Z
- * 총 키 개수: 1962
+ * 생성 시간: 2026-09-25T21:06:02.002Z
+ * 총 키 개수: 1992
  * Namespace 수: 11
  */
 
@@ -1370,10 +1370,13 @@ export type ErrorKeys =
   | 'error.viewDetails';
 
 /**
- * message namespace의 번역 키 (101개)
+ * message namespace의 번역 키 (131개)
  * 파일: locales/{lang}/message.json
  */
 export type MessageKeys =
+  | 'dialogue.emptyWindow'
+  | 'dialogue.toggle'
+  | 'dialogue.tooltip'
   | 'filter.active'
   | 'filter.content.commands'
   | 'filter.content.parallelTasks'
@@ -1381,11 +1384,16 @@ export type MessageKeys =
   | 'filter.content.thinking'
   | 'filter.content.toolCalls'
   | 'filter.contentTypes'
+  | 'filter.emptyWindow'
+  | 'filter.hiddenMatches_one'
+  | 'filter.hiddenMatches_other'
   | 'filter.reset'
   | 'filter.role.assistant'
   | 'filter.role.user'
   | 'filter.roles'
+  | 'filter.showAll'
   | 'filter.showing'
+  | 'filter.targetHidden'
   | 'filter.title'
   | 'message.allLoaded'
   | 'message.branch'
@@ -1474,7 +1482,29 @@ export type MessageKeys =
   | 'navigator.showParallelTasks'
   | 'navigator.title'
   | 'navigator.toggle'
-  | 'navigator.userOnly';
+  | 'navigator.userOnly'
+  | 'promptCard.ariaLabel'
+  | 'promptCard.ariaLabelWithTurn'
+  | 'promptCard.collapse'
+  | 'promptCard.copied'
+  | 'promptCard.copy'
+  | 'promptCard.copyFailed'
+  | 'promptCard.expand'
+  | 'promptCard.hiddenLines_one'
+  | 'promptCard.hiddenLines_other'
+  | 'promptCard.parentAgent'
+  | 'promptCard.taskAriaLabel'
+  | 'promptCard.turn'
+  | 'promptCard.you'
+  | 'systemRow.collapse'
+  | 'systemRow.commandOutput'
+  | 'systemRow.compactSummary'
+  | 'systemRow.empty'
+  | 'systemRow.expand'
+  | 'systemRow.interrupt'
+  | 'systemRow.shellCommand'
+  | 'systemRow.systemContext'
+  | 'systemRow.taskNotification';
 
 /**
  * renderers namespace의 번역 키 (393개)
@@ -2577,6 +2607,9 @@ export type TranslationKey =
   | 'copyButton.copy'
   | 'copyButton.copying'
   | 'copyButton.error'
+  | 'dialogue.emptyWindow'
+  | 'dialogue.toggle'
+  | 'dialogue.tooltip'
   | 'diffViewer.advancedAnalysis'
   | 'diffViewer.advancedTextAnalysis'
   | 'diffViewer.after'
@@ -2698,11 +2731,16 @@ export type TranslationKey =
   | 'filter.content.thinking'
   | 'filter.content.toolCalls'
   | 'filter.contentTypes'
+  | 'filter.emptyWindow'
+  | 'filter.hiddenMatches_one'
+  | 'filter.hiddenMatches_other'
   | 'filter.reset'
   | 'filter.role.assistant'
   | 'filter.role.user'
   | 'filter.roles'
+  | 'filter.showAll'
   | 'filter.showing'
+  | 'filter.targetHidden'
   | 'filter.title'
   | 'folderPicker.backButton'
   | 'folderPicker.change'
@@ -2911,6 +2949,19 @@ export type TranslationKey =
   | 'project.worktreeGroup'
   | 'project.worktreeGrouping'
   | 'project.worktrees'
+  | 'promptCard.ariaLabel'
+  | 'promptCard.ariaLabelWithTurn'
+  | 'promptCard.collapse'
+  | 'promptCard.copied'
+  | 'promptCard.copy'
+  | 'promptCard.copyFailed'
+  | 'promptCard.expand'
+  | 'promptCard.hiddenLines_one'
+  | 'promptCard.hiddenLines_other'
+  | 'promptCard.parentAgent'
+  | 'promptCard.taskAriaLabel'
+  | 'promptCard.turn'
+  | 'promptCard.you'
   | 'queueOperationRenderer.descriptions.dequeue'
   | 'queueOperationRenderer.descriptions.enqueue'
   | 'queueOperationRenderer.descriptions.popAll'
@@ -3836,6 +3887,15 @@ export type TranslationKey =
   | 'systemMessageRenderer.subtypes.turnDuration'
   | 'systemMessageRenderer.title'
   | 'systemMessageRenderer.trigger'
+  | 'systemRow.collapse'
+  | 'systemRow.commandOutput'
+  | 'systemRow.compactSummary'
+  | 'systemRow.empty'
+  | 'systemRow.expand'
+  | 'systemRow.interrupt'
+  | 'systemRow.shellCommand'
+  | 'systemRow.systemContext'
+  | 'systemRow.taskNotification'
   | 'taskNotification.agentTask'
   | 'taskNotification.agentTasks'
   | 'taskNotification.details'
@@ -4058,6 +4118,7 @@ export type TranslationPrefix =
   | 'common'
   | 'contentArray'
   | 'copyButton'
+  | 'dialogue'
   | 'diffViewer'
   | 'documentRenderer'
   | 'error'
@@ -4082,6 +4143,7 @@ export type TranslationPrefix =
   | 'navigator'
   | 'progressRenderer'
   | 'project'
+  | 'promptCard'
   | 'queueOperationRenderer'
   | 'recentEdits'
   | 'redactedThinkingRenderer'
@@ -4099,6 +4161,7 @@ export type TranslationPrefix =
   | 'structuredPatch'
   | 'summaryMessageRenderer'
   | 'systemMessageRenderer'
+  | 'systemRow'
   | 'taskNotification'
   | 'taskOperation'
   | 'terminalExecutionResultRenderer'

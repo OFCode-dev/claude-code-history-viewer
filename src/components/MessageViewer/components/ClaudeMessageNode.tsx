@@ -25,7 +25,15 @@ import {
   AgentTaskGroupRenderer,
   TaskOperationGroupRenderer,
 } from "../../toolResultRenderer";
+import { PromptCard } from "../../messageRenderer/PromptCard";
+import { SystemRecordRow } from "../../messageRenderer/SystemRecordRow";
+import {
+  hasNonTextContent,
+  toSystemRecordKind,
+} from "../../messageRenderer/systemRecordSummary";
+import { getEffectiveContentTypes } from "../../../store/slices/filterSlice";
 import { extractClaudeMessageContent } from "../../../utils/messageUtils";
+import { getUserMessageKind, getUserMessageText } from "../../../utils/userMessageKind";
 import { isEmptyMessage } from "../helpers/messageHelpers";
 import {
   isToolUseContent,
@@ -70,6 +78,8 @@ export const ClaudeMessageNode = React.memo(
   }: MessageNodeProps) => {
     const { t } = useTranslation();
     const messageFilter = useAppStore((s) => s.messageFilter);
+    // The dialogue view overrides the individual content toggles.
+    const contentTypes = getEffectiveContentTypes(messageFilter);
     const subagentSessions = useAppStore((s) => s.subagentSessions);
     const navigateToSubagent = useAppStore((s) => s.navigateToSubagent);
     const toolUseToSubagentMap = useAppStore((s) => s.toolUseToSubagentMap);
@@ -398,6 +408,80 @@ export const ClaudeMessageNode = React.memo(
       );
     }
 
+    // User records: a person's prompt renders as a prompt card; records nobody
+    // typed (command output, notifications, harness context, interrupts…) as a
+    // compact muted row. Tool results and slash commands keep the default path.
+    const userKind = message.type === "user" ? getUserMessageKind(message) : null;
+    const userText = userKind != null ? getUserMessageText(message) : "";
+    const systemRecordKind = toSystemRecordKind(userKind, userText, {
+      hasOtherContent: hasNonTextContent(message),
+    });
+
+    if (userKind === "prompt" || systemRecordKind) {
+      // The card presents every text block (the same text the classifier and
+      // the prompt preview read); only attachments render below it.
+      const promptText = userText.trim() ? userText : null;
+      const hasAttachments = userKind === "prompt" && hasNonTextContent(message);
+      return (
+        <ExpandKeyProvider value={message.uuid}>
+          <div
+            data-message-uuid={message.uuid}
+            onClick={handleSelectionClick}
+            className={cn(
+              "relative w-full px-2 md:px-4 transition-all duration-200",
+              systemRecordKind ? "py-0.5" : "py-2",
+              isCurrentMatch && "bg-highlight-current ring-2 ring-warning",
+              isMatch && !isCurrentMatch && "bg-highlight",
+              isCaptureMode &&
+                !isCurrentMatch &&
+                !isMatch &&
+                !isSelected &&
+                CAPTURE_HOVER_BG,
+              selectionHighlight,
+              selectionCursor,
+            )}
+          >
+            {CaptureHideButton}
+            <div className="max-w-4xl mx-auto">
+              {systemRecordKind ? (
+                <SystemRecordRow
+                  kind={systemRecordKind}
+                  text={userText}
+                  timestamp={message.timestamp}
+                  searchQuery={searchQuery}
+                  filterType={filterType}
+                  isCurrentMatch={isCurrentMatch}
+                  currentMatchIndex={currentMatchIndex}
+                  selectable={isCaptureMode}
+                />
+              ) : (
+                <PromptCard
+                  uuid={message.uuid}
+                  timestamp={message.timestamp}
+                  text={promptText}
+                  searchQuery={searchQuery}
+                  isCurrentMatch={isCurrentMatch}
+                  currentMatchIndex={currentMatchIndex}
+                  author={isInSubagent ? "parentAgent" : "user"}
+                >
+                  {hasAttachments && Array.isArray(message.content) && (
+                    <ClaudeContentArrayRenderer
+                      content={message.content}
+                      searchQuery={searchQuery}
+                      filterType={filterType}
+                      isCurrentMatch={isCurrentMatch}
+                      currentMatchIndex={currentMatchIndex}
+                      skipText
+                    />
+                  )}
+                </PromptCard>
+              )}
+            </div>
+          </div>
+        </ExpandKeyProvider>
+      );
+    }
+
     const hasInlineToolResult =
       Array.isArray(message.content) &&
       message.content.some(isToolResultContent);
@@ -436,7 +520,7 @@ export const ClaudeMessageNode = React.memo(
 
             <div className="w-full">
               {(message.type !== "assistant" ||
-                messageFilter.contentTypes.text) && (
+                contentTypes.text) && (
                 <MessageContentDisplay
                   content={extractClaudeMessageContent(message)}
                   messageType={message.type}
@@ -457,7 +541,7 @@ export const ClaudeMessageNode = React.memo(
                     skipToolResults={shouldRenderLegacyToolResult}
                     skipText={
                       message.type === "assistant" &&
-                      !messageFilter.contentTypes.text
+                      !contentTypes.text
                     }
                     // The bubble above already shows the first text block;
                     // providers that store user turns as content arrays
@@ -466,22 +550,22 @@ export const ClaudeMessageNode = React.memo(
                     skipFirstText={!!extractClaudeMessageContent(message)}
                     skipThinking={
                       message.type === "assistant" &&
-                      !messageFilter.contentTypes.thinking
+                      !contentTypes.thinking
                     }
                     skipCommands={
                       message.type === "assistant" &&
-                      !messageFilter.contentTypes.commands
+                      !contentTypes.commands
                     }
                     skipToolCalls={
                       message.type === "assistant" &&
-                      !messageFilter.contentTypes.toolCalls
+                      !contentTypes.toolCalls
                     }
                     onViewSubagent={handleViewSubagent}
                   />
                 </div>
               )}
 
-              {messageFilter.contentTypes.toolCalls &&
+              {contentTypes.toolCalls &&
                 message.type === "assistant" &&
                 message.toolUse &&
                 !(
@@ -490,7 +574,7 @@ export const ClaudeMessageNode = React.memo(
                 ) && <ClaudeToolUseDisplay toolUse={message.toolUse} />}
 
               {(message.type !== "assistant" ||
-                messageFilter.contentTypes.toolCalls) &&
+                contentTypes.toolCalls) &&
                 shouldRenderLegacyToolResult && (
                   <ToolExecutionResultRouter
                     toolResult={message.toolUseResult!}
