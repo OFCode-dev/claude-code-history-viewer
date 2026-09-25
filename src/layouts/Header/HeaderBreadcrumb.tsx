@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Bot, ChevronRight, MoreHorizontal } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
@@ -106,16 +106,38 @@ export function HeaderBreadcrumb({ project, onShowTranscript }: HeaderBreadcrumb
   const maxCollapsed = maxCollapsiblePathCrumbs(pathCrumbs);
   const navRef = useRef<HTMLElement>(null);
   const [navWidth, setNavWidth] = useState(0);
+  const [fontsLoaded, setFontsLoaded] = useState(0);
 
-  // Re-measured after every fold, content change and resize; each pass folds
-  // at most one more directory, so this settles within `maxCollapsed` passes.
+  // Re-measured after every fold, content change, resize and font load; each
+  // pass folds at most one more directory, so this settles within
+  // `maxCollapsed` passes.
   useLayoutEffect(() => {
     const nav = navRef.current;
     if (!nav) return;
     if (nav.scrollWidth > nav.clientWidth + 1 && collapsedCount < maxCollapsed) {
       setCollapsedCount((count) => Math.min(count + 1, maxCollapsed));
     }
-  }, [collapsedCount, maxCollapsed, contentKey, navWidth]);
+  }, [collapsedCount, maxCollapsed, contentKey, navWidth, fontsLoaded]);
+
+  // The crumbs change width without the header changing size when a web font
+  // (the bundled Geist Mono) swaps in after the first paint, so fold again
+  // from scratch once fonts have loaded.
+  useEffect(() => {
+    const fonts = typeof document === "undefined" ? undefined : document.fonts;
+    if (!fonts) return;
+    let active = true;
+    const remeasure = () => {
+      if (!active) return;
+      setCollapsedCount(0);
+      setFontsLoaded((n) => n + 1);
+    };
+    fonts.ready.then(remeasure).catch(() => {});
+    fonts.addEventListener?.("loadingdone", remeasure);
+    return () => {
+      active = false;
+      fonts.removeEventListener?.("loadingdone", remeasure);
+    };
+  }, []);
 
   // The nav is only as wide as its crumbs, so growth is detected on the space
   // it sits in: when that widens, unfold everything and measure again.

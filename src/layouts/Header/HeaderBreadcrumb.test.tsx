@@ -207,4 +207,44 @@ describe("HeaderBreadcrumb", () => {
     render(<HeaderBreadcrumb project={project} />);
     expect(screen.queryByRole("button", { name: "header.breadcrumb.showHidden" })).toBeNull();
   });
+
+  it("folds again from scratch once web fonts have loaded", async () => {
+    const fontEvents = new EventTarget();
+    let resolveReady: () => void = () => {};
+    const ready = new Promise<void>((resolve) => {
+      resolveReady = resolve;
+    });
+    Object.defineProperty(document, "fonts", {
+      configurable: true,
+      value: Object.assign(fontEvents, { ready }),
+    });
+
+    // Before the font swap every crumb takes 50px, after it 100px.
+    let crumbWidth = 50;
+    vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(450);
+    vi.spyOn(HTMLElement.prototype, "scrollWidth", "get").mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      return this.querySelectorAll("li").length * crumbWidth;
+    });
+
+    try {
+      const deepProject = { ...project, actual_path: "/home/me/a/b/c/d/api" };
+      render(<HeaderBreadcrumb project={deepProject} />);
+      expect(screen.queryByRole("button", { name: "header.breadcrumb.showHidden" })).toBeNull();
+
+      crumbWidth = 100;
+      await act(async () => {
+        resolveReady();
+        await ready;
+      });
+
+      await waitFor(() =>
+        expect(screen.getByRole("button", { name: "header.breadcrumb.showHidden" })).toBeInTheDocument(),
+      );
+      expect(within(screen.getByTestId("hidden-crumbs")).getAllByRole("button")).toHaveLength(4);
+    } finally {
+      delete (document as { fonts?: unknown }).fonts;
+    }
+  });
 });
