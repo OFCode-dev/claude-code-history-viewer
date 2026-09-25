@@ -67,6 +67,9 @@ export const OffScreenCaptureRenderer = forwardRef<
           but behind the backdrop (z-index: 99997) */}
       <div
         ref={ref}
+        // Interactive-only controls hide themselves inside the capture with
+        // the `in-[[data-capture-root]]:hidden` variant.
+        data-capture-root=""
         className="bg-background text-foreground"
         style={{
           position: "fixed",

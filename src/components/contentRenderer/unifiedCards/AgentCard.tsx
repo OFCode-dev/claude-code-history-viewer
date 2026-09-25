@@ -96,7 +96,8 @@ export const AgentCard = memo(function AgentCard({ toolUse, toolResults }: Props
               </span>
             )}
             {/* Open the spawned subagent's transcript — in the header so it
-                stays reachable while the card is collapsed. */}
+                stays reachable while the card is collapsed; left out of
+                screenshot captures, where it cannot be clicked. */}
             {subagent && (
               <button
                 type="button"
@@ -105,6 +106,7 @@ export const AgentCard = memo(function AgentCard({ toolUse, toolResults }: Props
                 }}
                 className={cn(
                   "inline-flex items-center gap-1 px-2 py-0.5 font-medium",
+                  "in-[[data-capture-root]]:hidden",
                   layout.rounded,
                   "bg-primary/10 text-primary hover:bg-primary/20 transition-colors",
                   "border border-primary/20",
