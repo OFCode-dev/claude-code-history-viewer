@@ -299,7 +299,9 @@ function App() {
   // Local state
   const isViewingGlobalStats = useAppStore((s) => s.isViewingGlobalStats);
   const setIsViewingGlobalStats = useAppStore((s) => s.setViewingGlobalStats);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  // Explorer collapse lives in the store so focus mode can fold it too.
+  const isSidebarCollapsed = useAppStore((s) => s.isExplorerCollapsed);
+  const handleToggleSidebar = useAppStore((s) => s.toggleExplorerCollapsed);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   // A selected session and the project-agnostic global-stats overview are
@@ -363,10 +365,6 @@ function App() {
     setAnalyticsCurrentView("analytics");
     void loadGlobalStats();
   }, [loadGlobalStats, setAnalyticsCurrentView, setIsViewingGlobalStats]);
-
-  const handleToggleSidebar = useCallback(() => {
-    setIsSidebarCollapsed((prev) => !prev);
-  }, []);
 
   // Project grouping
   const groupingMode = getEffectiveGroupingMode();
