@@ -99,5 +99,7 @@
   "filter.content.parallelTasks": "並行任務",
   "filter.reset": "重設篩選",
   "filter.active": "篩選已啟用",
-  "filter.showing": "{{filtered}} / {{total}}"
+  "filter.showing": "{{filtered}} / {{total}}",
+  "dialogue.toggle": "對話",
+  "dialogue.tooltip": "僅顯示你的提示與助理的回覆"
 }

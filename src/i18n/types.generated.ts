@@ -5,8 +5,8 @@
  * 직접 수정하지 마세요.
  *
  * 생성 명령: pnpm run generate:i18n-types
- * 생성 시간: 2026-09-13T09:40:55.294Z
- * 총 키 개수: 1962
+ * 생성 시간: 2026-09-25T19:35:52.609Z
+ * 총 키 개수: 1964
  * Namespace 수: 11
  */
 
@@ -1370,10 +1370,12 @@ export type ErrorKeys =
   | 'error.viewDetails';
 
 /**
- * message namespace의 번역 키 (101개)
+ * message namespace의 번역 키 (103개)
  * 파일: locales/{lang}/message.json
  */
 export type MessageKeys =
+  | 'dialogue.toggle'
+  | 'dialogue.tooltip'
   | 'filter.active'
   | 'filter.content.commands'
   | 'filter.content.parallelTasks'
@@ -2577,6 +2579,8 @@ export type TranslationKey =
   | 'copyButton.copy'
   | 'copyButton.copying'
   | 'copyButton.error'
+  | 'dialogue.toggle'
+  | 'dialogue.tooltip'
   | 'diffViewer.advancedAnalysis'
   | 'diffViewer.advancedTextAnalysis'
   | 'diffViewer.after'
@@ -4058,6 +4062,7 @@ export type TranslationPrefix =
   | 'common'
   | 'contentArray'
   | 'copyButton'
+  | 'dialogue'
   | 'diffViewer'
   | 'documentRenderer'
   | 'error'

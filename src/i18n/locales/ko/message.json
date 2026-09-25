@@ -99,5 +99,7 @@
   "filter.content.parallelTasks": "병렬 작업",
   "filter.reset": "필터 초기화",
   "filter.active": "필터 활성",
-  "filter.showing": "{{filtered}} / {{total}}"
+  "filter.showing": "{{filtered}} / {{total}}",
+  "dialogue.toggle": "대화",
+  "dialogue.tooltip": "내 프롬프트와 어시스턴트의 답변만 표시"
 }

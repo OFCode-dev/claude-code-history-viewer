@@ -99,5 +99,7 @@
   "filter.content.parallelTasks": "並列タスク",
   "filter.reset": "フィルターをリセット",
   "filter.active": "フィルター有効",
-  "filter.showing": "{{filtered}} / {{total}}"
+  "filter.showing": "{{filtered}} / {{total}}",
+  "dialogue.toggle": "対話",
+  "dialogue.tooltip": "自分のプロンプトとアシスタントの返答だけを表示"
 }

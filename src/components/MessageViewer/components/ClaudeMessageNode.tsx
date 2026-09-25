@@ -25,6 +25,7 @@ import {
   AgentTaskGroupRenderer,
   TaskOperationGroupRenderer,
 } from "../../toolResultRenderer";
+import { getEffectiveContentTypes } from "../../../store/slices/filterSlice";
 import { extractClaudeMessageContent } from "../../../utils/messageUtils";
 import { isEmptyMessage } from "../helpers/messageHelpers";
 import {
@@ -70,6 +71,8 @@ export const ClaudeMessageNode = React.memo(
   }: MessageNodeProps) => {
     const { t } = useTranslation();
     const messageFilter = useAppStore((s) => s.messageFilter);
+    // The dialogue view overrides the individual content toggles.
+    const contentTypes = getEffectiveContentTypes(messageFilter);
     const subagentSessions = useAppStore((s) => s.subagentSessions);
     const navigateToSubagent = useAppStore((s) => s.navigateToSubagent);
     const toolUseToSubagentMap = useAppStore((s) => s.toolUseToSubagentMap);
@@ -436,7 +439,7 @@ export const ClaudeMessageNode = React.memo(
 
             <div className="w-full">
               {(message.type !== "assistant" ||
-                messageFilter.contentTypes.text) && (
+                contentTypes.text) && (
                 <MessageContentDisplay
                   content={extractClaudeMessageContent(message)}
                   messageType={message.type}
@@ -457,7 +460,7 @@ export const ClaudeMessageNode = React.memo(
                     skipToolResults={shouldRenderLegacyToolResult}
                     skipText={
                       message.type === "assistant" &&
-                      !messageFilter.contentTypes.text
+                      !contentTypes.text
                     }
                     // The bubble above already shows the first text block;
                     // providers that store user turns as content arrays
@@ -466,22 +469,22 @@ export const ClaudeMessageNode = React.memo(
                     skipFirstText={!!extractClaudeMessageContent(message)}
                     skipThinking={
                       message.type === "assistant" &&
-                      !messageFilter.contentTypes.thinking
+                      !contentTypes.thinking
                     }
                     skipCommands={
                       message.type === "assistant" &&
-                      !messageFilter.contentTypes.commands
+                      !contentTypes.commands
                     }
                     skipToolCalls={
                       message.type === "assistant" &&
-                      !messageFilter.contentTypes.toolCalls
+                      !contentTypes.toolCalls
                     }
                     onViewSubagent={handleViewSubagent}
                   />
                 </div>
               )}
 
-              {messageFilter.contentTypes.toolCalls &&
+              {contentTypes.toolCalls &&
                 message.type === "assistant" &&
                 message.toolUse &&
                 !(
@@ -490,7 +493,7 @@ export const ClaudeMessageNode = React.memo(
                 ) && <ClaudeToolUseDisplay toolUse={message.toolUse} />}
 
               {(message.type !== "assistant" ||
-                messageFilter.contentTypes.toolCalls) &&
+                contentTypes.toolCalls) &&
                 shouldRenderLegacyToolResult && (
                   <ToolExecutionResultRouter
                     toolResult={message.toolUseResult!}

@@ -99,5 +99,7 @@
   "filter.content.parallelTasks": "Parallel Tasks",
   "filter.reset": "Reset Filters",
   "filter.active": "Filters active",
-  "filter.showing": "{{filtered}} / {{total}}"
+  "filter.showing": "{{filtered}} / {{total}}",
+  "dialogue.toggle": "Dialogue",
+  "dialogue.tooltip": "Show only your prompts and the assistant's replies"
 }
