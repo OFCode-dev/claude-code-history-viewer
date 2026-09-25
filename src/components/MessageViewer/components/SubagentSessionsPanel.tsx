@@ -51,7 +51,9 @@ export const SubagentSessionsPanel = memo(function SubagentSessionsPanel({
         </span>
       </button>
       {isOpen && (
-        <div id={listId} className="mt-1.5 max-h-48 overflow-y-auto pr-1">
+        // About two rows: the sessions pane has the full list, so the panel
+        // must not take much of the conversation.
+        <div id={listId} className="mt-1.5 max-h-28 overflow-y-auto pr-1">
           <SubagentList subagents={subagentSessions} onSelect={handleSelect} layout="grid" />
         </div>
       )}

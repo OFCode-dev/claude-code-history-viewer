@@ -25,6 +25,7 @@ import { SubagentContextBar } from "./components/SubagentContextBar";
 import { useSearchState } from "./hooks/useSearchState";
 import { useScrollNavigation } from "./hooks/useScrollNavigation";
 import { useMessageVirtualization } from "./hooks/useMessageVirtualization";
+import { useSubagentPanelOpen } from "./hooks/useSubagentPanelOpen";
 import { useCapturePreview } from "../../hooks/useCapturePreview";
 import { MAX_CAPTURE_MESSAGES } from "../../hooks/useCaptureScreenshot";
 import {
@@ -66,12 +67,8 @@ export const MessageViewer: React.FC<MessageViewerProps> = ({
   const [virtualScrollMargin, setVirtualScrollMargin] = useState(0);
 
   // SubAgent 패널 접힘 상태 — MessageViewer에 lift해야 filter toggle 같은
-  // 분기 재렌더(패널 자식 unmount)에서 유저 선택이 보존됨.
-  const [isSubagentPanelOpen, setIsSubagentPanelOpen] = useState(true);
-  const toggleSubagentPanel = useCallback(
-    () => setIsSubagentPanelOpen((prev) => !prev),
-    [],
-  );
+  // 분기 재렌더(패널 자식 unmount)에서 유저 선택이 보존됨. Persisted.
+  const [isSubagentPanelOpen, toggleSubagentPanel] = useSubagentPanelOpen();
 
   // Capture mode state
   const {
