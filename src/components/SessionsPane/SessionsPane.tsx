@@ -101,8 +101,6 @@ export function SessionsPane({
           </span>
         </div>
 
-        <SubagentsSection />
-
         <div ref={bodyRef} className="flex-1 min-h-0">
           <OverlayScrollbarsComponent
             className="h-full"
@@ -124,6 +122,11 @@ export function SessionsPane({
             />
           </OverlayScrollbarsComponent>
         </div>
+
+        {/* Docked below the list: it appears only once the subagents of a
+            newly selected session have loaded, so above the list it would
+            shift the rows under the pointer on every session switch. */}
+        <SubagentsSection />
       </div>
 
       {onResizeStart && (

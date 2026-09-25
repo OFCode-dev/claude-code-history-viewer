@@ -26,10 +26,11 @@ function writeOpenPreference(open: boolean): void {
 }
 
 /**
- * "Subagents (n)" under the sessions pane header. At top level it lists the
- * selected session's subagents; inside a subagent it keeps listing the
- * parent's subagents with the one on screen highlighted, so siblings stay one
- * click away. Hidden when there is nothing to list.
+ * "Subagents (n)" docked at the bottom of the sessions pane, below the session
+ * list, so its asynchronous arrival never moves the session rows. At top level
+ * it lists the selected session's subagents; inside a subagent it keeps
+ * listing the parent's subagents with the one on screen highlighted, so
+ * siblings stay one click away. Hidden when there is nothing to list.
  */
 export function SubagentsSection() {
   const { t } = useTranslation();
@@ -68,7 +69,7 @@ export function SubagentsSection() {
   return (
     <section
       aria-label={t("subagent.listAria")}
-      className="shrink-0 flex flex-col min-h-0 max-h-[40%] border-b border-border/50"
+      className="shrink-0 flex flex-col min-h-0 max-h-[40%] border-t border-border/50"
     >
       <button
         type="button"
