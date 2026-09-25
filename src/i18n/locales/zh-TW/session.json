@@ -33,6 +33,7 @@
   "project.notFound": "未找到專案",
   "project.removePattern": "移除模式",
   "project.resetProviderFilters": "重設",
+  "project.providerFilterLabel": "提供者",
   "project.searchPlaceholder": "搜尋專案...",
   "project.selectToView": "選擇專案以查看分析",
   "project.title": "專案：",

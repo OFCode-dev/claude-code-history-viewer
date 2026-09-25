@@ -44,6 +44,10 @@ import {
   normalizeProviderIds,
   PROVIDER_IDS,
 } from "../../utils/providers";
+import {
+  ENTRYPOINT_FILTER_LABEL_KEYS,
+  ENTRYPOINT_FILTER_OPTIONS,
+} from "../../utils/entrypoint";
 
 type ProviderTabId = "all" | ProviderId;
 
@@ -97,6 +101,8 @@ export const ProjectTree: React.FC<ProjectTreeProps> = ({
   const isLoadingProjects = useAppStore((state) => state.isLoadingProjects);
   const discoverProviders = useAppStore((state) => state.discoverProviders);
   const setActiveProviders = useAppStore((state) => state.setActiveProviders);
+  const sessionEntrypointFilter = useAppStore((state) => state.sessionEntrypointFilter);
+  const setSessionEntrypointFilter = useAppStore((state) => state.setSessionEntrypointFilter);
   const loadGlobalStats = useAppStore((state) => state.loadGlobalStats);
   const clearProjectSelection = useAppStore(
     (state) => state.clearProjectSelection
@@ -210,21 +216,31 @@ export const ProjectTree: React.FC<ProjectTreeProps> = ({
     : selectedProviderFilters.length !== 1;
 
   const providerFilterSummary = useMemo(() => {
+    let summary: string;
     if (isAllProvidersSelected) {
-      return t("session.board.controls.all", "ALL");
+      summary = t("session.board.controls.all", "ALL");
+    } else {
+      const labels = selectedProviderFilters
+        .slice(0, 2)
+        .map((providerId) =>
+          getProviderLabel((key, fallback) => t(key, fallback), providerId)
+        );
+      const remainingCount = selectedProviderFilters.length - labels.length;
+      summary =
+        remainingCount > 0
+          ? `${labels.join(", ")} +${remainingCount}`
+          : labels.join(", ");
     }
 
-    const labels = selectedProviderFilters
-      .slice(0, 2)
-      .map((providerId) =>
-        getProviderLabel((key, fallback) => t(key, fallback), providerId)
-      );
-    const remainingCount = selectedProviderFilters.length - labels.length;
+    // The source (entrypoint) filter sits in the same collapsible panel, so an
+    // active one is surfaced in the collapsed summary instead of hiding behind it.
+    return sessionEntrypointFilter === "all"
+      ? summary
+      : `${summary} · ${t(ENTRYPOINT_FILTER_LABEL_KEYS[sessionEntrypointFilter])}`;
+  }, [isAllProvidersSelected, selectedProviderFilters, sessionEntrypointFilter, t]);
 
-    return remainingCount > 0
-      ? `${labels.join(", ")} +${remainingCount}`
-      : labels.join(", ");
-  }, [isAllProvidersSelected, selectedProviderFilters, t]);
+  const areFiltersAtDefault =
+    isAllProvidersSelected && sessionEntrypointFilter === "all";
 
   const providerFilterCount = useMemo(
     () =>
@@ -942,11 +958,14 @@ export const ProjectTree: React.FC<ProjectTreeProps> = ({
               <button
                 onClick={() => {
                   void applyProviderSelection(selectableProviderIds);
+                  if (sessionEntrypointFilter !== "all") {
+                    void setSessionEntrypointFilter("all");
+                  }
                 }}
-                disabled={isAllProvidersSelected}
+                disabled={areFiltersAtDefault}
                 className={cn(
                   "inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border text-muted-foreground transition-colors",
-                  isAllProvidersSelected
+                  areFiltersAtDefault
                     ? "border-transparent bg-muted/20 text-muted-foreground/50 cursor-not-allowed"
                     : "border-transparent bg-muted/30 hover:bg-accent/8 hover:text-accent"
                 )}
@@ -978,7 +997,14 @@ export const ProjectTree: React.FC<ProjectTreeProps> = ({
                       : t("project.discoverProviders", "Find other providers")}
                   </span>
                 </button>
-                <div className="flex flex-wrap items-center gap-1">
+                <div
+                  className="flex flex-wrap items-center gap-1"
+                  role="group"
+                  aria-label={t("project.providerFilterLabel", "Provider")}
+                >
+                  <span className="mr-1 text-2xs text-muted-foreground">
+                    {t("project.providerFilterLabel", "Provider")}
+                  </span>
                   {providerTabs.map((tab) => {
                     const isActive = tab.id === "all"
                       ? isAllProvidersSelected
@@ -1015,6 +1041,38 @@ export const ProjectTree: React.FC<ProjectTreeProps> = ({
                     );
                   })}
                 </div>
+              </div>
+              {/* Source sits outside the scrollable provider list so it stays
+                  visible however many providers are listed above it. */}
+              <div
+                className="mt-2 flex flex-wrap items-center gap-1 border-t border-accent/10 pt-2"
+                role="group"
+                aria-label={t("session.filter.source.label")}
+              >
+                <span className="mr-1 text-2xs text-muted-foreground">
+                  {t("session.filter.source.label")}
+                </span>
+                {ENTRYPOINT_FILTER_OPTIONS.map((option) => {
+                  const isActive = sessionEntrypointFilter === option;
+                  return (
+                    <button
+                      key={option}
+                      type="button"
+                      onClick={() => {
+                        void setSessionEntrypointFilter(option);
+                      }}
+                      aria-pressed={isActive}
+                      className={cn(
+                        "inline-flex items-center px-2 py-1 rounded-md border text-2xs font-medium transition-colors",
+                        isActive
+                          ? "bg-accent/15 text-accent border-accent/30"
+                          : "bg-muted/30 text-muted-foreground border-transparent hover:bg-accent/8 hover:text-accent"
+                      )}
+                    >
+                      {t(ENTRYPOINT_FILTER_LABEL_KEYS[option])}
+                    </button>
+                  );
+                })}
               </div>
             </CollapsibleContent>
           </Collapsible>

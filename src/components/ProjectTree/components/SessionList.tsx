@@ -6,17 +6,13 @@ import { Search, X, SortDesc, SortAsc, Loader2, ListChecks } from "lucide-react"
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
-import {
-  matchesEntrypointFilter,
-  ENTRYPOINT_FILTER_OPTIONS,
-  ENTRYPOINT_FILTER_LABEL_KEYS,
-} from "@/utils/entrypoint";
+import { matchesEntrypointFilter } from "@/utils/entrypoint";
 import { SessionItem } from "../../SessionItem";
 import { SessionSelectionBar } from "../../SessionItem/components/SessionSelectionBar";
 import { useAppStore } from "@/store/useAppStore";
 import type { SessionListProps } from "../types";
 import type { ClaudeSession } from "../../../types";
-import type { SessionSortOrder, SessionEntrypointFilter } from "@/types/metadata.types";
+import type { SessionSortOrder } from "@/types/metadata.types";
 
 // SessionItem fixed row height. Sized to fit a 2-line wrapped name:
 //   py-2.5 (20px) + name 2 × text-xs/leading-relaxed (39px)
@@ -88,14 +84,14 @@ interface SessionListControlsProps {
   onSearchQueryChange: (value: string) => void;
   sessionSortOrder: SessionSortOrder;
   onToggleSortOrder: () => void;
-  sessionEntrypointFilter: SessionEntrypointFilter;
-  onEntrypointFilterChange: (filter: SessionEntrypointFilter) => void;
   isSelectionMode: boolean;
   onToggleSelectionMode: () => void;
 }
 
 /**
- * Search + sort + source(entrypoint) filter controls for a session list.
+ * Search + selection + sort controls for a session list. The source
+ * (entrypoint) filter is a global setting, so it lives next to the provider
+ * filter in the explorer header rather than inside every session list.
  * Extracted into one component so the default and virtualized render paths
  * share a single implementation instead of duplicating the markup.
  */
@@ -104,8 +100,6 @@ const SessionListControls: React.FC<SessionListControlsProps> = ({
   onSearchQueryChange,
   sessionSortOrder,
   onToggleSortOrder,
-  sessionEntrypointFilter,
-  onEntrypointFilterChange,
   isSelectionMode,
   onToggleSelectionMode,
 }) => {
@@ -176,37 +170,6 @@ const SessionListControls: React.FC<SessionListControlsProps> = ({
           )}
         </button>
       </div>
-
-      {/* Source (entrypoint) segmented filter */}
-      <div className="flex items-center gap-1.5">
-        <span className="text-2xs text-muted-foreground shrink-0">
-          {t("session.filter.source.label")}
-        </span>
-        <div
-          className="flex items-center gap-0.5 flex-wrap"
-          role="group"
-          aria-label={t("session.filter.source.label")}
-        >
-          {ENTRYPOINT_FILTER_OPTIONS.map((option) => {
-            const isActive = sessionEntrypointFilter === option;
-            return (
-              <button
-                key={option}
-                onClick={() => onEntrypointFilterChange(option)}
-                aria-pressed={isActive}
-                className={cn(
-                  "px-1.5 py-0.5 rounded text-2xs font-medium transition-colors",
-                  isActive
-                    ? "bg-accent text-accent-foreground"
-                    : "text-muted-foreground hover:bg-muted/50"
-                )}
-              >
-                {t(ENTRYPOINT_FILTER_LABEL_KEYS[option])}
-              </button>
-            );
-          })}
-        </div>
-      </div>
     </div>
   );
 };
@@ -232,7 +195,6 @@ export const SessionList: React.FC<SessionListProps> = ({
     sessionSortOrder,
     setSessionSortOrder,
     sessionEntrypointFilter,
-    setSessionEntrypointFilter,
     getSessionDisplayName,
   } = useAppStore();
   const isSelectionMode = useAppStore((s) => s.isSessionSelectionMode);
@@ -380,8 +342,6 @@ export const SessionList: React.FC<SessionListProps> = ({
       onSearchQueryChange={setSearchQuery}
       sessionSortOrder={sessionSortOrder}
       onToggleSortOrder={handleToggleSortOrder}
-      sessionEntrypointFilter={sessionEntrypointFilter}
-      onEntrypointFilterChange={setSessionEntrypointFilter}
       isSelectionMode={isSelectionMode}
       onToggleSelectionMode={toggleSessionSelectionMode}
     />
