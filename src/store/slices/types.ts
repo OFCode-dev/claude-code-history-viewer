@@ -194,6 +194,8 @@ export interface AppStoreState {
 
   // Navigator state
   isNavigatorOpen: boolean;
+  navigatorMode: import("./navigatorSlice").NavigatorMode;
+  pendingPositionRestore: import("./navigatorSlice").PendingPositionRestore | null;
 
   // Recent Edits panel state
   recentEditsMode: import('./recentEditsPanelSlice').RecentEditsMode;
@@ -407,6 +409,8 @@ export interface AppStoreActions {
   // Navigator actions
   toggleNavigator: () => void;
   setNavigatorOpen: (open: boolean) => void;
+  setNavigatorMode: (mode: import("./navigatorSlice").NavigatorMode) => void;
+  clearPendingPositionRestore: () => void;
 
   // Recent Edits panel actions
   setRecentEditsMode: (mode: import('./recentEditsPanelSlice').RecentEditsMode) => void;
