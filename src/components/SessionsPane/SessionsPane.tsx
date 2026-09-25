@@ -55,20 +55,6 @@ export function SessionsPane({
   onToggleCollapse,
 }: SessionsPaneProps) {
   const { t } = useTranslation();
-  const bodyRef = useRef<HTMLDivElement>(null);
-  const [bodyHeight, setBodyHeight] = useState(0);
-
-  useLayoutEffect(() => {
-    const el = bodyRef.current;
-    if (!el) return;
-    const observer = new ResizeObserver(([entry]) => {
-      if (entry) setBodyHeight(entry.contentRect.height);
-    });
-    observer.observe(el);
-    setBodyHeight(el.clientHeight);
-    return () => observer.disconnect();
-  }, []);
-
   const providerId = getProviderId(selectedProject.provider ?? undefined);
   const providerLabel = getProviderLabel((key, fallback) => t(key, fallback), providerId);
   const count = sessionsTotal ?? sessions.length;
@@ -126,27 +112,18 @@ export function SessionsPane({
           )}
         </div>
 
-        <div ref={bodyRef} className="flex-1 min-h-0">
-          <OverlayScrollbarsComponent
-            className="h-full"
-            options={{ scrollbars: { theme: "os-theme-custom", autoHide: "leave" } }}
-          >
-            <SessionList
-              sessions={sessions}
-              sessionsTotal={sessionsTotal}
-              hasMoreSessions={hasMoreSessions}
-              selectedSession={selectedSession}
-              isLoading={isLoading}
-              isLoadingMoreSessions={isLoadingMoreSessions}
-              onSessionSelect={onSessionSelect}
-              onSessionHover={onSessionHover}
-              onLoadMoreSessions={onLoadMoreSessions}
-              formatTimeAgo={formatTimeAgo}
-              variant="pane"
-              listHeight={Math.max(200, bodyHeight - LIST_CHROME_HEIGHT)}
-            />
-          </OverlayScrollbarsComponent>
-        </div>
+        <SessionsPaneBody
+          sessions={sessions}
+          sessionsTotal={sessionsTotal}
+          hasMoreSessions={hasMoreSessions}
+          selectedSession={selectedSession}
+          isLoading={isLoading}
+          isLoadingMoreSessions={isLoadingMoreSessions}
+          onSessionSelect={onSessionSelect}
+          onSessionHover={onSessionHover}
+          onLoadMoreSessions={onLoadMoreSessions}
+          formatTimeAgo={formatTimeAgo}
+        />
       </div>
 
       {onResizeStart && (
@@ -160,6 +137,56 @@ export function SessionsPane({
         />
       )}
     </aside>
+  );
+}
+
+type SessionsPaneBodyProps = Pick<
+  SessionsPaneProps,
+  | "sessions"
+  | "sessionsTotal"
+  | "hasMoreSessions"
+  | "selectedSession"
+  | "isLoading"
+  | "isLoadingMoreSessions"
+  | "onSessionSelect"
+  | "onSessionHover"
+  | "onLoadMoreSessions"
+  | "formatTimeAgo"
+>;
+
+/**
+ * Scrollable session list that fills the rest of the pane. It owns the height
+ * measurement, so the observer attaches to the body element that is actually
+ * mounted: collapsing the pane unmounts it, and expanding measures afresh.
+ */
+function SessionsPaneBody(props: SessionsPaneBodyProps) {
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const [bodyHeight, setBodyHeight] = useState(0);
+
+  useLayoutEffect(() => {
+    const el = bodyRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry) setBodyHeight(entry.contentRect.height);
+    });
+    observer.observe(el);
+    setBodyHeight(el.clientHeight);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div ref={bodyRef} className="flex-1 min-h-0">
+      <OverlayScrollbarsComponent
+        className="h-full"
+        options={{ scrollbars: { theme: "os-theme-custom", autoHide: "leave" } }}
+      >
+        <SessionList
+          {...props}
+          variant="pane"
+          listHeight={Math.max(200, bodyHeight - LIST_CHROME_HEIGHT)}
+        />
+      </OverlayScrollbarsComponent>
+    </div>
   );
 }
 
