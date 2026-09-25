@@ -577,6 +577,7 @@ export const createProjectSlice: StateCreator<
             isLoadingMessages: false,
             subagentSessions: [],
             parentSessionStack: [],
+            subagentNavStack: [],
           });
           get().clearSessionSearch();
           get().clearTokenStats();
@@ -819,6 +820,7 @@ export const createProjectSlice: StateCreator<
       isLoadingMoreSessions: false,
       subagentSessions: [],
       parentSessionStack: [],
+      subagentNavStack: [],
     });
 
     get().clearSessionSearch();

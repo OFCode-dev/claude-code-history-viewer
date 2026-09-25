@@ -770,3 +770,163 @@ describe("messageSlice — navigate guards & error branches", () => {
     expect(store.getState().setError).not.toHaveBeenCalled();
   });
 });
+
+describe("messageSlice — sibling subagent navigation (keeps the parent's list)", () => {
+  beforeEach(() => {
+    mockApi.mockReset();
+    mockToastError.mockReset();
+    mockToastWarning.mockReset();
+  });
+
+  const parent = makeSession({ file_path: "/tmp/parent.jsonl", provider: "claude" });
+  const subA = makeSubagent("a", "/tmp/parent/subagents/agent-a.jsonl", "toolu_a");
+  const subB = makeSubagent("b", "/tmp/parent/subagents/agent-b.jsonl", "toolu_b");
+  const subC = makeSubagent("c", "/tmp/parent/subagents/agent-c.jsonl", "toolu_c");
+  const nested = makeSubagent("n", "/tmp/parent/subagents/agent-a/agent-n.jsonl");
+
+  /** Subagent transcripts list no subagents of their own unless configured. */
+  const mockBackend = (childLists: Record<string, SubagentSession[]> = {}) => {
+    mockApi.mockImplementation((cmd: string, args: PaginatedArgs) => {
+      if (cmd === "load_provider_messages_paginated") {
+        return Promise.resolve(
+          asPage([makeUserMessage(`m-${args.sessionPath}`, true)], args),
+        );
+      }
+      if (cmd === "get_session_subagents") {
+        return Promise.resolve(childLists[args.sessionPath] ?? []);
+      }
+      return Promise.reject(new Error(`unexpected: ${cmd}`));
+    });
+  };
+
+  const flush = () => new Promise((r) => setTimeout(r, 0));
+
+  it("keeps the parent's subagent list in the nav frame after the child replaces subagentSessions", async () => {
+    const store = createTestStore();
+    store.setState({ selectedSession: parent, subagentSessions: [subA, subB, subC] });
+    mockBackend();
+
+    await store.getState().navigateToSubagent(subB);
+    await flush();
+
+    const state = store.getState();
+    expect(state.selectedSession?.file_path).toBe(subB.file_path);
+    // The child has no subagents of its own…
+    expect(state.subagentSessions).toEqual([]);
+    // …but the frame still holds the parent's list for previous/next.
+    expect(state.subagentNavStack).toEqual([
+      { subagent: subB, siblings: [subA, subB, subC] },
+    ]);
+    expect(state.parentSessionStack.map((s) => s.file_path)).toEqual([
+      parent.file_path,
+    ]);
+  });
+
+  it("replaces the current subagent at the same level when opening a sibling", async () => {
+    const store = createTestStore();
+    store.setState({ selectedSession: parent, subagentSessions: [subA, subB, subC] });
+    mockBackend();
+
+    await store.getState().navigateToSubagent(subA);
+    await store.getState().navigateToSubagent(subC);
+
+    const state = store.getState();
+    expect(state.selectedSession?.file_path).toBe(subC.file_path);
+    expect(state.parentSessionStack.map((s) => s.file_path)).toEqual([
+      parent.file_path,
+    ]);
+    expect(state.subagentNavStack).toEqual([
+      { subagent: subC, siblings: [subA, subB, subC] },
+    ]);
+    // Sidechain rows stay visible inside the sibling (treated as a subagent load).
+    expect(state.messages.map((m) => m.uuid)).toEqual([`m-${subC.file_path}`]);
+  });
+
+  it("returns to the shared parent from a sibling in one step", async () => {
+    const store = createTestStore();
+    store.setState({ selectedSession: parent, subagentSessions: [subA, subB] });
+    mockBackend({ [parent.file_path]: [subA, subB] });
+
+    await store.getState().navigateToSubagent(subA);
+    await store.getState().navigateToSubagent(subB);
+    await store.getState().navigateBackToParent();
+    await flush();
+
+    const state = store.getState();
+    expect(state.selectedSession?.file_path).toBe(parent.file_path);
+    expect(state.parentSessionStack).toEqual([]);
+    expect(state.subagentNavStack).toEqual([]);
+    expect(state.subagentSessions).toEqual([subA, subB]);
+  });
+
+  it("opens a subagent of the current subagent one level deeper", async () => {
+    const store = createTestStore();
+    store.setState({ selectedSession: parent, subagentSessions: [subA, subB] });
+    mockBackend({ [subA.file_path]: [nested] });
+
+    await store.getState().navigateToSubagent(subA);
+    await flush();
+    expect(store.getState().subagentSessions).toEqual([nested]);
+
+    await store.getState().navigateToSubagent(nested);
+
+    const state = store.getState();
+    expect(state.parentSessionStack.map((s) => s.file_path)).toEqual([
+      parent.file_path,
+      subA.file_path,
+    ]);
+    expect(state.subagentNavStack).toEqual([
+      { subagent: subA, siblings: [subA, subB] },
+      { subagent: nested, siblings: [nested] },
+    ]);
+
+    await store.getState().navigateBackToParent();
+    expect(store.getState().selectedSession?.file_path).toBe(subA.file_path);
+    expect(store.getState().subagentNavStack).toEqual([
+      { subagent: subA, siblings: [subA, subB] },
+    ]);
+  });
+
+  it("ignores a request to open the subagent that is already on screen", async () => {
+    const store = createTestStore();
+    store.setState({ selectedSession: parent, subagentSessions: [subA] });
+    mockBackend();
+
+    await store.getState().navigateToSubagent(subA);
+    const calls = mockApi.mock.calls.length;
+    await store.getState().navigateToSubagent(subA);
+
+    expect(mockApi.mock.calls.length).toBe(calls);
+    expect(store.getState().parentSessionStack).toHaveLength(1);
+    expect(store.getState().subagentNavStack).toHaveLength(1);
+  });
+
+  it("names the synthetic session after the subagent's description", async () => {
+    const store = createTestStore();
+    const described: SubagentSession = {
+      ...subA,
+      summary: "first prompt line",
+      description: "Map the API error codes",
+    };
+    store.setState({ selectedSession: parent, subagentSessions: [described] });
+    mockBackend();
+
+    await store.getState().navigateToSubagent(described);
+
+    expect(store.getState().selectedSession?.summary).toBe("Map the API error codes");
+  });
+
+  it("clears the nav frames when a top-level session is selected", async () => {
+    const store = createTestStore();
+    store.setState({ selectedSession: parent, subagentSessions: [subA] });
+    mockBackend();
+
+    await store.getState().navigateToSubagent(subA);
+    await store
+      .getState()
+      .selectSession(makeSession({ file_path: "/tmp/other.jsonl" }));
+
+    expect(store.getState().parentSessionStack).toEqual([]);
+    expect(store.getState().subagentNavStack).toEqual([]);
+  });
+});
