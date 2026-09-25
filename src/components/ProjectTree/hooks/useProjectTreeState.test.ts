@@ -43,6 +43,19 @@ describe("useProjectTreeState", () => {
     expect(stored()).toEqual({ keys: ["dir:/home/jack"], seenRoots: [] });
   });
 
+  it("leaves transient (search-opened) group keys out of storage", () => {
+    const transient = { current: { opened: ["dir:/home/jack/work"] as string[] } };
+    const { result } = renderHook(() => useProjectTreeState("directory", transient));
+
+    act(() => result.current.expandGroups(["dir:/home/jack", "dir:/home/jack/work"]));
+    expect(result.current.expandedProjects).toEqual(new Set(["dir:/home/jack", "dir:/home/jack/work"]));
+    expect(stored().keys).toEqual(["dir:/home/jack"]);
+
+    transient.current = { opened: [] };
+    act(() => result.current.expandGroups(["dir:/srv"]));
+    expect(stored().keys).toEqual(["dir:/home/jack", "dir:/home/jack/work", "dir:/srv"]);
+  });
+
   it("restores persisted group keys on the next mount", () => {
     localStorage.setItem(
       EXPANDED_GROUPS_STORAGE_KEY,

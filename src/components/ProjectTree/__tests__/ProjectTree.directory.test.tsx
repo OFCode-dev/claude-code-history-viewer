@@ -332,6 +332,35 @@ describe("ProjectTree directory tree state", () => {
     // The root was open before the search and stays open.
     expect(row("dir:/home/jack")).toHaveAttribute("aria-expanded", "true");
   });
+
+  it("does not persist the folders a search opened when the tree unmounts mid-search", async () => {
+    // The mobile drawer unmounts the tree after a session pick, search still typed.
+    const { unmount } = renderTree();
+    typeSearch("e");
+    await waitFor(() => expect(row("loc:/home/jack/work/crawl/reports/weekly")).not.toBeNull());
+    unmount();
+
+    const stored = JSON.parse(localStorage.getItem(EXPANDED_GROUPS_STORAGE_KEY) ?? "{}");
+    expect(stored.keys).toEqual(["dir:/home/jack"]);
+  });
+
+  it("persists the ancestors of a project selected while searching once the search clears", async () => {
+    const { rerenderWith } = renderTree();
+    // The whole tree matches, so the search opens every folder...
+    typeSearch("e");
+    await waitFor(() => expect(row("loc:/home/jack/work/crawl/reports/daily")).not.toBeNull());
+    rerenderWith({ selectedProject: projects[1]! });
+    typeSearch("");
+
+    // ...and all of them are the selection's ancestors: nothing closes, yet
+    // they must reach storage now that the search no longer owns them.
+    await waitFor(() => {
+      const stored = JSON.parse(localStorage.getItem(EXPANDED_GROUPS_STORAGE_KEY) ?? "{}");
+      expect(stored.keys).toEqual(
+        expect.arrayContaining(["dir:/home/jack/work", "dir:/home/jack/work/crawl"])
+      );
+    });
+  });
 });
 
 describe("ProjectTree reveal requests", () => {
