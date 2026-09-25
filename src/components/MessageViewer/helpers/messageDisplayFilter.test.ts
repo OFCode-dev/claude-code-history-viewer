@@ -93,7 +93,10 @@ describe("applyMessageDisplayFilter", () => {
 
   it("shows only human prompts and assistant prose in the dialogue view", () => {
     const result = applyMessageDisplayFilter(all, filter({ dialogue: true }));
-    expect(result).toEqual([prompt, imagePrompt, prose, proseAndTool]);
+    expect(uuids(result)).toEqual(uuids([prompt, imagePrompt, prose, proseAndTool]));
+    // Records that are prose already are passed through untouched.
+    expect(result[0]).toBe(prompt);
+    expect(result[2]).toBe(prose);
   });
 
   it("ignores the individual toggles while the dialogue view is on", () => {
@@ -104,12 +107,77 @@ describe("applyMessageDisplayFilter", () => {
         contentTypes: { text: false, toolCalls: true, parallelTasks: false },
       }),
     );
-    expect(result).toEqual([prompt, imagePrompt, prose, proseAndTool]);
+    expect(uuids(result)).toEqual(uuids([prompt, imagePrompt, prose, proseAndTool]));
   });
 
   it("ignores the role toggles too, since they are disabled in the dialogue view", () => {
     expect(
-      applyMessageDisplayFilter(all, filter({ dialogue: true, roles: { user: false, assistant: true } })),
-    ).toEqual([prompt, imagePrompt, prose, proseAndTool]);
+      uuids(applyMessageDisplayFilter(all, filter({ dialogue: true, roles: { user: false, assistant: true } }))),
+    ).toEqual(uuids([prompt, imagePrompt, prose, proseAndTool]));
+  });
+
+  describe("dialogue view: assistant prose only", () => {
+    const dialogue = (records: ClaudeMessage[]) =>
+      applyMessageDisplayFilter(records, filter({ dialogue: true }));
+
+    it("drops assistant records whose only blocks are not prose (e.g. OpenCode steps)", () => {
+      const openCodeToolStep = assistant([
+        { type: "tool_use", id: "t3", name: "read", input: { filePath: "a.ts" } },
+        { type: "opencode_step", cost: 0.01, tokens: { input: 10, output: 2 } },
+      ]);
+      const stepOnly = assistant([{ type: "opencode_step", cost: 0.01 }]);
+      const otherBlocks = assistant([
+        { type: "advisor_tool_result", content: "…" },
+        { type: "container_upload", file_id: "f1" },
+        { type: "some_future_block" },
+      ]);
+      expect(dialogue([openCodeToolStep, stepOnly, otherBlocks])).toEqual([]);
+    });
+
+    it("drops assistant records whose text blocks are empty or whitespace", () => {
+      const emptyTextAndTool = assistant([
+        { type: "text", text: "" },
+        { type: "tool_use", id: "t4", name: "Bash", input: { command: "ls" } },
+      ]);
+      const whitespaceOnly = assistant([{ type: "text", text: "  \n\t " }]);
+      const emptyString = record("assistant", { role: "assistant", content: "   " });
+      expect(dialogue([emptyTextAndTool, whitespaceOnly, emptyString])).toEqual([]);
+    });
+
+    it("keeps only the prose blocks of a mixed record", () => {
+      const [shown] = dialogue([proseAndTool]);
+      expect(shown?.uuid).toBe(proseAndTool.uuid);
+      expect(shown?.content).toEqual([{ type: "text", text: "Checking the logs." }]);
+      // The source record is not mutated.
+      expect(proseAndTool.content).toHaveLength(2);
+    });
+
+    it("strips task-board and step blocks so groupers cannot replace the prose", () => {
+      const proseAndTodo = assistant([
+        { type: "text", text: "Here is the plan." },
+        { type: "tool_use", id: "t5", name: "TodoWrite", input: { todos: [] } },
+        { type: "opencode_step", cost: 0.02 },
+        { type: "text", text: "   " },
+      ]);
+      const [shown] = dialogue([proseAndTodo]);
+      expect(shown?.content).toEqual([{ type: "text", text: "Here is the plan." }]);
+    });
+
+    it("drops legacy tool fields from kept assistant records", () => {
+      const legacy = record("assistant", {
+        role: "assistant",
+        content: "Running the tests now.",
+        toolUse: { name: "Bash" },
+        toolUseResult: { stdout: "ok" },
+      });
+      const [shown] = dialogue([legacy]);
+      expect(shown?.content).toBe("Running the tests now.");
+      expect((shown as { toolUse?: unknown }).toolUse).toBeUndefined();
+      expect((shown as { toolUseResult?: unknown }).toolUseResult).toBeUndefined();
+    });
   });
 });
+
+function uuids(records: ClaudeMessage[]): string[] {
+  return records.map((r) => r.uuid);
+}

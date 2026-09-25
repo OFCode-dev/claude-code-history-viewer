@@ -6,11 +6,10 @@
  * may only hold a paginated window of it).
  */
 
-import type { ClaudeAssistantMessage, ClaudeMessage } from "../../../types";
-import {
-  DIALOGUE_CONTENT_TYPES,
-  type MessageFilter,
-  type MessageFilterContentTypes,
+import type { ClaudeAssistantMessage, ClaudeMessage, ContentItem } from "../../../types";
+import type {
+  MessageFilter,
+  MessageFilterContentTypes,
 } from "../../../store/slices/filterSlice";
 import { extractClaudeMessageContent } from "../../../utils/messageUtils";
 import { getUserMessageKind } from "../../../utils/userMessageKind";
@@ -49,25 +48,57 @@ function hasVisibleAssistantContent(
   return hasText || hasContentArray || hasLegacyTool;
 }
 
+/** Whether a content block is a `text` block that actually carries prose. */
+function isProseBlock(block: unknown): block is ContentItem {
+  if (!block || typeof block !== "object") return false;
+  const { type, text } = block as { type?: unknown; text?: unknown };
+  return type === "text" && typeof text === "string" && text.trim().length > 0;
+}
+
 /**
- * Dialogue view: human prompts and assistant prose only. Tool calls and results,
- * thinking, slash commands and their output, notifications, harness context,
- * progress/system rows and assistant records without text are all dropped. The
- * individual role and content toggles are ignored (they are disabled in the UI).
+ * Dialogue view of one record: human prompts unchanged, assistant records
+ * reduced to their prose, everything else dropped (null).
+ *
+ * Tool calls and results, thinking, slash commands and their output,
+ * notifications, harness context, progress/system rows and assistant records
+ * without prose are all dropped. A kept assistant record loses every non-text
+ * block and its legacy tool fields, so the renderer, the task/agent groupers
+ * and export see prose only, whatever block types a provider emits (e.g.
+ * OpenCode's per-step `opencode_step` block). The individual role and content
+ * toggles are ignored (they are disabled in the UI).
  */
-function isDialogueRecord(msg: ClaudeMessage): boolean {
-  if (msg.type === "user") return getUserMessageKind(msg) === "prompt";
-  if (msg.type === "assistant") {
-    return hasVisibleAssistantContent(msg, DIALOGUE_CONTENT_TYPES);
+export function toDialogueRecord(msg: ClaudeMessage): ClaudeMessage | null {
+  if (msg.type === "user") return getUserMessageKind(msg) === "prompt" ? msg : null;
+  if (msg.type !== "assistant") return null;
+
+  const hasLegacyTool = msg.toolUse != null || msg.toolUseResult != null;
+  const { content } = msg;
+  if (typeof content === "string") {
+    if (!content.trim()) return null;
+    return hasLegacyTool ? { ...msg, toolUse: undefined, toolUseResult: undefined } : msg;
   }
-  return false;
+  if (!Array.isArray(content)) return null;
+
+  const prose = content.filter(isProseBlock);
+  if (prose.length === 0) return null;
+  if (prose.length === content.length && !hasLegacyTool) return msg;
+  return { ...msg, content: prose, toolUse: undefined, toolUseResult: undefined };
+}
+
+function applyDialogueFilter(messages: ClaudeMessage[]): ClaudeMessage[] {
+  const result: ClaudeMessage[] = [];
+  for (const msg of messages) {
+    const shown = toDialogueRecord(msg);
+    if (shown) result.push(shown);
+  }
+  return result;
 }
 
 export function applyMessageDisplayFilter(
   messages: ClaudeMessage[],
   messageFilter: MessageFilter,
 ): ClaudeMessage[] {
-  if (messageFilter.dialogue) return messages.filter(isDialogueRecord);
+  if (messageFilter.dialogue) return applyDialogueFilter(messages);
 
   const { roles, contentTypes } = messageFilter;
   const allRoles = roles.user && roles.assistant;
