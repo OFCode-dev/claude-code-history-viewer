@@ -10,6 +10,7 @@ import {
 } from "@/utils/subagentNavigation";
 import { SubagentMetaBadges } from "@/components/subagents/SubagentMetaBadges";
 import { SUBAGENT_PATH_ATTR } from "@/components/subagents/subagentDom";
+import { isFocusLost } from "@/components/subagents/subagentFocus";
 import type { SubagentSession } from "@/types";
 
 const navButton = cn(
@@ -19,17 +20,6 @@ const navButton = cn(
   "aria-disabled:opacity-60 aria-disabled:cursor-progress",
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
 );
-
-/** Whether keyboard focus was dropped (its element unmounted or disabled). */
-function isFocusLost(): boolean {
-  const active = document.activeElement;
-  return (
-    active == null ||
-    active === document.body ||
-    !active.isConnected ||
-    (active instanceof HTMLButtonElement && active.disabled)
-  );
-}
 
 /**
  * After "Back" the bar unmounts (at top level) and would drop focus on
@@ -137,6 +127,8 @@ export const SubagentContextBar = memo(function SubagentContextBar() {
         <button
           type="button"
           onClick={() => void goBack()}
+          // SUBAGENT_BACK_ATTR: where focus lands after entering a subagent.
+          data-subagent-back=""
           title={backLabel}
           aria-label={backLabel}
           className={cn(
