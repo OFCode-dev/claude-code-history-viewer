@@ -463,6 +463,18 @@ export function locateInDirectoryTree(
   return best.descendant?.result ?? best.ancestor?.result ?? null;
 }
 
+/** Expansion keys of every folder row in the tree, roots included. */
+export function getAllFolderKeys(tree: DirectoryTree): string[] {
+  const keys: string[] = [];
+  const visit = (node: DirectoryTreeNode) => {
+    if (node.kind !== "folder") return;
+    keys.push(node.key);
+    node.children.forEach(visit);
+  };
+  tree.roots.forEach(visit);
+  return keys;
+}
+
 /**
  * Keys to expand so the project row for `projectPath` is visible, or null when
  * that working directory is not in the tree. A folder that is itself a project

@@ -30,7 +30,8 @@ import { ProjectContextMenu } from "../ProjectContextMenu";
 import { useProjectTreeState } from "./hooks/useProjectTreeState";
 import { GroupedProjectList } from "./components/GroupedProjectList";
 import type { ProjectTreeProps } from "./types";
-import type { ProviderId, ClaudeSession } from "../../types";
+import type { ProviderId, ClaudeProject, ClaudeSession } from "../../types";
+import type { DirectoryGroup } from "../../utils/worktreeUtils";
 import { useAppStore } from "../../store/useAppStore";
 import {
   buildTreeItemAnnouncement,
@@ -43,8 +44,11 @@ import {
 } from "./treeKeyboard";
 import {
   buildDirectoryTree,
+  getAllFolderKeys,
   getProjectExpansionKeys,
   locateInDirectoryTree,
+  TEMPORARY_BUCKET_KEY,
+  UNAVAILABLE_BUCKET_KEY,
 } from "../../utils/directoryTree";
 import {
   DEFAULT_PROVIDER_ID,
@@ -69,6 +73,26 @@ const loadProviderFiltersOpenState = () => {
     return false;
   }
 };
+
+/** A reveal that asked for directory grouping gives up if the mode never changes. */
+const REVEAL_MODE_SWITCH_TIMEOUT_MS = 3000;
+
+const sameItems = <T,>(a: readonly T[], b: readonly T[]) =>
+  a.length === b.length && a.every((item, index) => item === b[index]);
+
+/**
+ * The projects of `directoryGroups` as one array that keeps its identity while
+ * the projects do. The caller rebuilds the groups on every store update, and
+ * the directory tree is memoized on this array.
+ */
+function useStableDirectoryProjects(groups: DirectoryGroup[]): ClaudeProject[] {
+  const next = useMemo(() => groups.flatMap((group) => group.projects), [groups]);
+  const [stable, setStable] = useState(next);
+  if (stable === next || sameItems(stable, next)) return stable;
+  // Adjusting state during render (React's "storing information from previous renders").
+  setStable(next);
+  return next;
+}
 
 export const ProjectTree: React.FC<ProjectTreeProps> = ({
   projects,
@@ -128,6 +152,7 @@ export const ProjectTree: React.FC<ProjectTreeProps> = ({
     ensureProjectExpanded,
     expandGroups,
     collapseGroup,
+    collapseGroups,
     expandDefaultRoots,
     collapseAllGroups,
     contextMenu,
@@ -386,28 +411,21 @@ export const ProjectTree: React.FC<ProjectTreeProps> = ({
     [projects, matchesProviderFilter, matchesSearch]
   );
 
-  const filteredDirectoryGroups = useMemo(() => {
-    const filterFn = (p: (typeof projects)[number]) =>
-      matchesProviderFilter(p) && matchesSearch(p);
+  // `directoryGroups` (visible projects only) is authoritative for directory
+  // mode; the tree below is rebuilt only when its projects or filters change.
+  const directoryProjects = useStableDirectoryProjects(directoryGroups);
 
-    if (isAllProvidersSelected && !normalizedSearchTerm) {
-      return directoryGroups;
-    }
-
-    return directoryGroups
-      .map((group) => ({
-        ...group,
-        projects: group.projects.filter(filterFn),
-      }))
-      .filter((group) => group.projects.length > 0);
-  }, [directoryGroups, isAllProvidersSelected, matchesProviderFilter, matchesSearch, normalizedSearchTerm]);
+  const filteredDirectoryProjects = useMemo(
+    () =>
+      isAllProvidersSelected && !normalizedSearchTerm
+        ? directoryProjects
+        : directoryProjects.filter((p) => matchesProviderFilter(p) && matchesSearch(p)),
+    [directoryProjects, isAllProvidersSelected, matchesProviderFilter, matchesSearch, normalizedSearchTerm]
+  );
 
   const directoryTree = useMemo(
-    () =>
-      groupingMode === "directory"
-        ? buildDirectoryTree(filteredDirectoryGroups.flatMap((group) => group.projects))
-        : null,
-    [filteredDirectoryGroups, groupingMode]
+    () => (groupingMode === "directory" ? buildDirectoryTree(filteredDirectoryProjects) : null),
+    [filteredDirectoryProjects, groupingMode]
   );
 
   const { filteredWorktreeGroups, filteredUngroupedProjects } = useMemo(() => {
@@ -514,26 +532,27 @@ export const ProjectTree: React.FC<ProjectTreeProps> = ({
     [selectedProject, onProjectSelect, setExpandedProjects]
   );
 
-  // Joined into a string so a rebuilt tree with the same ancestors does not
-  // re-expand folders the user has just collapsed.
-  const selectedProjectGroupKeys = useMemo(() => {
-    if (!selectedProject) return "";
+  /**
+   * Group rows that must be open for the selected project's row to show, or
+   * null when the current (filtered) tree has no row for it.
+   */
+  const getSelectedProjectGroupKeys = useCallback((): string[] | null => {
+    if (!selectedProject) return [];
 
     if (selectedProject.path_status === "unavailable") {
-      return "group:unavailable-projects";
+      return [UNAVAILABLE_BUCKET_KEY];
     }
     // Temporary-location projects render under their own bucket in every
     // grouping mode, so that bucket (not the directory group) must open.
     if (isProjectTemporary(selectedProject)) {
-      return "group:temporary-projects";
+      return [TEMPORARY_BUCKET_KEY];
     }
 
     if (groupingMode === "directory" && directoryTree) {
-      const keys = getProjectExpansionKeys(
+      return getProjectExpansionKeys(
         directoryTree,
         selectedProject.actual_path || selectedProject.path
       );
-      return keys ? keys.join("\n") : "";
     }
 
     if (groupingMode === "worktree") {
@@ -542,35 +561,84 @@ export const ProjectTree: React.FC<ProjectTreeProps> = ({
           candidate.parent.path === selectedProject.path ||
           candidate.children.some((project) => project.path === selectedProject.path)
       );
-      return group ? `group:${group.parent.path}` : "";
+      return group ? [`group:${group.parent.path}`] : [];
     }
 
-    return "";
+    return [];
   }, [directoryTree, groupingMode, selectedProject, worktreeGroups]);
 
   // Global search and deep-link flows select projects through the store rather
   // than through handleProjectClick, so the tree's local expansion state would
   // otherwise stay collapsed (#486). Re-apply the selected project/session to
   // the tree and include its containing groups (every ancestor folder) when grouped.
+  // Only a new selection (or grouping mode) does this: a tree rebuilt by a
+  // search or filter change must not re-open folders the user collapsed.
+  const appliedSelectionRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!selectedProject?.path) return;
-    ensureProjectExpanded(
-      selectedProject.path,
-      selectedProjectGroupKeys ? selectedProjectGroupKeys.split("\n") : undefined
-    );
+    if (!selectedProject?.path) {
+      appliedSelectionRef.current = null;
+      return;
+    }
+    const signature = [groupingMode, selectedProject.path, selectedSession?.file_path ?? ""].join("\n");
+    if (appliedSelectionRef.current === signature) return;
+
+    const groupKeys = getSelectedProjectGroupKeys();
+    if (groupKeys === null) {
+      // Filtered out of the tree for now; open its ancestors once it is back.
+      ensureProjectExpanded(selectedProject.path);
+      return;
+    }
+    appliedSelectionRef.current = signature;
+    ensureProjectExpanded(selectedProject.path, groupKeys);
   }, [
     ensureProjectExpanded,
+    getSelectedProjectGroupKeys,
+    groupingMode,
     selectedProject?.path,
-    selectedProjectGroupKeys,
     selectedSession?.file_path,
   ]);
 
-  // First run: the directory roots start expanded (persisted from then on).
+  // A directory root starts expanded the first time it appears (persisted from then on).
   useEffect(() => {
     if (directoryTree && directoryTree.roots.length > 0) {
       expandDefaultRoots(directoryTree.roots.map((root) => root.key));
     }
   }, [directoryTree, expandDefaultRoots]);
+
+  // Searching in directory mode opens every folder of the filtered tree so the
+  // matches are visible; clearing the search closes the folders it opened,
+  // except the ancestors of a project selected while searching. Runs once per
+  // search term, so collapsing a folder while searching sticks.
+  const searchExpansionRef = useRef<{ term: string; opened: string[]; selectionAtStart: string | null }>({
+    term: "",
+    opened: [],
+    selectionAtStart: null,
+  });
+  useEffect(() => {
+    const search = searchExpansionRef.current;
+    if (!directoryTree || search.term === normalizedSearchTerm) return;
+    if (!search.term) search.selectionAtStart = selectedProject?.path ?? null;
+    search.term = normalizedSearchTerm;
+
+    if (normalizedSearchTerm) {
+      const opened = getAllFolderKeys(directoryTree).filter((key) => !expandedProjects.has(key));
+      search.opened = [...new Set([...search.opened, ...opened])];
+      expandGroups(opened);
+      return;
+    }
+    const selectedWhileSearching = (selectedProject?.path ?? null) !== search.selectionAtStart;
+    const keep = new Set(selectedWhileSearching ? getSelectedProjectGroupKeys() ?? [] : []);
+    collapseGroups(search.opened.filter((key) => !keep.has(key)));
+    search.opened = [];
+  }, [
+    collapseGroups,
+    directoryTree,
+    expandGroups,
+    expandedProjects,
+    getSelectedProjectGroupKeys,
+    normalizedSearchTerm,
+    selectedProject?.path,
+  ]);
 
   const handleGlobalStatsClick = useCallback(() => {
     // Global stats 진입 시 현재 열려 있는 프로젝트 확장을 닫는다.
@@ -648,65 +716,108 @@ export const ProjectTree: React.FC<ProjectTreeProps> = ({
     }
   }, []);
 
+  // Expansion changes too: collapsing a folder unmounts the row that held the
+  // tab stop, and the tree must keep exactly one.
   useEffect(() => {
     const frameId = requestAnimationFrame(() => syncRovingTabIndex());
     return () => cancelAnimationFrame(frameId);
   }, [
     syncRovingTabIndex,
     filteredProjects.length,
-    filteredDirectoryGroups.length,
+    directoryTree,
     filteredWorktreeGroups.length,
     filteredUngroupedProjects.length,
+    expandedProjects,
     groupingMode,
     selectedProject?.path,
     isViewingGlobalStats,
   ]);
 
+  // Scroll to the selection when it changes, once its row exists (its
+  // ancestors may open a render later) — not on every expand/collapse, which
+  // would pull the list away from the folder the user just opened.
+  const pendingSelectionScrollRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!selectedProject?.path || !treeRef.current) return;
+    pendingSelectionScrollRef.current = selectedProject?.path ?? null;
+  }, [selectedProject?.path, selectedSession?.file_path]);
+
+  useEffect(() => {
+    const target = pendingSelectionScrollRef.current;
+    if (!target || !treeRef.current) return;
 
     const frameId = requestAnimationFrame(() => {
       const projectItem = Array.from(
         treeRef.current?.querySelectorAll<HTMLElement>(
           '[data-tree-node="project"]'
         ) ?? []
-      ).find((item) => item.dataset.projectPath === selectedProject.path);
+      ).find((item) => item.dataset.projectPath === target);
+      if (!projectItem) return;
 
-      projectItem?.scrollIntoView?.({ block: "nearest" });
+      pendingSelectionScrollRef.current = null;
+      projectItem.scrollIntoView?.({ block: "nearest" });
     });
 
     return () => cancelAnimationFrame(frameId);
-  }, [expandedProjects, selectedProject?.path, selectedSession?.file_path]);
+  }, [expandedProjects, directoryTree, selectedProject?.path, selectedSession?.file_path]);
 
   // Reveal requests (header breadcrumb): show the directory tree, open the
   // ancestors of the requested path, then scroll to and focus its row. Each
   // step that changes props/state returns and resumes on the next run.
   const [revealFocusKey, setRevealFocusKey] = useState<string | null>(null);
   const handledRevealNonceRef = useRef<number | null>(null);
+  // Side effects already requested for a nonce; the effect re-runs until the
+  // props catch up and must not toggle the sidebar or save settings again.
+  const revealStepsRef = useRef<{ nonce: number; expandedSidebar: boolean; switchedMode: boolean }>({
+    nonce: -1,
+    expandedSidebar: false,
+    switchedMode: false,
+  });
 
   useEffect(() => {
     const request = explorerRevealRequest;
     if (!request || handledRevealNonceRef.current === request.nonce) return;
+    if (revealStepsRef.current.nonce !== request.nonce) {
+      revealStepsRef.current = { nonce: request.nonce, expandedSidebar: false, switchedMode: false };
+    }
+    const steps = revealStepsRef.current;
+    const abandon = () => {
+      handledRevealNonceRef.current = request.nonce;
+      clearExplorerRevealRequest();
+    };
 
     if (isCollapsed && onToggleCollapse) {
-      onToggleCollapse();
+      if (!steps.expandedSidebar) {
+        steps.expandedSidebar = true;
+        onToggleCollapse();
+      }
       return;
     }
     if (groupingMode !== "directory") {
-      if (onGroupingModeChange) {
-        onGroupingModeChange("directory");
+      if (!onGroupingModeChange) {
+        abandon();
         return;
       }
-      handledRevealNonceRef.current = request.nonce;
-      clearExplorerRevealRequest();
-      return;
+      if (!steps.switchedMode) {
+        steps.switchedMode = true;
+        onGroupingModeChange("directory");
+      }
+      // If saving the grouping mode fails, drop the request instead of letting
+      // it fire whenever the user later picks directory mode by hand.
+      const timer = window.setTimeout(abandon, REVEAL_MODE_SWITCH_TIMEOUT_MS);
+      return () => window.clearTimeout(timer);
     }
-    // A search filter may hide the row; wait for the deferred term to clear too.
-    if (searchTerm) {
-      setSearchTerm("");
-      return;
+    // The breadcrumb is an explicit request to show this path: keep the
+    // user's search when it already shows the row, otherwise clear it (and
+    // wait for the deferred filter to catch up).
+    if (searchTerm || normalizedSearchTerm) {
+      const settled = deferredSearchTerm === searchTerm;
+      const visible =
+        settled && directoryTree ? locateInDirectoryTree(directoryTree, request.path) : null;
+      if (visible?.match !== "exact") {
+        if (settled) setSearchTerm("");
+        return;
+      }
     }
-    if (normalizedSearchTerm) return;
 
     handledRevealNonceRef.current = request.nonce;
     const target = directoryTree ? locateInDirectoryTree(directoryTree, request.path) : null;
@@ -718,6 +829,7 @@ export const ProjectTree: React.FC<ProjectTreeProps> = ({
     setRevealFocusKey(target.key);
   }, [
     clearExplorerRevealRequest,
+    deferredSearchTerm,
     directoryTree,
     expandGroups,
     explorerRevealRequest,
@@ -1343,7 +1455,7 @@ export const ProjectTree: React.FC<ProjectTreeProps> = ({
               <GroupedProjectList
                 groupingMode={groupingMode}
                 projects={filteredProjects}
-                directoryGroups={filteredDirectoryGroups}
+                directoryGroups={directoryGroups}
                 directoryTree={directoryTree}
                 worktreeGroups={filteredWorktreeGroups}
                 ungroupedProjects={filteredUngroupedProjects}

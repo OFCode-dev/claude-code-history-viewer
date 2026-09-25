@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { ClaudeProject } from "../types";
 import {
   buildDirectoryTree,
+  getAllFolderKeys,
   getFolderKey,
   getLocationKey,
   getProjectExpansionKeys,
@@ -382,5 +383,22 @@ describe("getProjectExpansionKeys", () => {
 
   it("returns null for paths without an exact row", () => {
     expect(getProjectExpansionKeys(tree, "/home/jack/missing")).toBeNull();
+  });
+});
+
+describe("getAllFolderKeys", () => {
+  it("lists every folder row, nested ones and roots included", () => {
+    const tree = buildDirectoryTree([
+      project("/home/jack/work/crawl/reports/daily"),
+      project("/home/jack/work/crawl/reports/weekly"),
+      project("/home/jack/work/app"),
+      project("/srv/a"),
+    ]);
+
+    expect(getAllFolderKeys(tree)).toEqual([
+      "dir:/home/jack",
+      "dir:/home/jack/work/crawl",
+      "dir:/",
+    ]);
   });
 });

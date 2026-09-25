@@ -112,6 +112,19 @@ const press = (key: string) => {
   fireEvent.keyDown(document.activeElement as HTMLElement, { key });
 };
 
+const nextFrame = () =>
+  act(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
+
+const tabStops = () =>
+  Array.from(document.querySelectorAll<HTMLElement>('[role="treeitem"]')).filter(
+    (item) => item.tabIndex === 0
+  );
+
+const typeSearch = (value: string) =>
+  fireEvent.change(screen.getByPlaceholderText("Search projects..."), { target: { value } });
+
+const [appProject] = projects as [ClaudeProject];
+
 describe("ProjectTree directory tree", () => {
   beforeEach(() => {
     store.explorerRevealRequest = null;
@@ -246,6 +259,74 @@ describe("ProjectTree directory tree", () => {
   });
 });
 
+describe("ProjectTree directory tree state", () => {
+  const scrollIntoView = vi.fn();
+
+  beforeEach(() => {
+    store.explorerRevealRequest = null;
+    store.activeProviders = ["claude"];
+    scrollIntoView.mockReset();
+    Element.prototype.scrollIntoView = scrollIntoView;
+  });
+
+  it("keeps exactly one tab stop after Collapse all unmounts it", async () => {
+    renderTree({ selectedProject: appProject });
+    await waitFor(() => expect(tabStops()).toHaveLength(1));
+    expect(tabStops()[0]).toBe(row("loc:/home/jack/work/app"));
+
+    fireEvent.click(screen.getByRole("button", { name: "Collapse all" }));
+
+    // Falls back to the first treeitem once the selected row is gone.
+    await waitFor(() => expect(tabStops()).toHaveLength(1));
+    expect(tabStops()[0]!.isConnected).toBe(true);
+    expect(row("loc:/home/jack/work/app")).toBeNull();
+  });
+
+  it("scrolls to a new selection but not when an unrelated folder opens", async () => {
+    renderTree({ selectedProject: appProject });
+    await waitFor(() => expect(scrollIntoView).toHaveBeenCalled());
+    expect(scrollIntoView.mock.contexts.at(-1)).toBe(row("loc:/home/jack/work/app"));
+    scrollIntoView.mockClear();
+
+    fireEvent.click(row("dir:/home/jack/work/crawl")!);
+    await nextFrame();
+    await nextFrame();
+
+    expect(row("loc:/home/jack/work/crawl/reports/daily")).not.toBeNull();
+    expect(scrollIntoView).not.toHaveBeenCalled();
+  });
+
+  it("does not re-open the selection's folders after Collapse all when the search changes", async () => {
+    renderTree({ selectedProject: appProject });
+    expect(row("dir:/home/jack/work")).toHaveAttribute("aria-expanded", "true");
+
+    fireEvent.click(screen.getByRole("button", { name: "Collapse all" }));
+    typeSearch("app");
+    // The search opens the folders holding matches…
+    await waitFor(() => expect(row("loc:/home/jack/work/app")).not.toBeNull());
+    typeSearch("");
+
+    // …and clearing it closes them again instead of re-opening the ancestors.
+    await waitFor(() => expect(row("dir:/home/jack")).toHaveAttribute("aria-expanded", "false"));
+    expect(row("dir:/home/jack/work")).toBeNull();
+  });
+
+  it("opens folders holding search matches and closes them when the search clears", async () => {
+    renderTree();
+    expect(row("dir:/home/jack/work")).toHaveAttribute("aria-expanded", "false");
+
+    // Every project path contains "e" (home), so the whole tree matches.
+    typeSearch("e");
+    await waitFor(() => expect(row("loc:/home/jack/work/crawl/reports/weekly")).not.toBeNull());
+    expect(row("dir:/home/jack/work/crawl")).toHaveAttribute("aria-expanded", "true");
+
+    typeSearch("");
+    await waitFor(() => expect(row("dir:/home/jack/work")).toHaveAttribute("aria-expanded", "false"));
+    // The root was open before the search and stays open.
+    expect(row("dir:/home/jack")).toHaveAttribute("aria-expanded", "true");
+  });
+});
+
 describe("ProjectTree reveal requests", () => {
   beforeEach(() => {
     store.explorerRevealRequest = null;
@@ -298,5 +379,61 @@ describe("ProjectTree reveal requests", () => {
 
     await waitFor(() => expect(clear).toHaveBeenCalled());
     clear.mockRestore();
+  });
+
+  it("asks for directory grouping once however often the effect re-runs", () => {
+    const switchMode = vi.fn();
+    store.explorerRevealRequest = { path: "/home/jack/notes", nonce: 5 };
+
+    const { rerenderWith } = renderTree({
+      groupingMode: "none",
+      onGroupingModeChange: (mode) => switchMode(mode),
+    });
+    rerenderWith({ groupingMode: "none", onGroupingModeChange: (mode) => switchMode(mode) });
+    rerenderWith({ groupingMode: "none", onGroupingModeChange: (mode) => switchMode(mode) });
+
+    expect(switchMode).toHaveBeenCalledTimes(1);
+    expect(switchMode).toHaveBeenCalledWith("directory");
+  });
+
+  it("drops the request when the grouping mode never switches", () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      store.explorerRevealRequest = { path: "/home/jack/notes", nonce: 6 };
+      renderTree({ groupingMode: "none" });
+      expect(store.explorerRevealRequest).not.toBeNull();
+
+      act(() => vi.advanceTimersByTime(3000));
+
+      expect(store.explorerRevealRequest).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("keeps the search when it already shows the requested row", async () => {
+    const { rerenderWith } = renderTree();
+    typeSearch("weekly");
+    await waitFor(() => expect(row("loc:/home/jack/work/crawl/reports/weekly")).not.toBeNull());
+
+    store.explorerRevealRequest = { path: "/home/jack/work/crawl/reports/weekly", nonce: 7 };
+    rerenderWith({});
+
+    await waitFor(() =>
+      expect(document.activeElement).toBe(row("loc:/home/jack/work/crawl/reports/weekly"))
+    );
+    expect(screen.getByPlaceholderText("Search projects...")).toHaveValue("weekly");
+  });
+
+  it("clears the search when it hides the requested row", async () => {
+    const { rerenderWith } = renderTree();
+    typeSearch("weekly");
+    await waitFor(() => expect(row("loc:/home/jack/work/crawl/reports/weekly")).not.toBeNull());
+
+    store.explorerRevealRequest = { path: "/home/jack/notes", nonce: 8 };
+    rerenderWith({});
+
+    await waitFor(() => expect(document.activeElement).toBe(row("loc:/home/jack/notes")));
+    expect(screen.getByPlaceholderText("Search projects...")).toHaveValue("");
   });
 });
