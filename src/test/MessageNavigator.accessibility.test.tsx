@@ -8,10 +8,12 @@ const {
   toggleShowParallelTasksMock,
   setNavigatorModeMock,
   scrollToIndexMock,
+  resetMessageFilterMock,
   useAppStoreMock,
   storeState,
 } = vi.hoisted(() => {
   const navigateToMessage = vi.fn();
+  const resetMessageFilter = vi.fn();
   const toggleShowParallelTasks = vi.fn();
   const setNavigatorMode = vi.fn();
 
@@ -24,10 +26,15 @@ const {
     setNavigatorMode,
     pagination: { hasMore: false },
     selectedSession: { file_path: "/s.jsonl" } as { file_path: string } | null,
+    parentSessionStack: [] as string[],
+    messageFilterActive: false,
+    isMessageFilterActive: () => state.messageFilterActive,
+    resetMessageFilter,
   };
 
   return {
     scrollToIndexMock: vi.fn(),
+    resetMessageFilterMock: resetMessageFilter,
     navigateToMessageMock: navigateToMessage,
     toggleShowParallelTasksMock: toggleShowParallelTasks,
     setNavigatorModeMock: setNavigatorMode,
@@ -248,6 +255,8 @@ describe("MessageNavigator prompts mode", () => {
     storeState.pagination = { hasMore: false };
     storeState.showParallelTasksInNavigator = true;
     storeState.selectedSession = { file_path: "/s.jsonl" };
+    storeState.parentSessionStack = [];
+    storeState.messageFilterActive = false;
     visibleRange.current = null;
     useViewportAnchorStore.getState().reset();
   });
@@ -514,6 +523,65 @@ describe("MessageNavigator prompts mode", () => {
     expect(first).toBeInTheDocument();
     expect(document.activeElement).toBe(first);
     expect(first).toHaveAttribute("tabindex", "0");
+  });
+
+  it("builds All-mode rows from the list the conversation renders", () => {
+    storeState.navigatorMode = "all";
+    renderNavigator();
+    expect(screen.getByText("Starting")).toBeInTheDocument();
+
+    // Tool calls hidden by the conversation's filter: a1 is not rendered, so
+    // it has no row to jump to.
+    publishTrack(
+      promptSession.filter((message) => (message as { uuid: string }).uuid !== "a1"),
+      "p1"
+    );
+
+    expect(screen.queryByText("Starting")).not.toBeInTheDocument();
+    expect(screen.getByText("Deploy the api")).toBeInTheDocument();
+  });
+
+  it("says when the display filter hides every prompt, with a way back", () => {
+    storeState.messageFilterActive = true;
+    renderNavigator();
+    // User unchecked: the conversation renders no user records.
+    publishTrack(
+      promptSession.filter((message) => (message as { type: string }).type !== "user"),
+      "a1"
+    );
+
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+    expect(screen.getByText("navigator.promptsHidden")).toBeInTheDocument();
+    expect(screen.queryByText("navigator.noPrompts")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "filter.showAll" }));
+    expect(resetMessageFilterMock).toHaveBeenCalledOnce();
+  });
+
+  it("keeps the plain empty state when the session has no prompts", () => {
+    storeState.messageFilterActive = true;
+    render(
+      <MessageNavigator
+        messages={[promptSession[1]!, promptSession[5]!]}
+        width={260}
+        isResizing={false}
+        onResizeStart={vi.fn()}
+        isCollapsed={false}
+        onToggleCollapse={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText("navigator.noPrompts")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "filter.showAll" })).not.toBeInTheDocument();
+  });
+
+  it("describes Prompts mode as the parent agent's prompts inside a subagent", () => {
+    storeState.parentSessionStack = ["/parent.jsonl"];
+    renderNavigator();
+
+    expect(screen.getByRole("radio", { name: "navigator.mode.prompts" })).toHaveAttribute(
+      "title",
+      "navigator.mode.promptsHintSubagent"
+    );
   });
 
   it("gives each option its position in the whole list", () => {
