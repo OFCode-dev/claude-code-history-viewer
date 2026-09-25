@@ -1,5 +1,5 @@
 import React, { useRef, useCallback, useState, useMemo, useEffect } from "react";
-import { useVirtualizer } from "@tanstack/react-virtual";
+import { defaultRangeExtractor, useVirtualizer, type Range } from "@tanstack/react-virtual";
 import { useTranslation } from "react-i18next";
 import { ListTree, Search, X, PanelRightClose, PanelRight, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -156,12 +156,26 @@ export const MessageNavigator: React.FC<MessageNavigatorProps> = ({
     return BASE_ENTRY_HEIGHT + estimatePreviewLines(entry.preview ?? "") * PREVIEW_LINE_HEIGHT;
   }, [isPromptsMode, promptRows, entries]);
 
+  // Always render the roving tab stop, even when it is scrolled far out of
+  // view (scroll-spy moving the list, Alt+Arrow jumps from a focused row):
+  // unmounting the focused option would drop focus to <body>, and Tab would
+  // skip the list when its only tabIndex=0 row is gone.
+  const rangeExtractor = useCallback(
+    (range: Range) => {
+      const indexes = defaultRangeExtractor(range);
+      if (focusedIndex >= rowCount || indexes.includes(focusedIndex)) return indexes;
+      return [...indexes, focusedIndex].sort((a, b) => a - b);
+    },
+    [focusedIndex, rowCount]
+  );
+
   const virtualizer = useVirtualizer({
     count: rowCount,
     getScrollElement: () => scrollElementRef.current,
     estimateSize,
     getItemKey: rowKey,
     overscan: 5,
+    rangeExtractor,
   });
 
   const activeIndex = useMemo(() => {
@@ -479,6 +493,7 @@ export const MessageNavigator: React.FC<MessageNavigatorProps> = ({
                     key={row.key}
                     row={row}
                     index={virtualItem.index}
+                    setSize={rowCount}
                     showTurnNumber={isWindowComplete}
                     isActive={row.entry.uuid === spyUuid}
                     isFocused={virtualItem.index === focusedIndex}
@@ -508,6 +523,7 @@ export const MessageNavigator: React.FC<MessageNavigatorProps> = ({
                   // Real heights, so two-line previews never overlap.
                   measureRef={virtualizer.measureElement}
                   index={virtualItem.index}
+                  setSize={rowCount}
                   start={virtualItem.start}
                 />
               );

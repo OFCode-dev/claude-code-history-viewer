@@ -18,6 +18,8 @@ interface NavigatorEntryProps {
   measureRef: (element: HTMLElement | null) => void;
   /** Position in the virtual list (read by the virtualizer when measuring). */
   index: number;
+  /** Rows in the whole (virtualized) list, for aria-setsize. */
+  setSize: number;
   /** Row offset inside the virtual list, in px. */
   start: number;
 }
@@ -39,6 +41,7 @@ export const NavigatorEntry = React.memo<NavigatorEntryProps>(({
   registerRef,
   measureRef,
   index,
+  setSize,
   start,
 }) => {
   const { t } = useTranslation();
@@ -82,6 +85,9 @@ export const NavigatorEntry = React.memo<NavigatorEntryProps>(({
       onFocus={handleFocus}
       onKeyDown={onNavigate}
       role="option"
+      // Only a window of rows is in the DOM: give the real position.
+      aria-setsize={setSize}
+      aria-posinset={index + 1}
       aria-selected={isActive}
       aria-current={isActive ? "true" : undefined}
       aria-label={t("navigator.a11y.entryLabel", {
