@@ -123,7 +123,7 @@ describe("PromptCard", () => {
     copyMock.mockRejectedValue(new Error("denied"));
     renderCard({ text: "Copy me" });
     fireEvent.click(screen.getByRole("button", { name: "promptCard.copy" }));
-    await waitFor(() => expect(toastMock.error).toHaveBeenCalledWith("copyButton.error"));
+    await waitFor(() => expect(toastMock.error).toHaveBeenCalledWith("promptCard.copyFailed"));
   });
 
   it("renders attachments of a prompt without text", () => {

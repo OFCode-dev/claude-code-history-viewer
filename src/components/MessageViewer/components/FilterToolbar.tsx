@@ -152,7 +152,7 @@ export function FilterToolbar({ totalCount, filteredCount, hasParallelTasks }: F
         {hasParallelTasks && (
           <FilterToggle
             active={messageFilter.contentTypes.parallelTasks}
-          disabled={isDialogue}
+            disabled={isDialogue}
             onClick={() => toggleContentType("parallelTasks")}
             label={t("filter.content.parallelTasks")}
             icon={<Zap className="w-3 h-3" />}

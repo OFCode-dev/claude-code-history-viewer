@@ -449,8 +449,10 @@ export const ClaudeMessageNode = React.memo(
                   text={userText}
                   timestamp={message.timestamp}
                   searchQuery={searchQuery}
+                  filterType={filterType}
                   isCurrentMatch={isCurrentMatch}
                   currentMatchIndex={currentMatchIndex}
+                  selectable={isCaptureMode}
                 />
               ) : (
                 <PromptCard

@@ -75,7 +75,7 @@ export const PromptCard: React.FC<PromptCardProps> = ({
       await copyTextToClipboard(text);
       toast.success(t("promptCard.copied"));
     } catch {
-      toast.error(t("copyButton.error"));
+      toast.error(t("promptCard.copyFailed"));
     }
   };
 
@@ -87,7 +87,7 @@ export const PromptCard: React.FC<PromptCardProps> = ({
       data-prompt-card=""
       className={cn(
         CONVERSATION_CARD_WIDTH,
-        "w-full mb-3 rounded-lg border border-accent/20 border-l-[3px] border-l-accent",
+        "group/prompt w-full mb-3 rounded-lg border border-accent/20 border-l-[3px] border-l-accent",
         "bg-accent/[0.07] px-4 pt-2 pb-3 shadow-sm"
       )}
     >
@@ -113,7 +113,15 @@ export const PromptCard: React.FC<PromptCardProps> = ({
           </>
         )}
 
-        <div className="ml-auto flex items-center gap-0.5">
+        {/* Actions appear on hover or keyboard focus (always on touch screens),
+            so they stay out of the reading flow and out of screenshots. */}
+        <div
+          className={cn(
+            "ml-auto flex items-center gap-0.5 transition-opacity",
+            "opacity-0 group-hover/prompt:opacity-100 group-focus-within/prompt:opacity-100",
+            "[@media(hover:none)]:opacity-100"
+          )}
+        >
           {canCollapse && (
             <TooltipButton
               onClick={() => setIsExpanded((prev) => !prev)}

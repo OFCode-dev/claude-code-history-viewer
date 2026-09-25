@@ -76,4 +76,41 @@ describe("SystemRecordRow", () => {
     expect(screen.getByRole("button")).toHaveAttribute("aria-expanded", "true");
     expect(document.querySelector("mark, [data-search-highlight]")).not.toBeNull();
   });
+
+  const reminder = "<system-reminder>\nRemember the plan.\nNever touch the live service.\n</system-reminder>";
+  const renderWithQuery = (searchQuery: string, extra: Partial<React.ComponentProps<typeof SystemRecordRow>> = {}) => (
+    <ExpandKeyProvider value="record-1">
+      <SystemRecordRow timestamp={TIMESTAMP} kind="systemContext" text={reminder} searchQuery={searchQuery} {...extra} />
+    </ExpandKeyProvider>
+  );
+
+  it("closes again when the search is cleared, without persisting the reveal", () => {
+    const { rerender } = render(renderWithQuery("live service"));
+    expect(screen.getByRole("button")).toHaveAttribute("aria-expanded", "true");
+
+    rerender(renderWithQuery(""));
+    expect(screen.getByRole("button")).toHaveAttribute("aria-expanded", "false");
+    expect(Object.values(useExpandRegistry.getState().states)).not.toContain(true);
+  });
+
+  it("can be collapsed by hand while the search that revealed it is active", () => {
+    render(renderWithQuery("live service"));
+    fireEvent.click(screen.getByRole("button"));
+    expect(screen.getByRole("button")).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("does not reveal on a tool-id search", () => {
+    render(renderWithQuery("live service", { filterType: "toolId" }));
+    expect(screen.getByRole("button")).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("in capture mode, keeps the row selectable and toggles only from the chevron", () => {
+    const { container } = render(renderWithQuery("", { selectable: true }));
+    const toggle = screen.getByRole("button", { name: "systemRow.systemContext: systemRow.expand" });
+    // The summary text is not inside a button, so clicking it selects the message.
+    expect(screen.getByText("systemRow.systemContext").closest("button")).toBeNull();
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(container).toHaveTextContent("Never touch the live service.");
+  });
 });

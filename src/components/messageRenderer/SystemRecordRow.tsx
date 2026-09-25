@@ -6,7 +6,7 @@
  * One line with an icon, a short label and a preview; expandable to the full
  * content so nothing is lost, but they no longer look like prompts.
  */
-import React, { useEffect, useId, useMemo } from "react";
+import React, { useId, useMemo, useState } from "react";
 import {
   Archive,
   Bell,
@@ -26,6 +26,7 @@ import { TaskNotificationRenderer } from "../contentRenderer";
 import { AnsiText, HighlightedText } from "../common";
 import { stripAnsiCodes } from "@/utils/ansiToHtml";
 import { layout } from "@/components/renderers";
+import type { SearchFilterType } from "@/store/slices/types";
 import { CONVERSATION_CARD_WIDTH } from "./conversationLayout";
 import {
   getCommandOutputBody,
@@ -38,8 +39,15 @@ interface SystemRecordRowProps {
   text: string;
   timestamp: string;
   searchQuery?: string;
+  /** Session search mode; only content search reveals hits inside the row. */
+  filterType?: SearchFilterType;
   isCurrentMatch?: boolean;
   currentMatchIndex?: number;
+  /**
+   * Capture mode: clicking the row selects the message, so only the chevron
+   * toggles the details.
+   */
+  selectable?: boolean;
 }
 
 const KIND_ICONS: Record<SystemRecordKind, LucideIcon> = {
@@ -57,8 +65,10 @@ export const SystemRecordRow: React.FC<SystemRecordRowProps> = ({
   text,
   timestamp,
   searchQuery = "",
+  filterType = "content",
   isCurrentMatch = false,
   currentMatchIndex = 0,
+  selectable = false,
 }) => {
   const { t } = useTranslation();
   const detailsId = useId();
@@ -67,19 +77,32 @@ export const SystemRecordRow: React.FC<SystemRecordRowProps> = ({
   const Icon = KIND_ICONS[kind];
   const label = t(`systemRow.${kind}`);
 
-  // Reveal the full content when a search hit is inside it.
-  useEffect(() => {
-    if (expandable && searchQuery && text.toLowerCase().includes(searchQuery.toLowerCase())) {
+  // A content-search hit inside the details reveals them for as long as that
+  // search is active — derived, not stored, so the row closes again when the
+  // search is cleared. Collapsing by hand dismisses the reveal for that query.
+  const highlightQuery = filterType === "content" ? searchQuery : "";
+  const [dismissedQuery, setDismissedQuery] = useState<string | null>(null);
+  const isRevealedBySearch =
+    expandable &&
+    highlightQuery.length > 0 &&
+    dismissedQuery !== highlightQuery &&
+    text.toLowerCase().includes(highlightQuery.toLowerCase());
+  const expanded = isExpanded || isRevealedBySearch;
+  const toggle = () => {
+    if (!expanded) {
       setIsExpanded(true);
+      return;
     }
-  }, [expandable, searchQuery, text, setIsExpanded]);
+    setIsExpanded(false);
+    if (isRevealedBySearch) setDismissedQuery(highlightQuery);
+  };
 
   const summary = (
     <>
       {expandable ? (
         <ChevronRight
           aria-hidden="true"
-          className={cn("w-3 h-3 shrink-0 transition-transform", isExpanded && "rotate-90")}
+          className={cn("w-3 h-3 shrink-0 transition-transform", expanded && "rotate-90")}
         />
       ) : (
         <span aria-hidden="true" className="w-3 shrink-0" />
@@ -88,10 +111,10 @@ export const SystemRecordRow: React.FC<SystemRecordRowProps> = ({
       <span className="font-medium shrink-0">{label}</span>
       {preview && (
         <span className="min-w-0 truncate text-muted-foreground/80">
-          {searchQuery && !isExpanded ? (
+          {highlightQuery && !expanded ? (
             <HighlightedText
               text={preview}
-              searchQuery={searchQuery}
+              searchQuery={highlightQuery}
               isCurrentMatch={isCurrentMatch}
               currentMatchIndex={currentMatchIndex}
             />
@@ -114,13 +137,15 @@ export const SystemRecordRow: React.FC<SystemRecordRowProps> = ({
     "flex w-full min-w-0 items-center gap-1.5 rounded-md px-2 py-1 text-left text-2xs text-muted-foreground"
   );
 
+  const toggleLabel = expanded ? t("systemRow.collapse") : t("systemRow.expand");
+
   return (
     <div className={cn(CONVERSATION_CARD_WIDTH, "mb-1")} data-system-record={kind}>
-      {expandable ? (
+      {expandable && !selectable ? (
         <button
           type="button"
-          onClick={() => setIsExpanded((prev) => !prev)}
-          aria-expanded={isExpanded}
+          onClick={toggle}
+          aria-expanded={expanded}
           aria-controls={detailsId}
           className={cn(
             rowClass,
@@ -130,11 +155,28 @@ export const SystemRecordRow: React.FC<SystemRecordRowProps> = ({
         >
           {summary}
         </button>
+      ) : expandable ? (
+        // Capture mode: the row itself stays a selection target.
+        <div className={cn(rowClass, "relative")}>
+          <button
+            type="button"
+            onClick={toggle}
+            aria-expanded={expanded}
+            aria-controls={detailsId}
+            aria-label={`${label}: ${toggleLabel}`}
+            className={cn(
+              "absolute left-1 top-1/2 -translate-y-1/2 flex h-5 w-5 items-center justify-center rounded",
+              "hover:bg-muted/60 hover:text-foreground",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            )}
+          />
+          {summary}
+        </div>
       ) : (
         <div className={rowClass}>{summary}</div>
       )}
 
-      {expandable && isExpanded && (
+      {expandable && expanded && (
         <div id={detailsId} className="mt-1 ml-5 mb-2">
           {kind === "taskNotification" ? (
             <TaskNotificationRenderer text={text} />
@@ -147,10 +189,10 @@ export const SystemRecordRow: React.FC<SystemRecordRowProps> = ({
                 "overflow-auto whitespace-pre-wrap break-words border border-border/60 bg-muted/30 px-3 py-2 text-foreground/80"
               )}
             >
-              {searchQuery ? (
+              {highlightQuery ? (
                 <HighlightedText
                   text={stripAnsiCodes(getCommandOutputBody(text))}
-                  searchQuery={searchQuery}
+                  searchQuery={highlightQuery}
                   isCurrentMatch={isCurrentMatch}
                   currentMatchIndex={currentMatchIndex}
                 />
@@ -167,10 +209,10 @@ export const SystemRecordRow: React.FC<SystemRecordRowProps> = ({
                 "overflow-auto whitespace-pre-wrap break-words border border-border/60 bg-muted/30 px-3 py-2 text-muted-foreground"
               )}
             >
-              {searchQuery ? (
+              {highlightQuery ? (
                 <HighlightedText
                   text={text}
-                  searchQuery={searchQuery}
+                  searchQuery={highlightQuery}
                   isCurrentMatch={isCurrentMatch}
                   currentMatchIndex={currentMatchIndex}
                 />
