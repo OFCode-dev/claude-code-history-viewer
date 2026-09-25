@@ -1995,6 +1995,14 @@ pub struct SubagentSession {
     /// them to the spawning `Workflow` tool call via this run id instead
     /// (the `tool_result` text contains the run's transcript dir) — #449.
     pub workflow_run_id: Option<String>,
+    /// Short task description from `agent-<id>.meta.json` (`description`),
+    /// used as the subagent's display name. `None` when the meta file is
+    /// missing, malformed or has no non-empty description.
+    pub description: Option<String>,
+    /// Agent type from meta.json (`agentType`, e.g. `general-purpose`, `Explore`).
+    pub agent_type: Option<String>,
+    /// Model alias from meta.json (`model`, e.g. `sonnet`, `opus`).
+    pub model: Option<String>,
 }
 
 /// Derive the workflow run id (`wf_…`) for a subagent transcript path.
@@ -2041,6 +2049,9 @@ fn opencode_subagents(session_path: &str) -> Vec<SubagentSession> {
             summary: (!child.title.trim().is_empty()).then_some(child.title),
             tool_use_id: None,
             workflow_run_id: None,
+            description: None,
+            agent_type: None,
+            model: None,
         })
         .collect()
 }
@@ -2086,11 +2097,13 @@ pub async fn get_session_subagents(session_path: String) -> Result<Vec<SubagentS
         // Quick scan: first and last lines + line count
         let (message_count, first_time, last_time, summary) = extract_subagent_metadata(&sa_path);
 
-        // Newer Claude Code persists the spawning Task tool_use id in a sibling
-        // `agent-<id>.meta.json`. Read it so multi-subagent sessions can map a click
-        // to the right file (#288); older sessions have no meta file -> None.
+        // Newer Claude Code persists the spawning Task tool_use id (plus the
+        // task description, agent type and model) in a sibling
+        // `agent-<id>.meta.json`. The tool_use id lets multi-subagent sessions
+        // map a click to the right file (#288); the other fields name the
+        // subagent. Older sessions have no meta file -> all `None`.
         let meta_path = sa_path.with_file_name(format!("{file_name}.meta.json"));
-        let tool_use_id = read_subagent_tool_use_id(&meta_path);
+        let meta = read_subagent_meta(&meta_path);
         let workflow_run_id = workflow_run_id_for(&sa_path);
 
         sessions.push(SubagentSession {
@@ -2101,8 +2114,11 @@ pub async fn get_session_subagents(session_path: String) -> Result<Vec<SubagentS
             first_message_time: first_time,
             last_message_time: last_time,
             summary,
-            tool_use_id,
+            tool_use_id: meta.tool_use_id,
             workflow_run_id,
+            description: meta.description,
+            agent_type: meta.agent_type,
+            model: meta.model,
         });
     }
 
@@ -2112,25 +2128,52 @@ pub async fn get_session_subagents(session_path: String) -> Result<Vec<SubagentS
     Ok(sessions)
 }
 
-/// Read the `toolUseId` from a subagent's sibling `agent-<id>.meta.json`.
-/// Returns `None` if the file is missing, a symlink, unreadable, or has no
-/// non-empty `toolUseId` — all non-fatal, so a subagent without a meta file still
-/// lists. The symlink guard mirrors the session-path hardening.
-fn read_subagent_tool_use_id(meta_path: &std::path::Path) -> Option<String> {
-    let meta = std::fs::symlink_metadata(meta_path).ok()?;
-    if meta.file_type().is_symlink() {
-        return None;
-    }
-    let content = std::fs::read_to_string(meta_path).ok()?;
+/// Fields read from a subagent's sibling `agent-<id>.meta.json`.
+/// Every field is optional; empty or whitespace-only strings count as absent.
+#[derive(Debug, Default, PartialEq, Eq)]
+struct SubagentMetaFields {
+    tool_use_id: Option<String>,
+    description: Option<String>,
+    agent_type: Option<String>,
+    model: Option<String>,
+}
 
-    #[derive(serde::Deserialize)]
-    struct SubagentMeta {
-        #[serde(rename = "toolUseId")]
-        tool_use_id: Option<String>,
+/// Read a subagent's sibling `agent-<id>.meta.json`.
+///
+/// Returns all-`None` fields if the file is missing, a symlink, unreadable or
+/// not a JSON object; a field of an unexpected type is ignored on its own
+/// without hiding the others. All of this is non-fatal, so a subagent without
+/// a usable meta file still lists. The symlink guard mirrors the session-path
+/// hardening.
+fn read_subagent_meta(meta_path: &std::path::Path) -> SubagentMetaFields {
+    let Ok(file_meta) = std::fs::symlink_metadata(meta_path) else {
+        return SubagentMetaFields::default();
+    };
+    if file_meta.file_type().is_symlink() {
+        return SubagentMetaFields::default();
     }
+    let Ok(content) = std::fs::read_to_string(meta_path) else {
+        return SubagentMetaFields::default();
+    };
+    let Ok(serde_json::Value::Object(obj)) = serde_json::from_str::<serde_json::Value>(&content)
+    else {
+        return SubagentMetaFields::default();
+    };
 
-    let parsed: SubagentMeta = serde_json::from_str(&content).ok()?;
-    parsed.tool_use_id.filter(|s| !s.is_empty())
+    let text = |key: &str| {
+        obj.get(key)
+            .and_then(serde_json::Value::as_str)
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(str::to_string)
+    };
+
+    SubagentMetaFields {
+        tool_use_id: text("toolUseId"),
+        description: text("description"),
+        agent_type: text("agentType"),
+        model: text("model"),
+    }
 }
 
 /// Metadata extraction from a subagent JSONL file.
@@ -4072,50 +4115,157 @@ mod tests {
     }
 
     #[test]
-    fn read_subagent_tool_use_id_reads_meta_json() {
+    fn read_subagent_meta_reads_all_fields() {
         let dir = TempDir::new().unwrap();
         let meta = dir.path().join("agent-x.meta.json");
         std::fs::write(
             &meta,
-            r#"{"agentType":"task","description":"d","toolUseId":"toolu_123"}"#,
+            r#"{"agentType":"Explore","description":"Map the API error codes","toolUseId":"toolu_123","spawnDepth":1,"model":"sonnet"}"#,
         )
         .unwrap();
         assert_eq!(
-            read_subagent_tool_use_id(&meta),
-            Some("toolu_123".to_string())
+            read_subagent_meta(&meta),
+            SubagentMetaFields {
+                tool_use_id: Some("toolu_123".to_string()),
+                description: Some("Map the API error codes".to_string()),
+                agent_type: Some("Explore".to_string()),
+                model: Some("sonnet".to_string()),
+            }
         );
     }
 
     #[test]
-    fn read_subagent_tool_use_id_none_when_missing_invalid_or_empty() {
+    fn read_subagent_meta_workflow_agent_has_no_tool_use_id() {
+        // Workflow agents carry description/type/model but no toolUseId (#449).
+        let dir = TempDir::new().unwrap();
+        let meta = dir.path().join("agent-w.meta.json");
+        std::fs::write(
+            &meta,
+            r#"{"agentType":"general-purpose","description":"Run release workflow","model":"opus"}"#,
+        )
+        .unwrap();
+        let parsed = read_subagent_meta(&meta);
+        assert_eq!(parsed.tool_use_id, None);
+        assert_eq!(parsed.description.as_deref(), Some("Run release workflow"));
+        assert_eq!(parsed.agent_type.as_deref(), Some("general-purpose"));
+        assert_eq!(parsed.model.as_deref(), Some("opus"));
+    }
+
+    #[test]
+    fn read_subagent_meta_defaults_when_missing_invalid_or_empty() {
         let dir = TempDir::new().unwrap();
         // Missing file.
         assert_eq!(
-            read_subagent_tool_use_id(&dir.path().join("nope.meta.json")),
-            None
+            read_subagent_meta(&dir.path().join("nope.meta.json")),
+            SubagentMetaFields::default()
         );
-        // Present but no toolUseId (older meta or different shape).
+        // Present but only some fields (older meta or different shape).
         let meta = dir.path().join("agent-y.meta.json");
         std::fs::write(&meta, r#"{"agentType":"task"}"#).unwrap();
-        assert_eq!(read_subagent_tool_use_id(&meta), None);
-        // Empty toolUseId is treated as absent.
+        assert_eq!(
+            read_subagent_meta(&meta),
+            SubagentMetaFields {
+                agent_type: Some("task".to_string()),
+                ..SubagentMetaFields::default()
+            }
+        );
+        // Empty and whitespace-only strings are treated as absent.
         let meta_empty = dir.path().join("agent-z.meta.json");
-        std::fs::write(&meta_empty, r#"{"toolUseId":""}"#).unwrap();
-        assert_eq!(read_subagent_tool_use_id(&meta_empty), None);
+        std::fs::write(
+            &meta_empty,
+            r#"{"toolUseId":"","description":"   ","agentType":"","model":""}"#,
+        )
+        .unwrap();
+        assert_eq!(
+            read_subagent_meta(&meta_empty),
+            SubagentMetaFields::default()
+        );
         // Invalid JSON is non-fatal.
         let meta_bad = dir.path().join("agent-bad.meta.json");
         std::fs::write(&meta_bad, "not json").unwrap();
-        assert_eq!(read_subagent_tool_use_id(&meta_bad), None);
+        assert_eq!(read_subagent_meta(&meta_bad), SubagentMetaFields::default());
+        // Valid JSON that is not an object is non-fatal.
+        let meta_array = dir.path().join("agent-arr.meta.json");
+        std::fs::write(&meta_array, r#"["toolUseId"]"#).unwrap();
+        assert_eq!(
+            read_subagent_meta(&meta_array),
+            SubagentMetaFields::default()
+        );
+    }
+
+    #[test]
+    fn read_subagent_meta_ignores_wrongly_typed_fields_individually() {
+        let dir = TempDir::new().unwrap();
+        let meta = dir.path().join("agent-t.meta.json");
+        std::fs::write(
+            &meta,
+            r#"{"toolUseId":"toolu_ok","description":42,"agentType":null,"model":{"id":"x"}}"#,
+        )
+        .unwrap();
+        assert_eq!(
+            read_subagent_meta(&meta),
+            SubagentMetaFields {
+                tool_use_id: Some("toolu_ok".to_string()),
+                ..SubagentMetaFields::default()
+            }
+        );
     }
 
     #[cfg(unix)]
     #[test]
-    fn read_subagent_tool_use_id_rejects_symlink() {
+    fn read_subagent_meta_rejects_symlink() {
         let dir = TempDir::new().unwrap();
         let real = dir.path().join("real.meta.json");
-        std::fs::write(&real, r#"{"toolUseId":"toolu_real"}"#).unwrap();
+        std::fs::write(
+            &real,
+            r#"{"toolUseId":"toolu_real","description":"secret"}"#,
+        )
+        .unwrap();
         let link = dir.path().join("agent-link.meta.json");
         std::os::unix::fs::symlink(&real, &link).unwrap();
-        assert_eq!(read_subagent_tool_use_id(&link), None);
+        assert_eq!(read_subagent_meta(&link), SubagentMetaFields::default());
+    }
+
+    #[tokio::test]
+    async fn get_session_subagents_includes_meta_fields_and_tolerates_missing_meta() {
+        let dir = TempDir::new().unwrap();
+        let session = dir.path().join("sess.jsonl");
+        std::fs::write(&session, "").unwrap();
+        let sub_dir = dir.path().join("sess").join("subagents");
+        std::fs::create_dir_all(&sub_dir).unwrap();
+        let line = |ts: &str| {
+            format!(
+                r#"{{"type":"user","timestamp":"{ts}","message":{{"role":"user","content":"do it"}}}}"#
+            )
+        };
+        std::fs::write(sub_dir.join("agent-a1.jsonl"), line("2026-01-01T00:00:00Z")).unwrap();
+        std::fs::write(
+            sub_dir.join("agent-a1.meta.json"),
+            r#"{"agentType":"Explore","description":"Map errors","toolUseId":"toolu_1","model":"sonnet"}"#,
+        )
+        .unwrap();
+        // No meta file at all.
+        std::fs::write(sub_dir.join("agent-b2.jsonl"), line("2026-01-01T00:01:00Z")).unwrap();
+
+        let result = get_session_subagents(session.to_string_lossy().to_string())
+            .await
+            .unwrap();
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0].agent_id, "a1");
+        assert_eq!(result[0].tool_use_id.as_deref(), Some("toolu_1"));
+        assert_eq!(result[0].description.as_deref(), Some("Map errors"));
+        assert_eq!(result[0].agent_type.as_deref(), Some("Explore"));
+        assert_eq!(result[0].model.as_deref(), Some("sonnet"));
+        assert_eq!(result[1].agent_id, "b2");
+        assert_eq!(result[1].tool_use_id, None);
+        assert_eq!(result[1].description, None);
+        assert_eq!(result[1].agent_type, None);
+        assert_eq!(result[1].model, None);
+
+        // Serialized field names stay snake_case like the existing fields.
+        let json = serde_json::to_value(&result[0]).unwrap();
+        assert_eq!(json["agent_type"], "Explore");
+        assert_eq!(json["description"], "Map errors");
+        assert_eq!(json["model"], "sonnet");
     }
 }
