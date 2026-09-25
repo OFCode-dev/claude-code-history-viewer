@@ -41,6 +41,7 @@ import {
   readWebUIDeepLink,
   writeWebUIDeepLink,
 } from "../../utils/webuiDeepLink";
+import { pendingRestoreFor } from "./navigatorSlice";
 
 // ============================================================================
 // State Interface
@@ -446,6 +447,16 @@ export const createMessageSlice: StateCreator<
     }
 
     get().setSelectedSession(session);
+    // Returning to a session resumes at its last reading position (navigator).
+    // A scroll target left over from the previous session must not win over
+    // it; callers that open a session at a message set the target after this.
+    if (!isInPlaceReload) {
+      set({
+        pendingPositionRestore: pendingRestoreFor(session.file_path),
+        targetMessageUuid: null,
+        shouldHighlightTarget: false,
+      });
+    }
     const sessionId = session.actual_session_id || session.session_id;
     const currentDeepLink = readWebUIDeepLink();
     writeWebUIDeepLink(

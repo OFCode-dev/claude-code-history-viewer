@@ -5,8 +5,8 @@
  * 직접 수정하지 마세요.
  *
  * 생성 명령: pnpm run generate:i18n-types
- * 생성 시간: 2026-09-25T21:06:02.002Z
- * 총 키 개수: 1992
+ * 생성 시간: 2026-09-25T22:04:41.695Z
+ * 총 키 개수: 2014
  * Namespace 수: 11
  */
 
@@ -1370,7 +1370,7 @@ export type ErrorKeys =
   | 'error.viewDetails';
 
 /**
- * message namespace의 번역 키 (131개)
+ * message namespace의 번역 키 (153개)
  * 파일: locales/{lang}/message.json
  */
 export type MessageKeys =
@@ -1471,18 +1471,40 @@ export type MessageKeys =
   | 'messages.tokenStats.title'
   | 'navigator.a11y.entryLabel'
   | 'navigator.a11y.keyboardHelp'
+  | 'navigator.a11y.promptLabel'
+  | 'navigator.a11y.promptLabelNoTurn'
+  | 'navigator.a11y.promptsKeyboardHelp'
+  | 'navigator.a11y.spawnLabel'
   | 'navigator.close'
+  | 'navigator.emptyPrompt'
   | 'navigator.filter'
+  | 'navigator.filterPrompts'
   | 'navigator.messageCount'
+  | 'navigator.mode.all'
+  | 'navigator.mode.allHint'
+  | 'navigator.mode.label'
+  | 'navigator.mode.prompts'
+  | 'navigator.mode.promptsHint'
   | 'navigator.noMessages'
+  | 'navigator.noPrompts'
+  | 'navigator.promptBar.jump'
+  | 'navigator.promptBar.label'
+  | 'navigator.promptBar.next'
+  | 'navigator.promptBar.previous'
+  | 'navigator.promptBar.you'
+  | 'navigator.promptCount_one'
+  | 'navigator.promptCount_other'
   | 'navigator.role.assistant'
   | 'navigator.role.summary'
   | 'navigator.role.system'
   | 'navigator.role.user'
   | 'navigator.showParallelTasks'
+  | 'navigator.spawnHint'
+  | 'navigator.steps_one'
+  | 'navigator.steps_other'
   | 'navigator.title'
   | 'navigator.toggle'
-  | 'navigator.userOnly'
+  | 'navigator.turn'
   | 'promptCard.ariaLabel'
   | 'promptCard.ariaLabelWithTurn'
   | 'promptCard.collapse'
@@ -2882,18 +2904,40 @@ export type TranslationKey =
   | 'messages.tokenStats.title'
   | 'navigator.a11y.entryLabel'
   | 'navigator.a11y.keyboardHelp'
+  | 'navigator.a11y.promptLabel'
+  | 'navigator.a11y.promptLabelNoTurn'
+  | 'navigator.a11y.promptsKeyboardHelp'
+  | 'navigator.a11y.spawnLabel'
   | 'navigator.close'
+  | 'navigator.emptyPrompt'
   | 'navigator.filter'
+  | 'navigator.filterPrompts'
   | 'navigator.messageCount'
+  | 'navigator.mode.all'
+  | 'navigator.mode.allHint'
+  | 'navigator.mode.label'
+  | 'navigator.mode.prompts'
+  | 'navigator.mode.promptsHint'
   | 'navigator.noMessages'
+  | 'navigator.noPrompts'
+  | 'navigator.promptBar.jump'
+  | 'navigator.promptBar.label'
+  | 'navigator.promptBar.next'
+  | 'navigator.promptBar.previous'
+  | 'navigator.promptBar.you'
+  | 'navigator.promptCount_one'
+  | 'navigator.promptCount_other'
   | 'navigator.role.assistant'
   | 'navigator.role.summary'
   | 'navigator.role.system'
   | 'navigator.role.user'
   | 'navigator.showParallelTasks'
+  | 'navigator.spawnHint'
+  | 'navigator.steps_one'
+  | 'navigator.steps_other'
   | 'navigator.title'
   | 'navigator.toggle'
-  | 'navigator.userOnly'
+  | 'navigator.turn'
   | 'progressRenderer.status.completed'
   | 'progressRenderer.status.error'
   | 'progressRenderer.status.running'

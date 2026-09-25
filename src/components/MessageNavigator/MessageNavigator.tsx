@@ -1,21 +1,34 @@
 import React, { useRef, useCallback, useState, useMemo, useEffect } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useTranslation } from "react-i18next";
-import { ListTree, Search, X, PanelRightClose, PanelRight, User, Zap } from "lucide-react";
+import { ListTree, Search, X, PanelRightClose, PanelRight, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ClaudeMessage } from "../../types";
 import { useAppStore } from "../../store/useAppStore";
+import { useViewportAnchorStore } from "../../store/viewportAnchorStore";
 import {
   filterMessagesByCategory,
   getMessageUuidsByCategory,
 } from "../MessageViewer/helpers";
 import { NavigatorEntry } from "./NavigatorEntry";
+import { NavigatorModeToggle } from "./NavigatorModeToggle";
+import { NavigatorPromptRow } from "./NavigatorPromptRow";
+import { buildPromptEntries, buildPromptListRows, type PromptListRow } from "./promptEntries";
 import { useNavigatorEntries } from "./useNavigatorEntries";
 
 // Height estimation constants for virtual scrolling
 const ESTIMATED_CHARS_PER_LINE = 40; // Conservative estimate for small text
 const BASE_ENTRY_HEIGHT = 34; // py-2 (16px) + header row (~16px) + mb-0.5 (2px)
 const PREVIEW_LINE_HEIGHT = 20; // Approximate height of one text line with line-height
+const PROMPT_ROW_BASE_HEIGHT = 50; // padding + header row + steps line
+const PROMPT_PREVIEW_LINE_HEIGHT = 17;
+const SPAWN_ROW_HEIGHT = 24;
+
+/**
+ * After the user scrolls the list or moves through it with the keyboard,
+ * scroll-spy leaves it alone for this long.
+ */
+const USER_SCROLL_GRACE_MS = 1500;
 
 interface MessageNavigatorProps {
   messages: ClaudeMessage[];
@@ -25,6 +38,10 @@ interface MessageNavigatorProps {
   isCollapsed: boolean;
   onToggleCollapse: () => void;
   asideId?: string;
+}
+
+function estimatePreviewLines(text: string): number {
+  return Math.min(2, Math.max(1, Math.ceil(text.length / ESTIMATED_CHARS_PER_LINE)));
 }
 
 export const MessageNavigator: React.FC<MessageNavigatorProps> = ({
@@ -39,24 +56,47 @@ export const MessageNavigator: React.FC<MessageNavigatorProps> = ({
   const { t } = useTranslation();
   const keyboardHelpId = `${asideId}-keyboard-help`;
   const scrollElementRef = useRef<HTMLDivElement>(null);
-  const entryRefs = useRef(new Map<string, HTMLButtonElement>());
+  const rowRefs = useRef(new Map<string, HTMLButtonElement>());
+  const isPointerInsideRef = useRef(false);
+  const lastUserScrollAtRef = useRef(0);
+  const lastListKeyAtRef = useRef(Number.NEGATIVE_INFINITY);
   const [filterText, setFilterText] = useState("");
   const [focusedIndex, setFocusedIndex] = useState(0);
 
-  const {
-    navigateToMessage,
-    targetMessageUuid,
-    userOnlyFilter,
-    toggleUserOnlyFilter,
-    showParallelTasksInNavigator,
-    toggleShowParallelTasksInNavigator,
-  } = useAppStore();
+  const navigateToMessage = useAppStore((s) => s.navigateToMessage);
+  const targetMessageUuid = useAppStore((s) => s.targetMessageUuid);
+  const showParallelTasksInNavigator = useAppStore((s) => s.showParallelTasksInNavigator);
+  const toggleShowParallelTasksInNavigator = useAppStore(
+    (s) => s.toggleShowParallelTasksInNavigator
+  );
+  const navigatorMode = useAppStore((s) => s.navigatorMode);
+  const setNavigatorMode = useAppStore((s) => s.setNavigatorMode);
+  // Turn numbers are only absolute when the loaded window starts at the
+  // beginning of the session; otherwise they are omitted.
+  const isWindowComplete = useAppStore((s) => !s.pagination.hasMore);
+  const selectedSessionPath = useAppStore((s) => s.selectedSession?.file_path ?? null);
+
+  const isPromptsMode = navigatorMode !== "all";
+  // Scroll-spy: the turn (Prompts) or the row (All) at the top of the conversation.
+  const spyUuid = useViewportAnchorStore((s) =>
+    isPromptsMode ? s.activePromptUuid : s.anchorUuid
+  );
+  // The list the conversation renders (after its display filters). Prompt and
+  // subagent rows are built from it, so each row has a row to scroll to even
+  // when a filter hides tool calls or user messages. Changes with the list,
+  // not with the scroll position.
+  const promptTrack = useViewportAnchorStore((s) => s.promptTrack);
+  const renderedMessages =
+    promptTrack && promptTrack.sessionPath === selectedSessionPath
+      ? promptTrack.messages
+      : messages;
+
   const hasParallelTasks = useMemo(
     () => getMessageUuidsByCategory(messages, "parallel-task").size > 0,
     [messages],
   );
 
-  // Transform messages to navigator entries
+  // All mode: every non-noise record (optionally without parallel tasks)
   const navigatorMessages = useMemo(
     () => filterMessagesByCategory(
       messages,
@@ -67,46 +107,87 @@ export const MessageNavigator: React.FC<MessageNavigatorProps> = ({
   );
   const allEntries = useNavigatorEntries(navigatorMessages);
 
-  // Apply local filter (role + text)
   const entries = useMemo(() => {
-    let filtered = allEntries;
-    if (userOnlyFilter) {
-      filtered = filtered.filter((e) => e.role === "user");
-    }
     const lower = filterText.trim().toLowerCase();
-    if (lower) {
-      filtered = filtered.filter(
-        (e) =>
-          e.preview.toLowerCase().includes(lower) ||
-          e.role.toLowerCase().includes(lower)
+    if (!lower) return allEntries;
+    return allEntries.filter(
+      (e) =>
+        e.preview.toLowerCase().includes(lower) ||
+        e.role.toLowerCase().includes(lower)
+    );
+  }, [allEntries, filterText]);
+
+  // Prompts mode: human prompts with their spawned subagents
+  const promptEntries = useMemo(
+    () =>
+      buildPromptEntries(
+        filterMessagesByCategory(
+          renderedMessages,
+          "parallel-task",
+          showParallelTasksInNavigator,
+        ),
+      ),
+    [renderedMessages, showParallelTasksInNavigator],
+  );
+  const promptRows = useMemo(
+    () => buildPromptListRows(promptEntries, filterText),
+    [promptEntries, filterText]
+  );
+
+  const rowCount = isPromptsMode ? promptRows.length : entries.length;
+  const rowKey = useCallback(
+    (index: number): string =>
+      (isPromptsMode ? promptRows[index]?.key : entries[index]?.uuid) ?? String(index),
+    [isPromptsMode, promptRows, entries]
+  );
+
+  const estimateSize = useCallback((index: number) => {
+    if (isPromptsMode) {
+      const row = promptRows[index];
+      if (!row) return PROMPT_ROW_BASE_HEIGHT;
+      if (row.kind === "spawn") return SPAWN_ROW_HEIGHT;
+      return (
+        PROMPT_ROW_BASE_HEIGHT +
+        estimatePreviewLines(row.entry.preview) * PROMPT_PREVIEW_LINE_HEIGHT
       );
     }
-    return filtered;
-  }, [allEntries, filterText, userOnlyFilter]);
-
-  // Height estimation function for @tanstack/react-virtual
-  const estimateSize = useCallback((index: number) => {
     const entry = entries[index];
     if (!entry) return 60;
+    return BASE_ENTRY_HEIGHT + estimatePreviewLines(entry.preview ?? "") * PREVIEW_LINE_HEIGHT;
+  }, [isPromptsMode, promptRows, entries]);
 
-    // Heuristic: estimate number of preview lines based on text length,
-    // clamped to the max of 2 lines (due to line-clamp-2).
-    const previewLength = entry.preview?.length ?? 0;
-    const estimatedLines = Math.min(
-      2,
-      Math.max(1, Math.ceil(previewLength / ESTIMATED_CHARS_PER_LINE))
-    );
-
-    return BASE_ENTRY_HEIGHT + estimatedLines * PREVIEW_LINE_HEIGHT;
-  }, [entries]);
-
-  // Initialize virtualizer
   const virtualizer = useVirtualizer({
-    count: entries.length,
+    count: rowCount,
     getScrollElement: () => scrollElementRef.current,
     estimateSize,
+    getItemKey: rowKey,
     overscan: 5,
   });
+
+  const activeIndex = useMemo(() => {
+    if (isPromptsMode) {
+      if (!spyUuid) return -1;
+      return promptRows.findIndex(
+        (row) => row.kind === "prompt" && row.entry.uuid === spyUuid
+      );
+    }
+    const activeUuid = targetMessageUuid ?? spyUuid;
+    return activeUuid ? entries.findIndex((entry) => entry.uuid === activeUuid) : -1;
+  }, [isPromptsMode, promptRows, entries, spyUuid, targetMessageUuid]);
+
+  const activateRow = useCallback(
+    (index: number) => {
+      if (isPromptsMode) {
+        const row = promptRows[index];
+        if (!row) return;
+        navigateToMessage(row.kind === "spawn" ? row.spawn.messageUuid : row.entry.uuid);
+        return;
+      }
+      const entry = entries[index];
+      if (entry) navigateToMessage(entry.uuid);
+    },
+    [isPromptsMode, promptRows, entries, navigateToMessage]
+  );
 
   const handleEntryClick = useCallback(
     (uuid: string) => {
@@ -115,70 +196,109 @@ export const MessageNavigator: React.FC<MessageNavigatorProps> = ({
     [navigateToMessage]
   );
 
+  const handlePromptRowActivate = useCallback(
+    (row: PromptListRow) => {
+      navigateToMessage(row.kind === "spawn" ? row.spawn.messageUuid : row.entry.uuid);
+    },
+    [navigateToMessage]
+  );
+
+  const isListFocused = useCallback(
+    () => scrollElementRef.current?.contains(document.activeElement) ?? false,
+    []
+  );
+
+  // Focus alone does not count: a clicked row keeps focus while the reader
+  // goes on scrolling the conversation, and the list must still follow.
+  const isUserInteracting = useCallback(() => {
+    const now = performance.now();
+    return (
+      isPointerInsideRef.current ||
+      now - lastUserScrollAtRef.current < USER_SCROLL_GRACE_MS ||
+      now - lastListKeyAtRef.current < USER_SCROLL_GRACE_MS
+    );
+  }, []);
+
+  // Keep the roving tab stop on the active row unless the user is moving
+  // through the list with the keyboard.
   useEffect(() => {
-    if (entries.length === 0) {
+    if (rowCount === 0) {
       setFocusedIndex(0);
       return;
     }
-
-    if (targetMessageUuid) {
-      const selectedIndex = entries.findIndex((entry) => entry.uuid === targetMessageUuid);
-      if (selectedIndex >= 0) {
-        setFocusedIndex(selectedIndex);
-        return;
-      }
+    if (activeIndex >= 0 && !isListFocused()) {
+      setFocusedIndex(activeIndex);
+      return;
     }
+    setFocusedIndex((prev) => Math.max(0, Math.min(prev, rowCount - 1)));
+  }, [rowCount, activeIndex, isListFocused]);
 
-    setFocusedIndex((prev) => Math.max(0, Math.min(prev, entries.length - 1)));
-  }, [entries, targetMessageUuid]);
+  // Scroll-spy: keep the active row in view, without fighting the user.
+  useEffect(() => {
+    if (activeIndex < 0 || isUserInteracting()) return;
+    virtualizer.scrollToIndex(activeIndex, { align: "auto" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- follow the active row only
+  }, [activeIndex, isPromptsMode]);
 
-  const focusEntryAt = useCallback((index: number) => {
-    const clampedIndex = Math.max(0, Math.min(index, entries.length - 1));
-    const entry = entries[clampedIndex];
-    if (!entry) return;
-
+  const focusRowAt = useCallback((index: number) => {
+    const clampedIndex = Math.max(0, Math.min(index, rowCount - 1));
     setFocusedIndex(clampedIndex);
     virtualizer.scrollToIndex(clampedIndex, { align: "auto" });
 
+    const key = rowKey(clampedIndex);
     requestAnimationFrame(() => {
-      entryRefs.current.get(entry.uuid)?.focus();
+      rowRefs.current.get(key)?.focus();
     });
-  }, [entries, virtualizer]);
+  }, [rowCount, rowKey, virtualizer]);
 
-  const handleEntryKeyDown = useCallback((event: React.KeyboardEvent<HTMLButtonElement>) => {
-    if (entries.length === 0) return;
+  const handleRowKeyDown = useCallback((event: React.KeyboardEvent<HTMLButtonElement>) => {
+    // Alt+Arrow belongs to the global previous/next prompt shortcut.
+    if (rowCount === 0 || event.altKey) return;
+    lastListKeyAtRef.current = performance.now();
 
     switch (event.key) {
       case "ArrowDown":
         event.preventDefault();
-        focusEntryAt(focusedIndex + 1);
+        focusRowAt(focusedIndex + 1);
         break;
       case "ArrowUp":
         event.preventDefault();
-        focusEntryAt(focusedIndex - 1);
+        focusRowAt(focusedIndex - 1);
         break;
       case "Home":
         event.preventDefault();
-        focusEntryAt(0);
+        focusRowAt(0);
         break;
       case "End":
         event.preventDefault();
-        focusEntryAt(entries.length - 1);
+        focusRowAt(rowCount - 1);
         break;
       case "Enter":
       case " ":
-        if (entries[focusedIndex]) {
-          event.preventDefault();
-          navigateToMessage(entries[focusedIndex].uuid);
-        }
+        event.preventDefault();
+        activateRow(focusedIndex);
         break;
       default:
         break;
     }
-  }, [entries, focusEntryAt, focusedIndex, navigateToMessage]);
+  }, [rowCount, focusRowAt, focusedIndex, activateRow]);
+
+  const registerRowRef = useCallback((key: string, element: HTMLButtonElement | null) => {
+    if (element) {
+      rowRefs.current.set(key, element);
+    } else {
+      rowRefs.current.delete(key);
+    }
+  }, []);
+
+  const noteUserScroll = useCallback(() => {
+    lastUserScrollAtRef.current = performance.now();
+  }, []);
 
   // Get virtual items
   const virtualItems = virtualizer.getVirtualItems();
+
+  const promptCountLabel = t("navigator.promptCount", { count: promptEntries.length });
 
   // Collapsed view
   if (isCollapsed) {
@@ -213,15 +333,28 @@ export const MessageNavigator: React.FC<MessageNavigatorProps> = ({
 
           <div className="w-6 h-px bg-accent/20" />
 
-          {/* Navigator icon */}
-          <ListTree className="w-4 h-4 text-muted-foreground" />
-
-          {/* Entry count */}
-          <span className="text-2xs font-mono text-muted-foreground">{allEntries.length}</span>
+          {/* Prompt count */}
+          <div className="flex flex-col items-center gap-1" title={promptCountLabel}>
+            <ListTree aria-hidden className="w-4 h-4 text-muted-foreground" />
+            <span aria-hidden className="text-2xs font-mono text-muted-foreground">
+              {promptEntries.length}
+            </span>
+            <span className="sr-only">{promptCountLabel}</span>
+          </div>
         </div>
       </aside>
     );
   }
+
+  const listLabel = isPromptsMode ? t("navigator.mode.prompts") : t("navigator.title");
+  const visibleCount = isPromptsMode
+    ? promptRows.reduce((count, row) => (row.kind === "prompt" ? count + 1 : count), 0)
+    : entries.length;
+  const emptyLabel = filterText
+    ? t("messageViewer.noSearchResults")
+    : isPromptsMode
+      ? t("navigator.noPrompts")
+      : t("navigator.noMessages");
 
   // Expanded view
   return (
@@ -246,27 +379,17 @@ export const MessageNavigator: React.FC<MessageNavigatorProps> = ({
 
       {/* Header */}
       <div className="flex items-center gap-2 px-3 py-2 border-b border-border/50 shrink-0">
-        <ListTree className="w-3.5 h-3.5 text-muted-foreground" />
-        <span className="text-xs font-semibold text-foreground flex-1">
-          {t("navigator.title")}
-        </span>
-        <span className="text-2xs text-muted-foreground tabular-nums">
-          {entries.length}
-        </span>
-        <button
-          onClick={toggleUserOnlyFilter}
-          className={cn(
-            "p-0.5 rounded transition-colors",
-            userOnlyFilter
-              ? "bg-blue-500/20 text-blue-500"
-              : "hover:bg-accent/10 text-muted-foreground hover:text-foreground"
-          )}
-          aria-label={t("navigator.userOnly")}
-          aria-pressed={userOnlyFilter}
-          title={t("navigator.userOnly")}
+        <ListTree aria-hidden className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
+        <NavigatorModeToggle
+          mode={isPromptsMode ? "prompts" : "all"}
+          onChange={setNavigatorMode}
+        />
+        <span
+          className="ml-auto text-2xs text-muted-foreground tabular-nums"
+          title={isPromptsMode ? promptCountLabel : undefined}
         >
-          <User className="w-3.5 h-3.5" />
-        </button>
+          {visibleCount}
+        </span>
         {hasParallelTasks && (
           <button
             onClick={toggleShowParallelTasksInNavigator}
@@ -300,8 +423,8 @@ export const MessageNavigator: React.FC<MessageNavigatorProps> = ({
             type="text"
             value={filterText}
             onChange={(e) => setFilterText(e.target.value)}
-            placeholder={t("navigator.filter")}
-            aria-label={t("navigator.filter")}
+            placeholder={isPromptsMode ? t("navigator.filterPrompts") : t("navigator.filter")}
+            aria-label={isPromptsMode ? t("navigator.filterPrompts") : t("navigator.filter")}
             className="w-full pl-6 pr-2 py-1 text-xs bg-muted/30 border border-border/30 rounded focus:outline-none focus:ring-1 focus:ring-accent/40 placeholder:text-muted-foreground/40"
           />
           {filterText && (
@@ -317,20 +440,28 @@ export const MessageNavigator: React.FC<MessageNavigatorProps> = ({
       </div>
 
       {/* Entry list with virtual scrolling */}
-      {entries.length === 0 ? (
+      {rowCount === 0 ? (
         <div className="flex-1 flex items-center justify-center p-4">
-          <p className="text-xs text-muted-foreground text-center">
-            {filterText ? t("messageViewer.noSearchResults") : t("navigator.noMessages")}
-          </p>
+          <p className="text-xs text-muted-foreground text-center">{emptyLabel}</p>
         </div>
       ) : (
         <div
           ref={scrollElementRef}
           role="listbox"
-          aria-label={t("navigator.title")}
+          aria-label={listLabel}
+          // Alt+Up/Down pressed here still reaches the global prompt jump.
+          data-prompt-jump-passthrough=""
           aria-describedby={keyboardHelpId}
           className="flex-1 overflow-auto"
           style={{ contain: "strict" }}
+          onPointerEnter={() => {
+            isPointerInsideRef.current = true;
+          }}
+          onPointerLeave={() => {
+            isPointerInsideRef.current = false;
+          }}
+          onWheel={noteUserScroll}
+          onTouchMove={noteUserScroll}
         >
           <div
             style={{
@@ -340,6 +471,27 @@ export const MessageNavigator: React.FC<MessageNavigatorProps> = ({
             }}
           >
             {virtualItems.map((virtualItem) => {
+              if (isPromptsMode) {
+                const row = promptRows[virtualItem.index];
+                if (!row) return null;
+                return (
+                  <NavigatorPromptRow
+                    key={row.key}
+                    row={row}
+                    index={virtualItem.index}
+                    showTurnNumber={isWindowComplete}
+                    isActive={row.entry.uuid === spyUuid}
+                    isFocused={virtualItem.index === focusedIndex}
+                    onActivate={handlePromptRowActivate}
+                    onFocus={setFocusedIndex}
+                    onNavigate={handleRowKeyDown}
+                    registerRef={registerRowRef}
+                    measureRef={virtualizer.measureElement}
+                    start={virtualItem.start}
+                  />
+                );
+              }
+
               const entry = entries[virtualItem.index];
               if (!entry) return null;
 
@@ -347,25 +499,16 @@ export const MessageNavigator: React.FC<MessageNavigatorProps> = ({
                 <NavigatorEntry
                   key={entry.uuid}
                   entry={entry}
-                  isActive={entry.uuid === targetMessageUuid}
+                  isActive={virtualItem.index === activeIndex}
                   isFocused={virtualItem.index === focusedIndex}
                   onClick={handleEntryClick}
-                  onFocus={() => setFocusedIndex(virtualItem.index)}
-                  onNavigate={handleEntryKeyDown}
-                  registerRef={(element) => {
-                    if (element) {
-                      entryRefs.current.set(entry.uuid, element);
-                    } else {
-                      entryRefs.current.delete(entry.uuid);
-                    }
-                  }}
-                  style={{
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
-                    width: "100%",
-                    transform: `translateY(${virtualItem.start}px)`,
-                  }}
+                  onFocus={setFocusedIndex}
+                  onNavigate={handleRowKeyDown}
+                  registerRef={registerRowRef}
+                  // Real heights, so two-line previews never overlap.
+                  measureRef={virtualizer.measureElement}
+                  index={virtualItem.index}
+                  start={virtualItem.start}
                 />
               );
             })}
@@ -374,10 +517,12 @@ export const MessageNavigator: React.FC<MessageNavigatorProps> = ({
       )}
 
       <p id={keyboardHelpId} className="sr-only">
-        {t(
-          "navigator.a11y.keyboardHelp",
-          "Keyboard: use arrow keys to move between messages, Home and End to jump, and Enter or Space to open the focused message."
-        )}
+        {isPromptsMode
+          ? t("navigator.a11y.promptsKeyboardHelp")
+          : t(
+              "navigator.a11y.keyboardHelp",
+              "Keyboard: use arrow keys to move between messages, Home and End to jump, and Enter or Space to open the focused message."
+            )}
       </p>
     </aside>
   );
