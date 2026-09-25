@@ -3,7 +3,11 @@
  * notifications, harness context, interrupts, compaction summaries).
  */
 import type { ClaudeMessage } from "@/types";
-import type { UserMessageKind } from "@/utils/userMessageKind";
+import {
+  getUserMessageKind,
+  getUserMessageText,
+  type UserMessageKind,
+} from "@/utils/userMessageKind";
 
 /** Kinds rendered as a compact, muted row instead of a prompt card. */
 export type SystemRecordKind = Extract<
@@ -95,6 +99,28 @@ export function toSystemRecordKind(
     default:
       return null;
   }
+}
+
+export interface UserRecordPresentation {
+  kind: UserMessageKind | null;
+  /** Text blocks of the record (see getUserMessageText). */
+  text: string;
+  /** Compact-row kind, or null when the record renders another way. */
+  systemRecordKind: SystemRecordKind | null;
+}
+
+/**
+ * How a record renders in the conversation: a prompt card (`kind` "prompt"),
+ * a compact row (`systemRecordKind` set) or something else. Shared by the
+ * renderer and the virtualizer's height estimate so the two agree.
+ */
+export function getUserRecordPresentation(message: ClaudeMessage): UserRecordPresentation {
+  const kind = message.type === "user" ? getUserMessageKind(message) : null;
+  const text = kind != null ? getUserMessageText(message) : "";
+  const systemRecordKind = toSystemRecordKind(kind, text, {
+    hasOtherContent: hasNonTextContent(message),
+  });
+  return { kind, text, systemRecordKind };
 }
 
 export function getSystemRecordSummary(kind: SystemRecordKind, text: string): SystemRecordSummary {
