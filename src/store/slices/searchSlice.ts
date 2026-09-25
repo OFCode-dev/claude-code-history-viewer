@@ -18,6 +18,7 @@ import {
   createEmptySearchState,
 } from "./types";
 import { getWslSearchableProviderIds, hasNonDefaultProvider } from "../../utils/providers";
+import { filterSearchMatches } from "../../components/MessageViewer/helpers/searchMatchVisibility";
 
 // ============================================================================
 // State Interface
@@ -38,6 +39,11 @@ export interface SearchSliceActions {
   setSearchFilters: (filters: SearchFilters) => void;
   // Session search
   setSessionSearchQuery: (query: string) => Promise<void> | void;
+  /**
+   * Re-run the current session search (e.g. after the display filter changed),
+   * staying on the current match when it is still visible.
+   */
+  refreshSessionSearch: () => Promise<void> | void;
   setSearchFilterType: (filterType: SearchFilterType) => void;
   goToNextMatch: () => void;
   goToPrevMatch: () => void;
@@ -61,8 +67,29 @@ const initialSearchState: SearchSliceState = {
     currentMatchIndex: -1,
     isSearching: false,
     filterType: "content" as SearchFilterType,
+    hiddenMatchCount: 0,
     results: [],
   },
+};
+
+/**
+ * Index of the match to make current: `stayOn` itself when it is still a
+ * match, else the match closest to its message, else (no `stayOn`) the first.
+ */
+const pickCurrentMatchIndex = (matches: SearchMatch[], stayOn: SearchMatch | null): number => {
+  if (matches.length === 0) return -1;
+  if (!stayOn) return 0;
+  const same = matches.findIndex(
+    (m) => m.messageUuid === stayOn.messageUuid && m.matchIndex === stayOn.matchIndex,
+  );
+  if (same !== -1) return same;
+  let closest = 0;
+  for (let i = 1; i < matches.length; i++) {
+    const distance = Math.abs((matches[i]?.messageIndex ?? 0) - stayOn.messageIndex);
+    const best = Math.abs((matches[closest]?.messageIndex ?? 0) - stayOn.messageIndex);
+    if (distance < best) closest = i;
+  }
+  return closest;
 };
 
 // ============================================================================
@@ -82,57 +109,11 @@ export const createSearchSlice: StateCreator<
   // sync result).
   let sessionSearchRequestId = 0;
 
-  return {
-  ...initialSearchState,
-
-  // Global search
-  searchMessages: async (query: string, filters: SearchFilters = {}) => {
-    const { claudePath, activeProviders } = get();
-    const hasNonClaudeProviders = hasNonDefaultProvider(activeProviders);
-    const customClaudePaths = get().userMetadata?.settings?.customClaudePaths;
-    const hasCustomPaths = customClaudePaths != null && customClaudePaths.length > 0;
-    const settings = get().userMetadata?.settings;
-    const wslEnabled = settings?.wsl?.enabled ?? false;
-    const hasAlternativeSource = hasNonClaudeProviders || hasCustomPaths || wslEnabled;
-    const nativeClaudePath = claudePath || undefined;
-    const wslProviders = wslEnabled ? getWslSearchableProviderIds(activeProviders) : undefined;
-
-    if (!query.trim() || (!claudePath && !hasAlternativeSource)) {
-      set({ searchResults: [], searchQuery: "" });
-      return;
-    }
-
-    set({ searchQuery: query });
-    try {
-      const results = (hasNonClaudeProviders || hasCustomPaths || wslEnabled)
-        ? await api<ClaudeMessage[]>("search_all_providers", {
-            claudePath: nativeClaudePath,
-            query,
-            activeProviders,
-            filters,
-            customClaudePaths: hasCustomPaths ? customClaudePaths : undefined,
-            wslEnabled,
-            wslProviders,
-            wslExcludedDistros: settings?.wsl?.excludedDistros ?? [],
-          })
-        : await api<ClaudeMessage[]>("search_messages", {
-            claudePath: nativeClaudePath,
-            query,
-            filters,
-          });
-      set({ searchResults: results });
-    } catch (error) {
-      console.error("Failed to search messages:", error);
-      get().setError({ type: AppErrorType.UNKNOWN, message: String(error) });
-    }
-  },
-
-  setSearchFilters: (filters: SearchFilters) => {
-    set({ searchFilters: filters });
-  },
-
-  // Session search (KakaoTalk-style navigation)
-  setSessionSearchQuery: async (query: string) => {
+  /**
+   * Search the complete session. `stayOn` is the match to stay on when it is
+   * still in the new results (a refresh); otherwise the first match is current.
+   */
+  const runSessionSearch = async (query: string, stayOn: SearchMatch | null): Promise<void> => {
     const requestId = ++sessionSearchRequestId;
     const { sessionSearch } = get();
     const { filterType } = sessionSearch;
@@ -196,7 +177,7 @@ export const createSearchSlice: StateCreator<
       if (!isStillLatest()) return;
 
       // Convert to SearchMatch format (filter valid indices)
-      const matches: SearchMatch[] = searchResults
+      const allMatches: SearchMatch[] = searchResults
         .filter(
           (result) =>
             result.messageIndex >= 0 &&
@@ -209,14 +190,26 @@ export const createSearchSlice: StateCreator<
           matchCount: result.matchCount,
         }));
 
-      // Save match results (auto-navigate to first match)
+      // Matches in records the display filter hides cannot be navigated to;
+      // keep them out of the list and report how many there are.
+      const { visible: matches, hiddenCount: hiddenMatchCount } = filterSearchMatches(
+        allMatches,
+        searchableMessages,
+        get().messageFilter,
+        query,
+        filterType,
+      );
+
+      // Save match results (auto-navigate to the first match, or stay on the
+      // current one when refreshing)
       set((state) => ({
         sessionSearch: {
           query,
           matches,
-          currentMatchIndex: matches.length > 0 ? 0 : -1,
+          currentMatchIndex: pickCurrentMatchIndex(matches, stayOn),
           isSearching: false,
           filterType: state.sessionSearch.filterType,
+          hiddenMatchCount,
           results: matches
             .map((m) => searchableMessages[m.messageIndex])
             .filter((m): m is ClaudeMessage => m !== undefined),
@@ -236,10 +229,70 @@ export const createSearchSlice: StateCreator<
           currentMatchIndex: -1,
           isSearching: false,
           filterType: state.sessionSearch.filterType,
+          hiddenMatchCount: 0,
           results: [],
         },
       }));
     }
+  };
+
+  return {
+  ...initialSearchState,
+
+  // Global search
+  searchMessages: async (query: string, filters: SearchFilters = {}) => {
+    const { claudePath, activeProviders } = get();
+    const hasNonClaudeProviders = hasNonDefaultProvider(activeProviders);
+    const customClaudePaths = get().userMetadata?.settings?.customClaudePaths;
+    const hasCustomPaths = customClaudePaths != null && customClaudePaths.length > 0;
+    const settings = get().userMetadata?.settings;
+    const wslEnabled = settings?.wsl?.enabled ?? false;
+    const hasAlternativeSource = hasNonClaudeProviders || hasCustomPaths || wslEnabled;
+    const nativeClaudePath = claudePath || undefined;
+    const wslProviders = wslEnabled ? getWslSearchableProviderIds(activeProviders) : undefined;
+
+    if (!query.trim() || (!claudePath && !hasAlternativeSource)) {
+      set({ searchResults: [], searchQuery: "" });
+      return;
+    }
+
+    set({ searchQuery: query });
+    try {
+      const results = (hasNonClaudeProviders || hasCustomPaths || wslEnabled)
+        ? await api<ClaudeMessage[]>("search_all_providers", {
+            claudePath: nativeClaudePath,
+            query,
+            activeProviders,
+            filters,
+            customClaudePaths: hasCustomPaths ? customClaudePaths : undefined,
+            wslEnabled,
+            wslProviders,
+            wslExcludedDistros: settings?.wsl?.excludedDistros ?? [],
+          })
+        : await api<ClaudeMessage[]>("search_messages", {
+            claudePath: nativeClaudePath,
+            query,
+            filters,
+          });
+      set({ searchResults: results });
+    } catch (error) {
+      console.error("Failed to search messages:", error);
+      get().setError({ type: AppErrorType.UNKNOWN, message: String(error) });
+    }
+  },
+
+  setSearchFilters: (filters: SearchFilters) => {
+    set({ searchFilters: filters });
+  },
+
+  // Session search (KakaoTalk-style navigation)
+  setSessionSearchQuery: (query: string) => runSessionSearch(query, null),
+
+  refreshSessionSearch: () => {
+    const { sessionSearch } = get();
+    if (!sessionSearch.query.trim()) return;
+    const current = sessionSearch.matches[sessionSearch.currentMatchIndex] ?? null;
+    return runSessionSearch(sessionSearch.query, current);
   },
 
   goToNextMatch: () => {

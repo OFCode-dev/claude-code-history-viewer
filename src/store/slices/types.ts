@@ -52,6 +52,11 @@ export interface SearchState {
   currentMatchIndex: number;
   isSearching: boolean;
   filterType: SearchFilterType;
+  /**
+   * Matches left out of `matches` because the message display filter hides
+   * them (e.g. tool results in the dialogue view). They cannot be navigated to.
+   */
+  hiddenMatchCount: number;
   /** @deprecated Use matches field. Kept for backward compatibility. */
   results: ClaudeMessage[];
 }
@@ -82,6 +87,7 @@ export const createEmptySearchState = (
   currentMatchIndex: -1,
   isSearching: false,
   filterType,
+  hiddenMatchCount: 0,
   results: [],
 });
 
@@ -394,6 +400,7 @@ export interface AppStoreActions {
   toggleShowParallelTasksInNavigator: () => void;
   toggleRole: (role: keyof import('./filterSlice').MessageFilterRoles) => void;
   toggleContentType: (contentType: keyof import('./filterSlice').MessageFilterContentTypes) => void;
+  toggleDialogue: () => void;
   resetMessageFilter: () => void;
   isMessageFilterActive: () => boolean;
 
