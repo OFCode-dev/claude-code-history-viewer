@@ -816,7 +816,7 @@ export const AppLayout: React.FC<AppLayoutProps> = (props) => {
                       onClearSearch={clearSessionSearch}
                       onNextMatch={goToNextMatch}
                       onPrevMatch={goToPrevMatch}
-                      onBack={() => analyticsActions.switchToBoard()}
+                      onOpenBoard={() => analyticsActions.switchToBoard()}
                     />
                   </div>
                   <div className="hidden md:block">

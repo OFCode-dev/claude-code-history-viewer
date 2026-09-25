@@ -18,6 +18,7 @@ import { VirtualizedMessageRow } from "./components/VirtualizedMessageRow";
 import { FloatingDateOverlay } from "./components/FloatingDateOverlay";
 import { CaptureModeToolbar } from "./components/CaptureModeToolbar";
 import { FilterToolbar } from "./components/FilterToolbar";
+import { SessionBoardButton } from "./components/SessionBoardButton";
 import { OffScreenCaptureRenderer } from "./components/OffScreenCaptureRenderer";
 import { ScreenshotPreviewModal } from "./components/ScreenshotPreviewModal";
 import { useSearchState } from "./hooks/useSearchState";
@@ -119,7 +120,7 @@ export const MessageViewer: React.FC<MessageViewerProps> = ({
   onClearSearch,
   onNextMatch,
   onPrevMatch,
-  onBack,
+  onOpenBoard,
 }) => {
   const { t } = useTranslation();
   const scrollContainerRef = useRef<OverlayScrollbarsComponentRef>(null);
@@ -816,21 +817,7 @@ export const MessageViewer: React.FC<MessageViewerProps> = ({
           "bg-card/95 backdrop-blur-sm border-border"
         )}
       >
-        {/* Back Button */}
-        {onBack && (
-          <button
-            type="button"
-            onClick={onBack}
-            className={cn(
-              "shrink-0 p-2 rounded-lg transition-all duration-200",
-              "bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground",
-              "border border-border/60 hover:border-border"
-            )}
-            title={t("common.back")}
-          >
-            <ChevronDown className="w-4 h-4 rotate-90" />
-          </button>
-        )}
+        {onOpenBoard && <SessionBoardButton onClick={onOpenBoard} />}
 
         {/* Filter Toggle - Segmented control style */}
         <div className="shrink-0 flex items-center bg-muted/60 rounded-lg p-0.5 border border-border/60 order-2 lg:order-none">

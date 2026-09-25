@@ -23,7 +23,8 @@ export interface MessageViewerProps {
   onClearSearch: () => void;
   onNextMatch?: () => void;
   onPrevMatch?: () => void;
-  onBack?: () => void;
+  /** Opens the Session Board (toolbar button left of the search field). */
+  onOpenBoard?: () => void;
 }
 
 export interface MessageNodeProps {
