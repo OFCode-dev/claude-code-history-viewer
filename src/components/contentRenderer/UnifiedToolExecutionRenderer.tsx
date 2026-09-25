@@ -60,7 +60,6 @@ const canonicalToolName = (name: string): string =>
 export const UnifiedToolExecutionRenderer = memo(function UnifiedToolExecutionRenderer({
   toolUse,
   toolResults,
-  onViewSubagent,
   searchQuery,
   isCurrentMatch,
   currentMatchIndex,
@@ -78,7 +77,7 @@ export const UnifiedToolExecutionRenderer = memo(function UnifiedToolExecutionRe
     case "WebSearch": return <WebSearchCard toolUse={toolUse} toolResults={toolResults} />;
     case "WebFetch":  return <WebFetchCard toolUse={toolUse} toolResults={toolResults} />;
     case "Agent":
-    case "Task":      return <AgentCard toolUse={toolUse} toolResults={toolResults} onViewSubagent={onViewSubagent} />;
+    case "Task":      return <AgentCard toolUse={toolUse} toolResults={toolResults} />;
     case "Workflow":  return <WorkflowCard toolUse={toolUse} toolResults={toolResults} />;
     case "AskUserQuestion":
       return (

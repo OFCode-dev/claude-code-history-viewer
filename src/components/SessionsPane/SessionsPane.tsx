@@ -4,6 +4,7 @@ import { MessageSquare } from "lucide-react";
 import { OverlayScrollbarsComponent } from "overlayscrollbars-react";
 import { cn } from "@/lib/utils";
 import { SessionList } from "@/components/ProjectTree/components/SessionList";
+import { SubagentsSection } from "./SubagentsSection";
 import { getProviderBadgeStyle, getProviderId, getProviderLabel } from "@/utils/providers";
 import type { ClaudeProject, ClaudeSession } from "@/types";
 
@@ -99,6 +100,8 @@ export function SessionsPane({
             {count}
           </span>
         </div>
+
+        <SubagentsSection />
 
         <div ref={bodyRef} className="flex-1 min-h-0">
           <OverlayScrollbarsComponent

@@ -5,7 +5,6 @@ export type ToolResultLike = Record<string, unknown>;
 export interface Props {
   toolUse: Record<string, unknown>;
   toolResults: ToolResultLike[];
-  onViewSubagent?: (toolUseId: string) => void;
   searchQuery?: string;
   isCurrentMatch?: boolean;
   currentMatchIndex?: number;

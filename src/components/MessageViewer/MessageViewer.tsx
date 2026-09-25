@@ -5,9 +5,9 @@
  * Uses @tanstack/react-virtual for efficient rendering of large message lists.
  */
 
-import { useRef, useCallback, useMemo, useState, useEffect, useLayoutEffect, memo } from "react";
+import { useRef, useCallback, useMemo, useState, useEffect, useLayoutEffect } from "react";
 import { OverlayScrollbarsComponent, type OverlayScrollbarsComponentRef } from "overlayscrollbars-react";
-import { MessageCircle, ChevronDown, ChevronUp, Search, X, Camera, Download, ArrowLeft, Bot, ChevronRight } from "lucide-react";
+import { MessageCircle, ChevronDown, ChevronUp, Search, X, Camera, Download } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { LoadingSpinner, LoadingState } from "@/components/ui/loading";
@@ -20,6 +20,8 @@ import { CaptureModeToolbar } from "./components/CaptureModeToolbar";
 import { FilterToolbar } from "./components/FilterToolbar";
 import { OffScreenCaptureRenderer } from "./components/OffScreenCaptureRenderer";
 import { ScreenshotPreviewModal } from "./components/ScreenshotPreviewModal";
+import { SubagentSessionsPanel } from "./components/SubagentSessionsPanel";
+import { SubagentContextBar } from "./components/SubagentContextBar";
 import { useSearchState } from "./hooks/useSearchState";
 import { useScrollNavigation } from "./hooks/useScrollNavigation";
 import { useMessageVirtualization } from "./hooks/useMessageVirtualization";
@@ -42,73 +44,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import type { ExportFormat } from "@/types/export";
-import type { SubagentSession } from "@/types";
-
-// max-height 계산: 버튼 1행 높이 × 3행 + 여유
-const SUBAGENT_ROW_HEIGHT_REM = 1.75;
-const SUBAGENT_PANEL_VISIBLE_ROWS = 3;
-const SUBAGENT_PANEL_MAX_HEIGHT_REM =
-  SUBAGENT_ROW_HEIGHT_REM * SUBAGENT_PANEL_VISIBLE_ROWS + 1;
-
-const SubagentSessionsPanel = memo(function SubagentSessionsPanel({
-  subagentSessions,
-  navigateToSubagent,
-  isOpen,
-  onToggle,
-}: {
-  subagentSessions: SubagentSession[];
-  navigateToSubagent: (sa: SubagentSession) => Promise<void>;
-  isOpen: boolean;
-  onToggle: () => void;
-}) {
-  const { t } = useTranslation();
-  const label = t("renderers.agentTool.subagentSessions", { defaultValue: "SubAgent Sessions" });
-  const ChevronIcon = isOpen ? ChevronDown : ChevronRight;
-
-  return (
-    <div className="border-b border-border/50 px-4 py-2 bg-muted/30">
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-expanded={isOpen}
-        className="flex items-center gap-2 w-full text-left cursor-pointer hover:text-foreground/80"
-        aria-label={label}
-      >
-        <ChevronIcon className="w-3 h-3 text-muted-foreground" />
-        <Bot className="w-3.5 h-3.5 text-muted-foreground" />
-        <span className="text-xs font-medium text-muted-foreground">{label}</span>
-        <span className="text-px10 text-muted-foreground/70 bg-muted rounded-full px-1.5">
-          {subagentSessions.length}
-        </span>
-      </button>
-      {isOpen && (
-        <div
-          className="flex flex-wrap gap-1.5 overflow-y-auto mt-1.5"
-          style={{ maxHeight: `${SUBAGENT_PANEL_MAX_HEIGHT_REM}rem` }}
-        >
-          {subagentSessions.map((sa) => (
-            <button
-              key={sa.file_path}
-              type="button"
-              onClick={() => void navigateToSubagent(sa)}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-md bg-background border border-border/50 hover:border-primary/40 hover:bg-primary/5 transition-colors"
-              title={sa.summary ?? sa.agent_id}
-            >
-              <Bot className="w-3 h-3 text-muted-foreground" />
-              <span className="max-w-[200px] truncate">
-                {sa.summary ?? sa.agent_id}
-              </span>
-              <span className="text-px10 text-muted-foreground">
-                {t("renderers.agentTool.messages", { count: sa.message_count, defaultValue: "{{count}} messages" })}
-              </span>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-});
-
 export const MessageViewer: React.FC<MessageViewerProps> = ({
   messages,
   isLoading,
@@ -159,7 +94,6 @@ export const MessageViewer: React.FC<MessageViewerProps> = ({
     subagentSessions,
     parentSessionStack,
     navigateToSubagent,
-    navigateBackToParent,
     // 메시지 로딩 상태 — 로딩 스피너 표시 조건
     isLoadingMessages,
     setActiveSessionNearBottom,
@@ -1025,31 +959,8 @@ export const MessageViewer: React.FC<MessageViewerProps> = ({
         />
       )}
 
-      {/* SubAgent: Back to parent breadcrumb */}
-      {parentSessionStack.length > 0 && (
-        <div className={cn(
-          "flex items-center gap-2 px-4 py-2 border-b",
-          "bg-primary/5 border-primary/20",
-        )}>
-          <button
-            type="button"
-            onClick={() => void navigateBackToParent()}
-            className={cn(
-              "inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md",
-              "bg-primary/10 text-primary hover:bg-primary/20 transition-colors",
-            )}
-            aria-label={t("renderers.agentTool.backToParent", { defaultValue: "Back to parent session" })}
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            {t("renderers.agentTool.backToParent", { defaultValue: "Back to parent session" })}
-          </button>
-          <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
-          <span className="text-xs text-muted-foreground flex items-center gap-1">
-            <Bot className="w-3.5 h-3.5" />
-            {selectedSession?.summary ?? selectedSession?.actual_session_id}
-          </span>
-        </div>
-      )}
+      {/* SubAgent: context bar (back, label, previous/next sibling) */}
+      <SubagentContextBar />
 
       {/* SubAgent sessions panel — collapsible (접힘 상태는 MessageViewer에 lift됨) */}
       {subagentSessions.length > 0 && parentSessionStack.length === 0 && (

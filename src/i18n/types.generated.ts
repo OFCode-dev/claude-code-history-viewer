@@ -5,8 +5,8 @@
  * 직접 수정하지 마세요.
  *
  * 생성 명령: pnpm run generate:i18n-types
- * 생성 시간: 2026-09-13T09:40:55.294Z
- * 총 키 개수: 1962
+ * 생성 시간: 2026-09-25T19:57:53.200Z
+ * 총 키 개수: 1979
  * Namespace 수: 11
  */
 
@@ -442,7 +442,7 @@ export type AnalyticsKeys =
   | 'analytics.weeklyActivity';
 
 /**
- * session namespace의 번역 키 (260개)
+ * session namespace의 번역 키 (277개)
  * 파일: locales/{lang}/session.json
  */
 export type SessionKeys =
@@ -705,7 +705,24 @@ export type SessionKeys =
   | 'sessionPicker.cancelled'
   | 'sessionPicker.empty'
   | 'sessionPicker.subtitle'
-  | 'sessionPicker.title';
+  | 'sessionPicker.title'
+  | 'subagent.agentType'
+  | 'subagent.backTo'
+  | 'subagent.backToParent'
+  | 'subagent.contextAria'
+  | 'subagent.contextLabel'
+  | 'subagent.lastActivity'
+  | 'subagent.listAria'
+  | 'subagent.listTitle'
+  | 'subagent.model'
+  | 'subagent.next'
+  | 'subagent.openTranscript'
+  | 'subagent.openTranscriptOf'
+  | 'subagent.position'
+  | 'subagent.positionAria'
+  | 'subagent.previous'
+  | 'subagent.toggleList'
+  | 'subagent.workflowGroup';
 
 /**
  * settings namespace의 번역 키 (537개)
@@ -3824,6 +3841,23 @@ export type TranslationKey =
   | 'structuredPatch.filePath'
   | 'structuredPatch.updatedFile'
   | 'structuredPatch.updatedFileContent'
+  | 'subagent.agentType'
+  | 'subagent.backTo'
+  | 'subagent.backToParent'
+  | 'subagent.contextAria'
+  | 'subagent.contextLabel'
+  | 'subagent.lastActivity'
+  | 'subagent.listAria'
+  | 'subagent.listTitle'
+  | 'subagent.model'
+  | 'subagent.next'
+  | 'subagent.openTranscript'
+  | 'subagent.openTranscriptOf'
+  | 'subagent.position'
+  | 'subagent.positionAria'
+  | 'subagent.previous'
+  | 'subagent.toggleList'
+  | 'subagent.workflowGroup'
   | 'summaryMessageRenderer.title'
   | 'systemMessageRenderer.empty'
   | 'systemMessageRenderer.hooks'
@@ -4097,6 +4131,7 @@ export type TranslationPrefix =
   | 'sizeGuard'
   | 'status'
   | 'structuredPatch'
+  | 'subagent'
   | 'summaryMessageRenderer'
   | 'systemMessageRenderer'
   | 'taskNotification'
