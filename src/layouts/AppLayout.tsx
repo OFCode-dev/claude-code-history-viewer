@@ -158,6 +158,8 @@ export const AppLayout: React.FC<AppLayoutProps> = (props) => {
   // The dock is panel state, not layout state, so it is read from the store
   // rather than threaded through props like the navigator's older toggle.
   const isRecentEditsDockOpen = useAppStore((s) => s.isRecentEditsDockOpen);
+  const isSessionsPaneCollapsed = useAppStore((s) => s.isSessionsPaneCollapsed);
+  const toggleSessionsPaneCollapsed = useAppStore((s) => s.toggleSessionsPaneCollapsed);
   const {
     projects,
     sessions,
@@ -588,6 +590,8 @@ export const AppLayout: React.FC<AppLayoutProps> = (props) => {
               width={sessionsPaneWidth}
               isResizing={isSessionsPaneResizing}
               onResizeStart={handleSessionsPaneResizeStart}
+              isCollapsed={isSessionsPaneCollapsed}
+              onToggleCollapse={toggleSessionsPaneCollapsed}
             />
           )}
 

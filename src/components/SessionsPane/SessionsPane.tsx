@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { MessageSquare } from "lucide-react";
+import { MessageSquare, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { OverlayScrollbarsComponent } from "overlayscrollbars-react";
 import { cn } from "@/lib/utils";
 import { SessionList } from "@/components/ProjectTree/components/SessionList";
@@ -22,6 +22,9 @@ interface SessionsPaneProps {
   width: number;
   isResizing?: boolean;
   onResizeStart?: (e: React.MouseEvent<HTMLElement>) => void;
+  /** Show the pane as a narrow rail (session count + expand button). */
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
 // Header + list controls (search/sort/source/selection bar) above the virtual
@@ -48,6 +51,8 @@ export function SessionsPane({
   width,
   isResizing,
   onResizeStart,
+  isCollapsed = false,
+  onToggleCollapse,
 }: SessionsPaneProps) {
   const { t } = useTranslation();
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -67,6 +72,16 @@ export function SessionsPane({
   const providerId = getProviderId(selectedProject.provider ?? undefined);
   const providerLabel = getProviderLabel((key, fallback) => t(key, fallback), providerId);
   const count = sessionsTotal ?? sessions.length;
+
+  if (isCollapsed) {
+    return (
+      <SessionsPaneRail
+        count={count}
+        projectPath={selectedProject.actual_path}
+        onExpand={onToggleCollapse}
+      />
+    );
+  }
 
   return (
     <aside
@@ -98,6 +113,17 @@ export function SessionsPane({
           <span className="ml-auto text-2xs text-muted-foreground shrink-0 tabular-nums">
             {count}
           </span>
+          {onToggleCollapse && (
+            <button
+              type="button"
+              onClick={onToggleCollapse}
+              className="-my-1 -mr-1 p-1 rounded-md shrink-0 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              title={t("session.pane.collapse")}
+              aria-label={t("session.pane.collapse")}
+            >
+              <PanelLeftClose className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
 
         <div ref={bodyRef} className="flex-1 min-h-0">
@@ -133,6 +159,52 @@ export function SessionsPane({
           onMouseDown={onResizeStart}
         />
       )}
+    </aside>
+  );
+}
+
+interface SessionsPaneRailProps {
+  count: number;
+  projectPath: string;
+  onExpand?: () => void;
+}
+
+/** Collapsed form of the pane, matching the explorer and navigator rails. */
+function SessionsPaneRail({ count, projectPath, onExpand }: SessionsPaneRailProps) {
+  const { t } = useTranslation();
+  const countLabel = t("session.count", { count });
+
+  return (
+    <aside
+      id="sessions-pane"
+      aria-label={t("session.pane.title")}
+      tabIndex={-1}
+      className="flex shrink-0 h-full outline-none bg-sidebar border-r border-border/50"
+      style={{ width: 48 }}
+    >
+      <div className="flex-1 flex flex-col items-center py-3 gap-2">
+        {onExpand && (
+          <button
+            type="button"
+            onClick={onExpand}
+            className="w-8 h-8 rounded-lg flex items-center justify-center bg-accent/10 text-accent hover:bg-accent/20 transition-colors"
+            title={t("session.pane.expand")}
+            aria-label={t("session.pane.expand")}
+          >
+            <PanelLeftOpen className="w-4 h-4" />
+          </button>
+        )}
+
+        <div className="w-6 h-px bg-accent/20" />
+
+        <div className="flex flex-col items-center gap-1" title={`${countLabel} · ${projectPath}`}>
+          <MessageSquare className="w-4 h-4 text-muted-foreground" aria-hidden="true" />
+          <span className="text-2xs font-mono text-muted-foreground tabular-nums" aria-hidden="true">
+            {count}
+          </span>
+          <span className="sr-only">{countLabel}</span>
+        </div>
+      </div>
     </aside>
   );
 }
