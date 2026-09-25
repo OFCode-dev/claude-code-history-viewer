@@ -21,6 +21,7 @@ import {
 } from "../../../store/viewportAnchorStore";
 import { getPromptPreview, getUserMessageText } from "../../../utils/userMessageKind";
 import { formatPromptTime, jumpToPrompt } from "../../../utils/promptNavigation";
+import { isMacOS } from "../../../utils/platform";
 
 interface StickyPromptBarProps {
   /** The list the conversation renders — the prompt text is read from it. */
@@ -28,6 +29,9 @@ interface StickyPromptBarProps {
 }
 
 const PREVIEW_MAX_LENGTH = 220;
+
+/** The next-prompt shortcut as the keyboard labels it. */
+const NEXT_PROMPT_SHORTCUT = isMacOS() ? "⌥↓" : "Alt+↓";
 
 const iconButtonClass = cn(
   "shrink-0 p-1.5 rounded-md transition-colors",
@@ -42,6 +46,8 @@ export const StickyPromptBar: React.FC<StickyPromptBarProps> = React.memo(({ mes
   const activeUuid = useViewportAnchorStore((s) => s.activePromptUuid);
   const track = useViewportAnchorStore((s) => s.promptTrack);
   const isWindowComplete = useAppStore((s) => !s.pagination.hasMore);
+  // In a subagent transcript the prompt came from the parent agent.
+  const isInSubagent = useAppStore((s) => (s.parentSessionStack?.length ?? 0) > 0);
 
   const current = useMemo(() => {
     if (!isVisible || !track || !activeUuid) return null;
@@ -67,6 +73,8 @@ export const StickyPromptBar: React.FC<StickyPromptBarProps> = React.memo(({ mes
 
   return (
     <nav
+      // PROMPT_BAR_ATTRIBUTE: a jump from here moves focus to the prompt.
+      data-sticky-prompt-bar=""
       aria-label={t("navigator.promptBar.label")}
       className={cn(
         "absolute inset-x-0 top-0 z-20",
@@ -88,7 +96,7 @@ export const StickyPromptBar: React.FC<StickyPromptBarProps> = React.memo(({ mes
       >
         <span aria-hidden className="w-[3px] self-stretch rounded-full bg-accent" />
         <span className="shrink-0 text-2xs font-semibold text-accent">
-          {t("navigator.promptBar.you")}
+          {isInSubagent ? t("promptCard.parentAgent") : t("navigator.promptBar.you")}
         </span>
         {time && (
           <span className="shrink-0 text-2xs tabular-nums text-muted-foreground">{time}</span>
@@ -123,7 +131,11 @@ export const StickyPromptBar: React.FC<StickyPromptBarProps> = React.memo(({ mes
         disabled={!next}
         className={iconButtonClass}
         aria-label={nextLabel}
-        title={`${nextLabel} (Alt+↓)`}
+        aria-keyshortcuts="Alt+ArrowDown"
+        title={t("navigator.promptBar.nextWithShortcut", {
+          label: nextLabel,
+          shortcut: NEXT_PROMPT_SHORTCUT,
+        })}
       >
         <ChevronDown className="h-4 w-4" />
       </button>
