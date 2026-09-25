@@ -9,7 +9,7 @@
    Tone: Industrial Luxury - Precise, Authoritative Developer Tool
    Aesthetic: Deep charcoal with warm amber accents
    Color Space: OKLCH for perceptually uniform gradients
-   Typography: IBM Plex Sans (UI) + JetBrains Mono (Code)
+   Typography: Geist Mono everywhere (bundled via @fontsource-variable/geist-mono)
 
    Key Principles:
    • Extreme contrast in type scale (12px labels vs 96px headlines)
@@ -423,8 +423,8 @@
 /* === Theme inline mapping === */
 @theme inline {
   /* Typography Scale */
-  --font-family-sans: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-family-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+  --font-family-sans: 'Geist Mono Variable', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-family-mono: 'Geist Mono Variable', ui-monospace, SFMono-Regular, Menlo, monospace;
 
   --font-size-2xs: calc(0.6875rem * var(--app-font-scale));
   --font-size-2xs--line-height: calc(0.9375rem * var(--app-font-scale));
@@ -524,33 +524,33 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: 'Geist Mono Variable', ui-monospace, SFMono-Regular, Menlo, monospace;
     font-feature-settings: 'tnum' on, 'lnum' on;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
-  /* Editorial Typography: Tight tracking for headlines */
+  /* Headlines: only slight tracking — a monospace face has its spacing built in */
   h1,
   h2,
   h3 {
-    letter-spacing: -0.025em;
+    letter-spacing: -0.01em;
     font-weight: 600;
   }
 
   h1 {
     @apply text-3xl;
-    letter-spacing: -0.03em;
+    letter-spacing: -0.01em;
   }
 
   h2 {
     @apply text-2xl;
-    letter-spacing: -0.025em;
+    letter-spacing: -0.01em;
   }
 
   h3 {
     @apply text-xl;
-    letter-spacing: -0.02em;
+    letter-spacing: -0.01em;
   }
 
   /* Monospace for data/numbers */
@@ -558,7 +558,7 @@
   code,
   pre,
   [data-mono] {
-    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-family: 'Geist Mono Variable', ui-monospace, SFMono-Regular, Menlo, monospace;
     font-feature-settings: 'liga' on, 'calt' on;
   }
 
@@ -763,7 +763,7 @@
 
   .prose kbd {
     font-size: calc(0.625rem * var(--app-font-scale)) !important;
-    font-family: var(--font-mono, ui-monospace, monospace) !important;
+    font-family: 'Geist Mono Variable', ui-monospace, SFMono-Regular, Menlo, monospace !important;
     background-color: var(--muted) !important;
     border: 1px solid var(--border) !important;
     border-radius: 0.25rem !important;
@@ -1027,7 +1027,7 @@
 
   /* === Data value style (monospace) === */
   .data-value {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'Geist Mono Variable', ui-monospace, SFMono-Regular, Menlo, monospace;
     font-feature-settings: 'tnum' on;
   }
 
@@ -1082,7 +1082,7 @@
 
   .metric-value {
     @apply text-2xl font-semibold tracking-tight;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'Geist Mono Variable', ui-monospace, SFMono-Regular, Menlo, monospace;
   }
 
   /* === Action button === */
@@ -1112,7 +1112,7 @@
   .code-block {
     @apply relative rounded-lg overflow-hidden;
     @apply bg-[oklch(0.1_0.015_260)] border border-border;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'Geist Mono Variable', ui-monospace, SFMono-Regular, Menlo, monospace;
   }
 
   .code-block-header {

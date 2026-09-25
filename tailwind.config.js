@@ -6,9 +6,9 @@ export default {
     extend: {
       /* Typography */
       fontFamily: {
-        sans: ["IBM Plex Sans", "-apple-system", "BlinkMacSystemFont", "sans-serif"],
-        mono: ["JetBrains Mono", "ui-monospace", "monospace"],
-        display: ["IBM Plex Sans", "-apple-system", "BlinkMacSystemFont", "sans-serif"],
+        sans: ["Geist Mono Variable", "ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
+        mono: ["Geist Mono Variable", "ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
+        display: ["Geist Mono Variable", "ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
       },
       fontSize: {
         "3xs": ["0.625rem", { lineHeight: "0.8125rem" }],
@@ -438,7 +438,7 @@ export default {
           },
           '& kbd': {
             fontSize: 'calc(0.625rem * var(--app-font-scale))',
-            fontFamily: 'var(--font-mono, ui-monospace, monospace)',
+            fontFamily: "'Geist Mono Variable', ui-monospace, SFMono-Regular, Menlo, monospace",
             backgroundColor: 'var(--muted)',
             border: '1px solid var(--border)',
             borderRadius: '0.25rem',
