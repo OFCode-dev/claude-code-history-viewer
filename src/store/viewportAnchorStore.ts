@@ -17,6 +17,12 @@ import { buildTurnAnchors, findTurnForIndex, type TurnAnchor } from "../utils/tu
 /** The prompts of the rendered list, and an index to place any row among them. */
 export interface PromptTrack {
   sessionPath: string;
+  /**
+   * The list the conversation renders (after display filters). Views that
+   * navigate into the conversation, such as the navigator's Prompts list,
+   * build from it so every row they offer has a row to scroll to.
+   */
+  messages: ClaudeMessage[];
   anchors: TurnAnchor[];
   indexByUuid: Map<string, number>;
 }
@@ -42,16 +48,21 @@ interface ViewportAnchorState {
    * Records the jump so a quick second press continues from it.
    */
   takePromptJump: (direction: PromptJumpDirection, now?: number) => string | null;
+  /**
+   * Note a jump to a prompt made some other way (the sticky bar's buttons),
+   * so a quick Alt+Up/Down afterwards continues from it.
+   */
+  recordPromptJump: (uuid: string, now?: number) => void;
   reset: () => void;
 }
 
 export function buildPromptTrack(
   sessionPath: string,
-  messages: readonly ClaudeMessage[]
+  messages: ClaudeMessage[]
 ): PromptTrack {
   const indexByUuid = new Map<string, number>();
   messages.forEach((message, index) => indexByUuid.set(message.uuid, index));
-  return { sessionPath, anchors: buildTurnAnchors(messages), indexByUuid };
+  return { sessionPath, messages, anchors: buildTurnAnchors(messages), indexByUuid };
 }
 
 /** The prompt of the turn containing `anchorUuid`, when both belong to `track`. */
@@ -146,6 +157,12 @@ export const useViewportAnchorStore = create<ViewportAnchorState>((set, get) => 
     if (!target) return null;
     set({ lastJump: { sessionPath: track.sessionPath, uuid: target.uuid, at: now } });
     return target.uuid;
+  },
+
+  recordPromptJump: (uuid, now = Date.now()) => {
+    const track = get().promptTrack;
+    if (!track || !track.indexByUuid.has(uuid)) return;
+    set({ lastJump: { sessionPath: track.sessionPath, uuid, at: now } });
   },
 
   reset: () => set(initialState),

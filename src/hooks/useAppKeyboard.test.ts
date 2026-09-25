@@ -98,4 +98,50 @@ describe("useAppKeyboard prompt jumps", () => {
 
     expect(navigateToMessage).not.toHaveBeenCalled();
   });
+
+  it("is ignored when a widget already handled the key", () => {
+    renderHook(() => useAppKeyboard());
+    const button = document.createElement("button");
+    button.addEventListener("keydown", (event) => event.preventDefault());
+    document.body.appendChild(button);
+
+    press("ArrowDown", { altKey: true }, button);
+
+    expect(navigateToMessage).not.toHaveBeenCalled();
+    button.remove();
+  });
+
+  it.each(["dialog", "menu", "listbox", "tree"])(
+    "is ignored inside a %s that uses the arrow keys",
+    (role) => {
+      renderHook(() => useAppKeyboard());
+      const widget = document.createElement("div");
+      widget.setAttribute("role", role);
+      const item = document.createElement("button");
+      widget.appendChild(item);
+      document.body.appendChild(widget);
+
+      const event = press("ArrowDown", { altKey: true }, item);
+
+      expect(navigateToMessage).not.toHaveBeenCalled();
+      expect(event.defaultPrevented).toBe(false);
+      widget.remove();
+    }
+  );
+
+  it("works inside a list that passes Alt+Arrow through (the navigator)", () => {
+    renderHook(() => useAppKeyboard());
+    const list = document.createElement("div");
+    list.setAttribute("role", "listbox");
+    list.setAttribute("data-prompt-jump-passthrough", "");
+    const option = document.createElement("button");
+    option.setAttribute("role", "option");
+    list.appendChild(option);
+    document.body.appendChild(list);
+
+    press("ArrowDown", { altKey: true }, option);
+
+    expect(navigateToMessage).toHaveBeenCalledWith("p2", { history: "replace" });
+    list.remove();
+  });
 });

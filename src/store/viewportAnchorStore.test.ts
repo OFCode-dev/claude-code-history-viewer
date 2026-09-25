@@ -114,6 +114,29 @@ describe("useViewportAnchorStore", () => {
     expect(store.getState().takePromptJump("previous", 10_000)).toBe("p1");
   });
 
+  it("continues from a jump made with the prompt bar's buttons", () => {
+    const store = useViewportAnchorStore;
+    store.getState().publishAnchor(SESSION, "a3");
+
+    // "Previous prompt" in the bar went to p2 before the viewport moved.
+    store.getState().recordPromptJump("p2", 1000);
+
+    expect(store.getState().takePromptJump("previous", 1200)).toBe("p1");
+  });
+
+  it("ignores a recorded jump to a row outside the rendered list", () => {
+    const store = useViewportAnchorStore;
+    store.getState().publishAnchor(SESSION, "a1");
+    store.getState().recordPromptJump("elsewhere", 1000);
+
+    expect(store.getState().lastJump).toBeNull();
+    expect(store.getState().takePromptJump("next", 1100)).toBe("p2");
+  });
+
+  it("keeps the rendered list with the prompts", () => {
+    expect(buildPromptTrack(SESSION, messages).messages).toBe(messages);
+  });
+
   it("does nothing without prompts", () => {
     const store = useViewportAnchorStore;
     store.getState().setPromptTrack(null);

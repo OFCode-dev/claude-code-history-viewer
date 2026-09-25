@@ -20,7 +20,7 @@ import {
   useViewportAnchorStore,
 } from "../../../store/viewportAnchorStore";
 import { getPromptPreview, getUserMessageText } from "../../../utils/userMessageKind";
-import { jumpToPrompt } from "../../../utils/promptNavigation";
+import { formatPromptTime, jumpToPrompt } from "../../../utils/promptNavigation";
 
 interface StickyPromptBarProps {
   /** The list the conversation renders — the prompt text is read from it. */
@@ -28,13 +28,6 @@ interface StickyPromptBarProps {
 }
 
 const PREVIEW_MAX_LENGTH = 220;
-
-function formatTime(timestamp: string): string {
-  if (!timestamp) return "";
-  const date = new Date(timestamp);
-  if (Number.isNaN(date.getTime())) return "";
-  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-}
 
 const iconButtonClass = cn(
   "shrink-0 p-1.5 rounded-md transition-colors",
@@ -67,7 +60,7 @@ export const StickyPromptBar: React.FC<StickyPromptBarProps> = React.memo(({ mes
   if (!current) return null;
 
   const { anchor, preview, previous, next } = current;
-  const time = formatTime(anchor.timestamp);
+  const time = formatPromptTime(anchor.timestamp);
   const previewText = preview.fromTail ? `… ${preview.text}` : preview.text;
   const previousLabel = t("navigator.promptBar.previous");
   const nextLabel = t("navigator.promptBar.next");
@@ -118,7 +111,9 @@ export const StickyPromptBar: React.FC<StickyPromptBarProps> = React.memo(({ mes
         disabled={!previous}
         className={iconButtonClass}
         aria-label={previousLabel}
-        title={`${previousLabel} (Alt+↑)`}
+        // No Alt+↑ hint: inside a turn, Alt+↑ first returns to this turn's
+        // own prompt, while this button goes to the turn before it.
+        title={previousLabel}
       >
         <ChevronUp className="h-4 w-4" />
       </button>
