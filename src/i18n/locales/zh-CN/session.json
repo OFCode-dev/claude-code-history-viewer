@@ -265,6 +265,8 @@
   "subagent.backToParent": "返回父会话",
   "subagent.previous": "上一个子代理",
   "subagent.next": "下一个子代理",
+  "subagent.previousTo": "上一个子代理：{{label}}",
+  "subagent.nextTo": "下一个子代理：{{label}}",
   "subagent.position": "{{index}} / {{total}}",
   "subagent.positionAria": "第 {{index}} 个子代理，共 {{total}} 个",
   "subagent.openTranscript": "打开对话记录",

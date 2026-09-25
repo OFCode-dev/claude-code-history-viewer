@@ -1,7 +1,8 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ClaudeSession, SubagentNavFrame, SubagentSession } from "@/types";
 import { englishT } from "@/test/utils/englishTranslator";
+import { useAppStore } from "@/store/useAppStore";
 import { SubagentContextBar } from "./SubagentContextBar";
 
 vi.mock("react-i18next", async (importOriginal) => ({
@@ -9,13 +10,16 @@ vi.mock("react-i18next", async (importOriginal) => ({
   useTranslation: () => ({ t: englishT }),
 }));
 
-const { storeState } = vi.hoisted(() => ({
-  storeState: {} as Record<string, unknown>,
-}));
+// A real (tiny) zustand store, so a state change re-renders the bar the way
+// navigation does in the app.
+vi.mock("@/store/useAppStore", async () => {
+  const { create } = await import("zustand");
+  return { useAppStore: create<Record<string, unknown>>(() => ({})) };
+});
 
-vi.mock("@/store/useAppStore", () => ({
-  useAppStore: (selector: (state: Record<string, unknown>) => unknown) => selector(storeState),
-}));
+const testStore = useAppStore as unknown as {
+  setState: (partial: Record<string, unknown>) => void;
+};
 
 const session = (file_path: string, summary?: string): ClaudeSession => ({
   session_id: file_path,
@@ -57,12 +61,14 @@ function setState(opts: {
   subagentNavStack?: SubagentNavFrame[];
   selectedSession?: ClaudeSession | null;
   customNames?: Record<string, string>;
+  isLoadingMessages?: boolean;
 }) {
   const customNames = opts.customNames ?? {};
-  Object.assign(storeState, {
+  testStore.setState({
     parentSessionStack: opts.parentSessionStack ?? [],
     subagentNavStack: opts.subagentNavStack ?? [],
     selectedSession: opts.selectedSession ?? null,
+    isLoadingMessages: opts.isLoadingMessages ?? false,
     navigateBackToParent,
     navigateToSubagent,
     getSessionDisplayName: (id: string, fallback?: string) => customNames[id] ?? fallback,
@@ -97,6 +103,11 @@ describe("SubagentContextBar", () => {
     expect(screen.getByText("Map the API error codes")).toBeInTheDocument();
     expect(screen.getByTitle("Agent type: Explore")).toBeInTheDocument();
     expect(screen.getByTitle("Model: sonnet")).toBeInTheDocument();
+    // The label's tooltip repeats type and model for when the row truncates.
+    expect(screen.getByText("Map the API error codes")).toHaveAttribute(
+      "title",
+      "Map the API error codes · Explore · sonnet",
+    );
 
     fireEvent.click(screen.getByRole("button", { name: "Back to Release v2 of the API" }));
     expect(navigateBackToParent).toHaveBeenCalledTimes(1);
@@ -118,10 +129,88 @@ describe("SubagentContextBar", () => {
     render(<SubagentContextBar />);
 
     expect(screen.getByLabelText("Subagent 2 of 3")).toHaveTextContent("2 of 3");
-    fireEvent.click(screen.getByRole("button", { name: "Previous subagent" }));
+    const previous = screen.getByRole("button", { name: "Previous subagent" });
+    const next = screen.getByRole("button", { name: "Next subagent" });
+    expect(previous).toHaveAttribute("title", "Previous subagent: Draft migration plan");
+    expect(next).toHaveAttribute("title", "Next subagent: Audit webhook retries");
+
+    fireEvent.click(previous);
     expect(navigateToSubagent).toHaveBeenLastCalledWith(a);
-    fireEvent.click(screen.getByRole("button", { name: "Next subagent" }));
+    fireEvent.click(next);
     expect(navigateToSubagent).toHaveBeenLastCalledWith(c);
+  });
+
+  it("marks previous/next busy and ignores clicks while a transcript loads", () => {
+    inside(b);
+    testStore.setState({ isLoadingMessages: true });
+    render(<SubagentContextBar />);
+
+    const next = screen.getByRole("button", { name: "Next subagent" });
+    expect(next).toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByRole("navigation", { name: "Subagent navigation" })).toHaveAttribute(
+      "aria-busy",
+      "true",
+    );
+    fireEvent.click(next);
+    expect(navigateToSubagent).not.toHaveBeenCalled();
+  });
+
+  it("moves focus to the other arrow when the pressed one becomes disabled", async () => {
+    inside(b);
+    render(<SubagentContextBar />);
+    navigateToSubagent.mockImplementation(async () => {
+      inside(c);
+    });
+
+    const next = screen.getByRole("button", { name: "Next subagent" });
+    next.focus();
+    await act(async () => {
+      fireEvent.click(next);
+    });
+
+    expect(next).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Previous subagent" })).toHaveFocus();
+  });
+
+  it("returns focus to the row of the subagent it leaves after Back", async () => {
+    inside(b);
+    const row = document.createElement("button");
+    row.setAttribute("data-subagent-path", b.file_path);
+    document.body.appendChild(row);
+    const { unmount } = render(<SubagentContextBar />);
+    // At top level the bar unmounts, which drops focus on <body>.
+    navigateBackToParent.mockImplementation(async () => {
+      unmount();
+    });
+
+    screen.getByRole("button", { name: "Back to Release v2 of the API" }).focus();
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Back to Release v2 of the API" }));
+    });
+
+    expect(row).toHaveFocus();
+    row.remove();
+  });
+
+  it("falls back to the main content region after Back when no row shows the subagent", async () => {
+    inside(b);
+    const main = document.createElement("main");
+    main.id = "main-content";
+    main.tabIndex = -1;
+    document.body.appendChild(main);
+    const { unmount } = render(<SubagentContextBar />);
+    navigateBackToParent.mockImplementation(async () => {
+      unmount();
+    });
+
+    const back = screen.getByRole("button", { name: "Back to Release v2 of the API" });
+    back.focus();
+    await act(async () => {
+      fireEvent.click(back);
+    });
+
+    expect(main).toHaveFocus();
+    main.remove();
   });
 
   it("disables previous on the first and next on the last sibling", () => {

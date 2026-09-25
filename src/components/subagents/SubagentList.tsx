@@ -8,6 +8,7 @@ import { formatTimeAgo } from "@/utils/time";
 import { getSubagentStyle } from "@/utils/agentStyles";
 import type { SubagentSession } from "@/types";
 import { SubagentMetaBadges } from "./SubagentMetaBadges";
+import { SUBAGENT_PATH_ATTR } from "./subagentDom";
 
 const ITEM_SELECTOR = "[data-subagent-item]";
 
@@ -117,6 +118,7 @@ const SubagentListItem = memo(function SubagentListItem({
     <button
       type="button"
       data-subagent-item=""
+      {...{ [SUBAGENT_PATH_ATTR]: subagent.file_path }}
       onClick={() => onSelect(subagent)}
       aria-current={isActive ? "true" : undefined}
       title={label}

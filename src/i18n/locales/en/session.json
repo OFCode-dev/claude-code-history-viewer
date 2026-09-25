@@ -265,6 +265,8 @@
   "subagent.backToParent": "Back to parent session",
   "subagent.previous": "Previous subagent",
   "subagent.next": "Next subagent",
+  "subagent.previousTo": "Previous subagent: {{label}}",
+  "subagent.nextTo": "Next subagent: {{label}}",
   "subagent.position": "{{index}} of {{total}}",
   "subagent.positionAria": "Subagent {{index}} of {{total}}",
   "subagent.openTranscript": "Open transcript",

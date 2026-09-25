@@ -265,6 +265,8 @@
   "subagent.backToParent": "親セッションに戻る",
   "subagent.previous": "前のサブエージェント",
   "subagent.next": "次のサブエージェント",
+  "subagent.previousTo": "前のサブエージェント: {{label}}",
+  "subagent.nextTo": "次のサブエージェント: {{label}}",
   "subagent.position": "{{index}} / {{total}}",
   "subagent.positionAria": "サブエージェント {{total}} 件中 {{index}} 件目",
   "subagent.openTranscript": "トランスクリプトを開く",
