@@ -5,7 +5,7 @@
  * left-aligned cards with an accent edge instead of chat bubbles. Long prompts
  * collapse, but keep their closing question visible (see promptCollapse).
  */
-import React, { useId, useMemo } from "react";
+import React, { useId, useMemo, useRef } from "react";
 import { ChevronDown, Copy } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -37,6 +37,19 @@ interface PromptCardProps {
   children?: React.ReactNode;
 }
 
+/**
+ * Whether a click came from the keyboard or assistive technology rather than
+ * a pointer: keyboard activation fires a click with `detail` 0.
+ */
+function isKeyboardActivation(event: React.MouseEvent<HTMLElement>): boolean {
+  if (event.detail === 0) return true;
+  try {
+    return event.currentTarget.matches(":focus-visible");
+  } catch {
+    return false;
+  }
+}
+
 const ACTION_BUTTON =
   "inline-flex items-center justify-center w-6 h-6 rounded text-muted-foreground " +
   "hover:text-foreground hover:bg-accent/15 transition-colors " +
@@ -56,6 +69,7 @@ export const PromptCard: React.FC<PromptCardProps> = ({
   const bodyId = useId();
   const turnNumber = usePromptTurnNumber(uuid);
   const [isExpanded, setIsExpanded] = useCaptureExpandState("content", false);
+  const toggleRef = useRef<HTMLButtonElement>(null);
 
   const collapse = useMemo(() => (text ? getPromptCollapse(text) : null), [text]);
   const isSearching = searchQuery.length > 0;
@@ -80,6 +94,18 @@ export const PromptCard: React.FC<PromptCardProps> = ({
   };
 
   const toggleLabel = isExpanded ? t("promptCard.collapse") : t("promptCard.expand");
+
+  // The inline "N more lines" row and the trailing "Collapse" row unmount
+  // when pressed; keep keyboard focus on the header toggle, which stays.
+  const setExpandedFromBody =
+    (next: boolean) => (event: React.MouseEvent<HTMLButtonElement>) => {
+      if (isKeyboardActivation(event)) {
+        // Expanding keeps the reading position; collapsing brings the card's
+        // header back into view.
+        toggleRef.current?.focus({ preventScroll: next });
+      }
+      setIsExpanded(next);
+    };
 
   return (
     <article
@@ -124,6 +150,7 @@ export const PromptCard: React.FC<PromptCardProps> = ({
         >
           {canCollapse && (
             <TooltipButton
+              ref={toggleRef}
               onClick={() => setIsExpanded((prev) => !prev)}
               aria-expanded={isExpanded}
               aria-controls={bodyId}
@@ -164,7 +191,7 @@ export const PromptCard: React.FC<PromptCardProps> = ({
               <div>{collapse.head}</div>
               <button
                 type="button"
-                onClick={() => setIsExpanded(true)}
+                onClick={setExpandedFromBody(true)}
                 aria-expanded={false}
                 aria-controls={bodyId}
                 className={cn(
@@ -191,7 +218,7 @@ export const PromptCard: React.FC<PromptCardProps> = ({
       {canCollapse && isExpanded && (
         <button
           type="button"
-          onClick={() => setIsExpanded(false)}
+          onClick={setExpandedFromBody(false)}
           aria-expanded={true}
           aria-controls={bodyId}
           className={cn(
