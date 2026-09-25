@@ -14,6 +14,7 @@ export const GroupHeader: React.FC<GroupHeaderProps> = ({
   ariaLevel = 1,
   onToggle,
   variant,
+  title,
 }) => {
   const { t } = useTranslation();
   const variantColors = {
@@ -108,7 +109,7 @@ export const GroupHeader: React.FC<GroupHeaderProps> = ({
           "text-sm truncate flex-1 transition-colors duration-300",
           isExpanded ? `${colors.text} font-semibold` : "text-sidebar-foreground/80"
         )}
-        title={label}
+        title={title ?? label}
       >
         {label}
       </span>

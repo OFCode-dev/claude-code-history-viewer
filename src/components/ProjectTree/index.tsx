@@ -5,6 +5,7 @@ import {
   Database,
   ChevronDown,
   ChevronRight,
+  ChevronsDownUp,
   List,
   FolderTree,
   GitBranch,
@@ -33,10 +34,18 @@ import type { ProviderId, ClaudeSession } from "../../types";
 import { useAppStore } from "../../store/useAppStore";
 import {
   buildTreeItemAnnouncement,
+  findFirstChildTreeItemIndex,
+  findParentTreeItemIndex,
+  findSiblingTreeItemIndexes,
   findTypeaheadMatchIndex,
   getNextTreeItemIndex,
   type TreeNavigationKey,
 } from "./treeKeyboard";
+import {
+  buildDirectoryTree,
+  getProjectExpansionKeys,
+  locateInDirectoryTree,
+} from "../../utils/directoryTree";
 import {
   DEFAULT_PROVIDER_ID,
   getProviderId,
@@ -107,12 +116,20 @@ export const ProjectTree: React.FC<ProjectTreeProps> = ({
   const clearProjectSelection = useAppStore(
     (state) => state.clearProjectSelection
   );
+  const explorerRevealRequest = useAppStore((state) => state.explorerRevealRequest);
+  const clearExplorerRevealRequest = useAppStore(
+    (state) => state.clearExplorerRevealRequest
+  );
 
   const {
     expandedProjects,
     setExpandedProjects,
     isProjectExpanded,
     ensureProjectExpanded,
+    expandGroups,
+    collapseGroup,
+    expandDefaultRoots,
+    collapseAllGroups,
     contextMenu,
     handleContextMenu,
     closeContextMenu,
@@ -385,6 +402,14 @@ export const ProjectTree: React.FC<ProjectTreeProps> = ({
       .filter((group) => group.projects.length > 0);
   }, [directoryGroups, isAllProvidersSelected, matchesProviderFilter, matchesSearch, normalizedSearchTerm]);
 
+  const directoryTree = useMemo(
+    () =>
+      groupingMode === "directory"
+        ? buildDirectoryTree(filteredDirectoryGroups.flatMap((group) => group.projects))
+        : null,
+    [filteredDirectoryGroups, groupingMode]
+  );
+
   const { filteredWorktreeGroups, filteredUngroupedProjects } = useMemo(() => {
     const baseUngrouped = ungroupedProjects ?? projects;
     const filterFn = (p: (typeof projects)[number]) =>
@@ -489,8 +514,10 @@ export const ProjectTree: React.FC<ProjectTreeProps> = ({
     [selectedProject, onProjectSelect, setExpandedProjects]
   );
 
-  const selectedProjectGroupKey = useMemo(() => {
-    if (!selectedProject) return undefined;
+  // Joined into a string so a rebuilt tree with the same ancestors does not
+  // re-expand folders the user has just collapsed.
+  const selectedProjectGroupKeys = useMemo(() => {
+    if (!selectedProject) return "";
 
     if (selectedProject.path_status === "unavailable") {
       return "group:unavailable-projects";
@@ -501,11 +528,12 @@ export const ProjectTree: React.FC<ProjectTreeProps> = ({
       return "group:temporary-projects";
     }
 
-    if (groupingMode === "directory") {
-      const group = directoryGroups.find((candidate) =>
-        candidate.projects.some((project) => project.path === selectedProject.path)
+    if (groupingMode === "directory" && directoryTree) {
+      const keys = getProjectExpansionKeys(
+        directoryTree,
+        selectedProject.actual_path || selectedProject.path
       );
-      return group ? `dir:${group.path}` : undefined;
+      return keys ? keys.join("\n") : "";
     }
 
     if (groupingMode === "worktree") {
@@ -514,25 +542,35 @@ export const ProjectTree: React.FC<ProjectTreeProps> = ({
           candidate.parent.path === selectedProject.path ||
           candidate.children.some((project) => project.path === selectedProject.path)
       );
-      return group ? `group:${group.parent.path}` : undefined;
+      return group ? `group:${group.parent.path}` : "";
     }
 
-    return undefined;
-  }, [directoryGroups, groupingMode, selectedProject, worktreeGroups]);
+    return "";
+  }, [directoryTree, groupingMode, selectedProject, worktreeGroups]);
 
   // Global search and deep-link flows select projects through the store rather
   // than through handleProjectClick, so the tree's local expansion state would
   // otherwise stay collapsed (#486). Re-apply the selected project/session to
-  // the tree and include its containing group when grouped.
+  // the tree and include its containing groups (every ancestor folder) when grouped.
   useEffect(() => {
     if (!selectedProject?.path) return;
-    ensureProjectExpanded(selectedProject.path, selectedProjectGroupKey);
+    ensureProjectExpanded(
+      selectedProject.path,
+      selectedProjectGroupKeys ? selectedProjectGroupKeys.split("\n") : undefined
+    );
   }, [
     ensureProjectExpanded,
     selectedProject?.path,
-    selectedProjectGroupKey,
+    selectedProjectGroupKeys,
     selectedSession?.file_path,
   ]);
+
+  // First run: the directory roots start expanded (persisted from then on).
+  useEffect(() => {
+    if (directoryTree && directoryTree.roots.length > 0) {
+      expandDefaultRoots(directoryTree.roots.map((root) => root.key));
+    }
+  }, [directoryTree, expandDefaultRoots]);
 
   const handleGlobalStatsClick = useCallback(() => {
     // Global stats 진입 시 현재 열려 있는 프로젝트 확장을 닫는다.
@@ -640,6 +678,76 @@ export const ProjectTree: React.FC<ProjectTreeProps> = ({
     return () => cancelAnimationFrame(frameId);
   }, [expandedProjects, selectedProject?.path, selectedSession?.file_path]);
 
+  // Reveal requests (header breadcrumb): show the directory tree, open the
+  // ancestors of the requested path, then scroll to and focus its row. Each
+  // step that changes props/state returns and resumes on the next run.
+  const [revealFocusKey, setRevealFocusKey] = useState<string | null>(null);
+  const handledRevealNonceRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    const request = explorerRevealRequest;
+    if (!request || handledRevealNonceRef.current === request.nonce) return;
+
+    if (isCollapsed && onToggleCollapse) {
+      onToggleCollapse();
+      return;
+    }
+    if (groupingMode !== "directory") {
+      if (onGroupingModeChange) {
+        onGroupingModeChange("directory");
+        return;
+      }
+      handledRevealNonceRef.current = request.nonce;
+      clearExplorerRevealRequest();
+      return;
+    }
+    // A search filter may hide the row; wait for the deferred term to clear too.
+    if (searchTerm) {
+      setSearchTerm("");
+      return;
+    }
+    if (normalizedSearchTerm) return;
+
+    handledRevealNonceRef.current = request.nonce;
+    const target = directoryTree ? locateInDirectoryTree(directoryTree, request.path) : null;
+    if (!target) {
+      clearExplorerRevealRequest();
+      return;
+    }
+    expandGroups(target.ancestorKeys);
+    setRevealFocusKey(target.key);
+  }, [
+    clearExplorerRevealRequest,
+    directoryTree,
+    expandGroups,
+    explorerRevealRequest,
+    groupingMode,
+    isCollapsed,
+    normalizedSearchTerm,
+    onGroupingModeChange,
+    onToggleCollapse,
+    searchTerm,
+  ]);
+
+  useEffect(() => {
+    if (!revealFocusKey) return;
+
+    const frameId = requestAnimationFrame(() => {
+      const row = Array.from(
+        treeRef.current?.querySelectorAll<HTMLElement>('[role="treeitem"]') ?? []
+      ).find((item) => item.dataset.treeKey === revealFocusKey);
+      if (row) {
+        row.scrollIntoView?.({ block: "nearest" });
+        syncRovingTabIndex(row);
+        row.focus();
+      }
+      setRevealFocusKey(null);
+      clearExplorerRevealRequest();
+    });
+
+    return () => cancelAnimationFrame(frameId);
+  }, [clearExplorerRevealRequest, expandedProjects, revealFocusKey, syncRovingTabIndex]);
+
   const handleTreeKeyDown = useCallback((event: React.KeyboardEvent<HTMLDivElement>) => {
     const treeItems = Array.from(
       event.currentTarget.querySelectorAll<HTMLElement>('[role="treeitem"]')
@@ -654,30 +762,63 @@ export const ProjectTree: React.FC<ProjectTreeProps> = ({
       return;
     }
 
+    const levels = treeItems.map((item) => Number(item.getAttribute("aria-level") ?? "1"));
+    const focusItem = (index: number) => {
+      const nextItem = treeItems[index];
+      if (!nextItem) return;
+      syncRovingTabIndex(nextItem);
+      nextItem.focus();
+      announceTree(describeTreeItem(nextItem));
+    };
+
+    if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
+      // Project rows expand/collapse their inline sessions themselves.
+      if (event.defaultPrevented || !currentItem) return;
+      const isGroupRow = currentItem.getAttribute("data-tree-node") === "group";
+      const groupKey = currentItem.getAttribute("data-tree-key");
+      const ariaExpanded = currentItem.getAttribute("aria-expanded");
+
+      let nextIndex = -1;
+      if (event.key === "ArrowRight") {
+        if (isGroupRow && groupKey && ariaExpanded === "false") {
+          event.preventDefault();
+          expandGroups([groupKey]);
+          return;
+        }
+        if (ariaExpanded === "true") {
+          nextIndex = findFirstChildTreeItemIndex(levels, currentIndex);
+        }
+      } else {
+        if (isGroupRow && groupKey && ariaExpanded === "true") {
+          event.preventDefault();
+          collapseGroup(groupKey);
+          return;
+        }
+        nextIndex = findParentTreeItemIndex(levels, currentIndex);
+      }
+      if (nextIndex >= 0) {
+        event.preventDefault();
+        focusItem(nextIndex);
+      }
+      return;
+    }
+
     if (event.key === "*") {
       event.preventDefault();
-      const currentLevel = Number(currentItem?.getAttribute("aria-level") ?? "1");
-      const siblingGroups = treeItems.filter(
-        (item) =>
-          item !== currentItem &&
-          Number(item.getAttribute("aria-level") ?? "1") === currentLevel &&
-          item.getAttribute("data-tree-expandable") === "true" &&
-          item.getAttribute("aria-expanded") === "false"
-      );
+      const siblingGroups = findSiblingTreeItemIndexes(levels, currentIndex)
+        .map((index) => treeItems[index])
+        .filter(
+          (item): item is HTMLElement =>
+            item !== undefined &&
+            item.getAttribute("data-tree-expandable") === "true" &&
+            item.getAttribute("aria-expanded") === "false"
+        );
 
       const siblingGroupKeys = siblingGroups
         .map((item) => item.getAttribute("data-tree-key"))
         .filter((key): key is string => Boolean(key));
 
-      if (siblingGroupKeys.length > 0) {
-        setExpandedProjects((prev) => {
-          const next = new Set(prev);
-          for (const groupKey of siblingGroupKeys) {
-            next.add(groupKey);
-          }
-          return next;
-        });
-      }
+      expandGroups(siblingGroupKeys);
       announceTree(
         t(
           "project.expandedSiblingGroups",
@@ -737,12 +878,8 @@ export const ProjectTree: React.FC<ProjectTreeProps> = ({
     }
 
     event.preventDefault();
-    const nextItem = treeItems[nextIndex];
-    if (!nextItem) return;
-    syncRovingTabIndex(nextItem);
-    nextItem.focus();
-    announceTree(describeTreeItem(nextItem));
-  }, [announceTree, describeTreeItem, setExpandedProjects, syncRovingTabIndex, t]);
+    focusItem(nextIndex);
+  }, [announceTree, collapseGroup, describeTreeItem, expandGroups, syncRovingTabIndex, t]);
 
   useEffect(() => () => {
     if (typeaheadTimeoutRef.current) {
@@ -917,6 +1054,20 @@ export const ProjectTree: React.FC<ProjectTreeProps> = ({
                     <GitBranch className="w-3 h-3" />
                   </button>
                 </div>
+              )}
+              {groupingMode !== "none" && (
+                <button
+                  type="button"
+                  onClick={collapseAllGroups}
+                  className={cn(
+                    "p-1 rounded-md transition-colors",
+                    "text-muted-foreground hover:text-accent hover:bg-accent/10"
+                  )}
+                  title={t("project.collapseAll", "Collapse all")}
+                  aria-label={t("project.collapseAll", "Collapse all")}
+                >
+                  <ChevronsDownUp className="w-3 h-3" aria-hidden="true" />
+                </button>
               )}
               <span className="text-xs font-mono text-accent bg-accent/10 px-2 py-0.5 rounded-full">
                 {filteredProjects.length}
@@ -1193,6 +1344,7 @@ export const ProjectTree: React.FC<ProjectTreeProps> = ({
                 groupingMode={groupingMode}
                 projects={filteredProjects}
                 directoryGroups={filteredDirectoryGroups}
+                directoryTree={directoryTree}
                 worktreeGroups={filteredWorktreeGroups}
                 ungroupedProjects={filteredUngroupedProjects}
                 showProviderBadge={showProviderBadge}
@@ -1222,6 +1374,10 @@ export const ProjectTree: React.FC<ProjectTreeProps> = ({
           {t(
             "project.a11y.keyboardHelp",
             "Keyboard: use arrow keys to move, Home and End to jump, type letters to search, and star to expand collapsed sibling groups."
+          )}{" "}
+          {t(
+            "project.a11y.keyboardHelpFolders",
+            "Right arrow expands a folder or moves to its first item; Left arrow collapses it or moves to the parent folder."
           )}
         </p>
 

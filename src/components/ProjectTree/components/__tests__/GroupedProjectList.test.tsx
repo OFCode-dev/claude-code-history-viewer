@@ -119,7 +119,8 @@ describe("GroupedProjectList", () => {
       handleProjectClick,
       projects: [],
       directoryGroups: [directoryGroup],
-      expandedProjects: new Set<string>([`dir:${directoryGroup.path}`]),
+      // Nested tree: the lone project sits under the expanded `/` root.
+      expandedProjects: new Set<string>(["dir:/"]),
     });
 
     fireEvent.click(screen.getByTestId(`project-toggle-${project.path}`));

@@ -30,6 +30,8 @@ export const ProjectItem: React.FC<ProjectItemProps> = ({
   providerSiblings = [],
   onSelectSibling,
   hasInlineChildren = true,
+  subtitle,
+  treeKey,
 }) => {
   const { t } = useTranslation();
 
@@ -50,7 +52,8 @@ export const ProjectItem: React.FC<ProjectItemProps> = ({
     ? `${baseProviderLabel} (${project.custom_directory_label})`
     : baseProviderLabel;
   const shouldShowParentPath = !isGrouped && isAbsolutePath(actualPath);
-  const parentPath = shouldShowParentPath ? getCompactParentPath(actualPath) : "";
+  const parentPath =
+    subtitle ?? (shouldShowParentPath ? getCompactParentPath(actualPath) : "");
   const displayName = isMain
     ? t("project.main", "main")
     : isWorktree
@@ -63,6 +66,7 @@ export const ProjectItem: React.FC<ProjectItemProps> = ({
       role="treeitem"
       data-tree-node="project"
       data-project-path={project.path}
+      data-tree-key={treeKey}
       aria-level={ariaLevel}
       aria-selected={isSelected}
       aria-expanded={isExpandable && hasInlineChildren ? isExpanded : undefined}

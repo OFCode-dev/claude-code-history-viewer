@@ -2,8 +2,17 @@
 import React from "react";
 import { AlertCircle, FolderTree, GitBranch, Timer } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { cn } from "@/lib/utils";
 import type { ClaudeProject, ClaudeSession } from "../../../types";
 import type { WorktreeGroup, DirectoryGroup } from "../../../utils/worktreeUtils";
+import {
+  buildDirectoryTree,
+  getLocationKey,
+  type DirectoryFolderNode,
+  type DirectoryLocation,
+  type DirectoryTree,
+  type DirectoryTreeNode,
+} from "../../../utils/directoryTree";
 import type { GroupingStrategy } from "../types";
 import { ProjectItem } from "./ProjectItem";
 import { SessionList } from "./SessionList";
@@ -14,6 +23,8 @@ interface GroupedProjectListProps {
   groupingMode: GroupingStrategy;
   projects: ClaudeProject[];
   directoryGroups: DirectoryGroup[];
+  /** Prebuilt directory tree; built from `directoryGroups` when omitted. */
+  directoryTree?: DirectoryTree | null;
   worktreeGroups: WorktreeGroup[];
   ungroupedProjects?: ClaudeProject[];
   showProviderBadge?: boolean;
@@ -40,6 +51,7 @@ export const GroupedProjectList: React.FC<GroupedProjectListProps> = ({
   groupingMode,
   projects,
   directoryGroups,
+  directoryTree,
   worktreeGroups,
   ungroupedProjects,
   showProviderBadge = true,
@@ -79,11 +91,25 @@ export const GroupedProjectList: React.FC<GroupedProjectListProps> = ({
     });
   };
 
+  /** Nested folders are independent: collapsing one keeps its descendants' state. */
+  const toggleFolder = (folderKey: string) => {
+    setExpandedProjects((prev) => {
+      const next = new Set(prev);
+      if (next.has(folderKey)) {
+        next.delete(folderKey);
+      } else {
+        next.add(folderKey);
+      }
+      return next;
+    });
+  };
+
   const renderProjectWithSessions = (
     project: ClaudeProject,
     variant: "default" | "main" | "worktree" = "default",
     ariaLevel = 1,
-    providerSiblings: ClaudeProject[] = []
+    providerSiblings: ClaudeProject[] = [],
+    row: { subtitle?: string; treeKey?: string } = {}
   ) => {
     const isExpanded = isProjectExpanded(project.path);
     const showSessions = inlineSessions && isExpanded && selectedProject?.path === project.path;
@@ -111,6 +137,8 @@ export const GroupedProjectList: React.FC<GroupedProjectListProps> = ({
           providerSiblings={providerSiblings}
           onSelectSibling={handleProjectClick}
           hasInlineChildren={inlineSessions}
+          subtitle={row.subtitle}
+          treeKey={row.treeKey}
         />
         {showSessions && (
           <div role="none">
@@ -175,7 +203,11 @@ export const GroupedProjectList: React.FC<GroupedProjectListProps> = ({
                 : "ml-4 pl-3 border-l-2 border-warning/20 space-y-0.5"
             }
           >
-            {bucketProjects.map((project) => renderProjectWithSessions(project, "default", 2))}
+            {bucketProjects.map((project) =>
+              renderProjectWithSessions(project, "default", 2, [], {
+                treeKey: getLocationKey(project.actual_path || project.path),
+              })
+            )}
           </div>
         )}
       </div>
@@ -189,46 +221,63 @@ export const GroupedProjectList: React.FC<GroupedProjectListProps> = ({
     unavailable: list.filter(isProjectPathUnavailable),
   });
 
-  // Strategy 1: Directory Grouping
+  // Strategy 1: Directory Grouping (nested tree)
   if (groupingMode === "directory") {
-    const allDirectoryProjects = directoryGroups.flatMap((group) => group.projects);
-    const { temporary: temporaryProjects, unavailable: unavailableProjects } =
-      partition(allDirectoryProjects);
-    const availableDirectoryGroups = directoryGroups
-      .map((group) => ({
-        ...group,
-        projects: partition(group.projects).main,
-      }))
-      .filter((group) => group.projects.length > 0);
+    const tree =
+      directoryTree ?? buildDirectoryTree(directoryGroups.flatMap((group) => group.projects));
+
+    /** One row per working directory; other providers become chips. */
+    const renderLocation = (location: DirectoryLocation, ariaLevel: number, subtitle: string) => {
+      const [merged] = mergeByFolder(location.projects, selectedProject);
+      if (!merged) return null;
+      return renderProjectWithSessions(merged.lead, "default", ariaLevel, merged.siblings, {
+        subtitle,
+        treeKey: getLocationKey(location.path),
+      });
+    };
+
+    const renderNode = (node: DirectoryTreeNode, ariaLevel: number): React.ReactNode =>
+      node.kind === "project"
+        ? renderLocation(node.location, ariaLevel, node.relativeParent)
+        : renderFolder(node, ariaLevel);
+
+    const renderFolder = (node: DirectoryFolderNode, ariaLevel: number) => {
+      const isFolderExpanded = expandedProjects.has(node.key);
+      return (
+        <div key={node.key} className="space-y-0.5" role="none">
+          <GroupHeader
+            groupKey={node.key}
+            label={node.label}
+            title={node.path}
+            icon={<FolderTree className="w-3.5 h-3.5" aria-hidden="true" />}
+            count={node.projectCount}
+            isExpanded={isFolderExpanded}
+            ariaLevel={ariaLevel}
+            onToggle={() => toggleFolder(node.key)}
+            variant="directory"
+          />
+          {isFolderExpanded && (
+            <div
+              role="group"
+              className={cn(
+                "border-l-2 border-info/20 space-y-0.5",
+                ariaLevel === 1 ? "ml-4 pl-3" : "ml-3 pl-2"
+              )}
+            >
+              {/* The folder is itself a project: its row comes first. */}
+              {node.self && renderLocation(node.self, ariaLevel + 1, "")}
+              {node.children.map((child) => renderNode(child, ariaLevel + 1))}
+            </div>
+          )}
+        </div>
+      );
+    };
 
     return (
       <>
-        {availableDirectoryGroups.map((group) => {
-          const groupKey = `dir:${group.path}`;
-          const isGroupExpanded = expandedProjects.has(groupKey);
-
-          return (
-            <div key={group.path} className="space-y-0.5" role="none">
-              <GroupHeader
-                groupKey={groupKey}
-                label={group.displayPath}
-                icon={<span title={t("project.groupingDirectory", "Group by directory")}><FolderTree className="w-3.5 h-3.5" /></span>}
-                count={group.projects.length}
-                isExpanded={isGroupExpanded}
-                ariaLevel={1}
-                onToggle={() => toggleGroup(groupKey, group.projects)}
-                variant="directory"
-              />
-              {isGroupExpanded && (
-                <div role="group" className="ml-4 pl-3 border-l-2 border-info/20 space-y-0.5">
-                  {group.projects.map((project) => renderProjectWithSessions(project, "default", 2))}
-                </div>
-              )}
-            </div>
-          );
-        })}
-        {renderBucketGroup("temporary", temporaryProjects)}
-        {renderBucketGroup("unavailable", unavailableProjects)}
+        {tree.roots.map((root) => renderFolder(root, 1))}
+        {renderBucketGroup("temporary", tree.temporary)}
+        {renderBucketGroup("unavailable", tree.unavailable)}
       </>
     );
   }
