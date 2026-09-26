@@ -133,13 +133,13 @@ interface RootSpec {
 }
 
 /** `detectHomeDir` plus the POSIX superuser's home, which is not under `/home`. */
-function homeDirOf(path: string): string | null {
+export function homeDirOf(path: string): string | null {
   if (/^\/root(?:\/|$)/.test(path)) return "/root";
   return detectHomeDir([path]);
 }
 
 /** The home directory shared by most projects; other users' homes sit under `/`. */
-function pickHomeDir(paths: string[]): string | null {
+export function pickHomeDir(paths: string[]): string | null {
   const counts = new Map<string, { home: string; count: number }>();
   for (const path of paths) {
     const home = homeDirOf(path);

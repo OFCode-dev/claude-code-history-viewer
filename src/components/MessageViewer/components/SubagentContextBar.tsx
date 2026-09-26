@@ -9,8 +9,7 @@ import {
   getSubagentSiblingPosition,
 } from "@/utils/subagentNavigation";
 import { SubagentMetaBadges } from "@/components/subagents/SubagentMetaBadges";
-import { SUBAGENT_PATH_ATTR } from "@/components/subagents/subagentDom";
-import { isFocusLost } from "@/components/subagents/subagentFocus";
+import { isFocusLost, restoreFocusAfterBack } from "@/components/subagents/focusRestore";
 import type { SubagentSession } from "@/types";
 
 const navButton = cn(
@@ -20,22 +19,6 @@ const navButton = cn(
   "aria-disabled:opacity-60 aria-disabled:cursor-progress",
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
 );
-
-/**
- * After "Back" the bar unmounts (at top level) and would drop focus on
- * <body>. Land on the row of the subagent just left when a list shows it,
- * otherwise on the main content region (the skip-link target).
- */
-function restoreFocusAfterBack(fromFilePath: string | undefined): void {
-  if (!isFocusLost()) return;
-  const row =
-    fromFilePath != null
-      ? document.querySelector<HTMLElement>(
-          `[${SUBAGENT_PATH_ATTR}="${CSS.escape(fromFilePath)}"]`,
-        )
-      : null;
-  (row ?? document.getElementById("main-content"))?.focus({ preventScroll: true });
-}
 
 /**
  * Bar above a subagent transcript: what is being viewed (label, agent type,
@@ -90,8 +73,12 @@ export const SubagentContextBar = memo(function SubagentContextBar() {
   const parent = parentSessionStack[parentSessionStack.length - 1];
   if (!parent) return null;
 
+  // Untitled parents are named like the header breadcrumb names them.
   const parentTitle =
-    parentDisplayName?.replace(/\s+/g, " ").trim() || parent.actual_session_id.slice(0, 8);
+    parentDisplayName?.replace(/\s+/g, " ").trim() ||
+    t("header.breadcrumb.untitledSession", {
+      id: (parent.actual_session_id || parent.session_id).slice(-8),
+    });
   const label = frame
     ? getSubagentLabel(frame.subagent)
     : selectedSession?.summary ?? selectedSession?.actual_session_id ?? "";

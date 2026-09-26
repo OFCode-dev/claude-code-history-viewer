@@ -293,7 +293,7 @@ export interface AppStoreActions {
   clearTokenStats: () => void;
   loadSubagents: (sessionPath: string, sourceMessages: ClaudeMessage[]) => Promise<void>;
   navigateToSubagent: (subagent: SubagentSession) => Promise<void>;
-  navigateBackToParent: () => Promise<void>;
+  navigateBackToParent: (levels?: number) => Promise<void>;
 
   // Search actions
   searchMessages: (query: string, filters?: SearchFilters) => Promise<void>;

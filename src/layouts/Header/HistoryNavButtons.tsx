@@ -60,7 +60,8 @@ function useHistoryAvailability(): HistoryAvailability {
 const buttonClass = cn(
   "p-1.5 rounded-md transition-colors text-muted-foreground",
   "hover:text-foreground hover:bg-muted",
-  "disabled:opacity-40 disabled:pointer-events-none"
+  "disabled:opacity-40 disabled:pointer-events-none",
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 );
 
 /**

@@ -7,20 +7,13 @@
  * subagent context bar instead.
  */
 import type { SubagentSession } from "@/types";
+import { isFocusLost } from "./focusRestore";
+
+// One implementation, shared with the "Back" focus handling.
+export { isFocusLost };
 
 /** Attribute on the context bar's "Back" button, the landing spot after entering a subagent. */
 export const SUBAGENT_BACK_ATTR = "data-subagent-back";
-
-/** Whether keyboard focus was dropped (its element unmounted or disabled). */
-export function isFocusLost(): boolean {
-  const active = document.activeElement;
-  return (
-    active == null ||
-    active === document.body ||
-    !active.isConnected ||
-    (active instanceof HTMLButtonElement && active.disabled)
-  );
-}
 
 /**
  * If focus was dropped, put it on the subagent context bar's "Back" button,

@@ -39,6 +39,7 @@ import { useIsLgUp, useIsXlUp } from "@/hooks/useMediaQuery";
 import { useResizablePanel } from "@/hooks/useResizablePanel";
 import { SessionsPane } from "@/components/SessionsPane/SessionsPane";
 import { formatTimeAgo } from "@/utils/time";
+import { supportsSessionBoard } from "@/layouts/sessionBoard";
 import {
   AppErrorType,
   type ClaudeMessage,
@@ -819,7 +820,11 @@ export const AppLayout: React.FC<AppLayoutProps> = (props) => {
                       onClearSearch={clearSessionSearch}
                       onNextMatch={goToNextMatch}
                       onPrevMatch={goToPrevMatch}
-                      onOpenBoard={() => analyticsActions.switchToBoard()}
+                      onOpenBoard={
+                        supportsSessionBoard(selectedProject)
+                          ? () => analyticsActions.switchToBoard()
+                          : undefined
+                      }
                     />
                   </div>
                   <div className="hidden md:block">

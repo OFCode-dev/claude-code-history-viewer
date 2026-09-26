@@ -31,6 +31,7 @@ function FilterToggle({
       disabled={disabled}
       className={cn(
         "flex items-center gap-1 px-1.5 py-0.5 rounded text-2xs border transition-colors",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         active
           ? "bg-accent/15 text-accent border-accent/30"
           : "bg-transparent text-muted-foreground border-transparent hover:text-foreground hover:bg-muted/50",

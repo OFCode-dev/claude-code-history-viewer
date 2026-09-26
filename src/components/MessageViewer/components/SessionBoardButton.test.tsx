@@ -22,4 +22,14 @@ describe("SessionBoardButton", () => {
 
     expect(onClick).toHaveBeenCalledTimes(1);
   });
+
+  it("draws a focus ring for keyboard users", () => {
+    render(
+      <TooltipProvider>
+        <SessionBoardButton onClick={vi.fn()} />
+      </TooltipProvider>,
+    );
+
+    expect(screen.getByRole("button", { name: "Session Board" })).toHaveClass("focus-visible:ring-2");
+  });
 });

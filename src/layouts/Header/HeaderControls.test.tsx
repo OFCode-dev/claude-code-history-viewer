@@ -108,3 +108,22 @@ describe("FocusModeButton", () => {
     );
   });
 });
+
+describe("header controls focus indicator", () => {
+  afterEach(() => {
+    delete (window as TauriWindow).__TAURI_INTERNALS__;
+  });
+
+  it("draws a focus ring on each header control for keyboard users", () => {
+    render(
+      <TooltipProvider>
+        <HistoryNavButtons />
+        <FocusModeButton />
+      </TooltipProvider>,
+    );
+
+    for (const name of ["header.history.back", "header.history.forward", "header.focusMode.label"]) {
+      expect(screen.getByRole("button", { name })).toHaveClass("focus-visible:ring-2");
+    }
+  });
+});

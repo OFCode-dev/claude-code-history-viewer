@@ -156,6 +156,26 @@ describe("buildSessionCrumbs", () => {
     expect(crumb?.label).toBe("Session 66667777");
   });
 
+  it("prefers the user's name for a renamed session over its summary", () => {
+    const [crumb] = buildSessionCrumbs({
+      selectedSession: session(),
+      parentSessionStack: [],
+      subagentSessions: [],
+      untitledSession: untitled,
+      sessionName: () => "  Login  rework ",
+    });
+    expect(crumb).toMatchObject({ label: "Login rework", title: "Login rework" });
+
+    const [unnamed] = buildSessionCrumbs({
+      selectedSession: session(),
+      parentSessionStack: [],
+      subagentSessions: [],
+      untitledSession: untitled,
+      sessionName: () => undefined,
+    });
+    expect(unnamed?.label).toBe("Fix the login flow");
+  });
+
   it("puts the parent session before a subagent and labels the subagent by its description", () => {
     const child = subagent("a1b2c3d4e5", { description: "Audit the auth module" });
     expect(

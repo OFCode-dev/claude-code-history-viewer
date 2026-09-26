@@ -914,6 +914,31 @@ describe("messageSlice — sibling subagent navigation (keeps the parent's list)
     ]);
   });
 
+  it("goes up several levels at once, loading only the target session", async () => {
+    const store = createTestStore();
+    store.setState({ selectedSession: parent, subagentSessions: [subA, subB] });
+    mockBackend({ [parent.file_path]: [subA, subB], [subA.file_path]: [nested] });
+
+    await store.getState().navigateToSubagent(subA);
+    await flush();
+    await store.getState().navigateToSubagent(nested);
+    await flush();
+    mockApi.mockClear();
+
+    await store.getState().navigateBackToParent(2);
+    await flush();
+
+    const state = store.getState();
+    expect(state.selectedSession?.file_path).toBe(parent.file_path);
+    expect(state.parentSessionStack).toEqual([]);
+    expect(state.subagentNavStack).toEqual([]);
+    const loaded = mockApi.mock.calls
+      .filter(([cmd]) => cmd === "load_provider_messages_paginated")
+      .map(([, args]) => (args as PaginatedArgs).sessionPath);
+    // The intermediate subagent is not loaded on the way up.
+    expect(loaded).toEqual([parent.file_path]);
+  });
+
   it("ignores a request to open the subagent that is already on screen", async () => {
     const store = createTestStore();
     store.setState({ selectedSession: parent, subagentSessions: [subA] });

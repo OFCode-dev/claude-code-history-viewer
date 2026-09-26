@@ -1,5 +1,5 @@
 import { fireEvent, render, renderHook } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useAppKeyboard } from "./useAppKeyboard";
 
 const { store, platform } = vi.hoisted(() => ({
@@ -84,5 +84,75 @@ describe("useAppKeyboard focus mode shortcut", () => {
     renderHook(() => useAppKeyboard());
     fireEvent.keyDown(window, { key: "F", ctrlKey: true, shiftKey: true });
     expect(store.toggleFocusMode).not.toHaveBeenCalled();
+  });
+});
+
+describe("useAppKeyboard focus mode shortcut focus handling", () => {
+  let frames: FrameRequestCallback[] = [];
+  const flushFrames = () => {
+    const pending = frames;
+    frames = [];
+    pending.forEach((cb) => cb(0));
+  };
+
+  beforeEach(() => {
+    store.toggleFocusMode.mockReset();
+    platform.isMobile = false;
+    frames = [];
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((cb) => {
+      frames.push(cb);
+      return frames.length;
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("moves focus to the transcript when the focused panel row is folded away", () => {
+    renderHook(() => useAppKeyboard());
+    const { getByRole, getByTestId, rerender } = render(
+      <>
+        <aside id="project-explorer">
+          <button type="button">row</button>
+        </aside>
+        <main id="main-content" tabIndex={-1} data-testid="main" />
+      </>,
+    );
+    // Folding the panel unmounts the focused row, as the rail does.
+    store.toggleFocusMode.mockImplementation(() =>
+      rerender(
+        <>
+          <aside id="project-explorer" />
+          <main id="main-content" tabIndex={-1} data-testid="main" />
+        </>,
+      ),
+    );
+    const row = getByRole("button", { name: "row" });
+    row.focus();
+
+    fireEvent.keyDown(row, { key: "F", ctrlKey: true, shiftKey: true });
+    flushFrames();
+
+    expect(store.toggleFocusMode).toHaveBeenCalledTimes(1);
+    expect(document.activeElement).toBe(getByTestId("main"));
+  });
+
+  it("leaves focus alone when it was not inside a side panel", () => {
+    renderHook(() => useAppKeyboard());
+    const { getByRole } = render(
+      <>
+        <button type="button">header button</button>
+        <main id="main-content" tabIndex={-1} />
+      </>,
+    );
+    const button = getByRole("button", { name: "header button" });
+    button.focus();
+
+    fireEvent.keyDown(button, { key: "F", ctrlKey: true, shiftKey: true });
+    flushFrames();
+
+    expect(store.toggleFocusMode).toHaveBeenCalledTimes(1);
+    expect(document.activeElement).toBe(button);
   });
 });

@@ -44,4 +44,32 @@ describe("FilterHiddenNotice", () => {
     render(<FilterHiddenNotice variant="emptyWindow" />);
     expect(screen.getByRole("status")).toHaveTextContent("filter.emptyWindow");
   });
+
+  it("keeps keyboard focus in the transcript when showing everything removes the notice", () => {
+    const frames: FrameRequestCallback[] = [];
+    const raf = vi.spyOn(window, "requestAnimationFrame").mockImplementation((cb) => {
+      frames.push(cb);
+      return frames.length;
+    });
+    try {
+      // Resetting the filter leaves no hidden matches, so the notice goes away.
+      let removeNotice = () => {};
+      storeState.resetMessageFilter = vi.fn(() => removeNotice());
+      const { rerender } = render(
+        <main id="main-content" tabIndex={-1}>
+          <FilterHiddenNotice variant="searchMatches" hiddenCount={2} />
+        </main>,
+      );
+      removeNotice = () => rerender(<main id="main-content" tabIndex={-1} />);
+      const button = screen.getByRole("button", { name: "filter.showAll" });
+      button.focus();
+
+      fireEvent.click(button);
+      frames.forEach((cb) => cb(0));
+
+      expect(document.activeElement).toBe(screen.getByRole("main"));
+    } finally {
+      raf.mockRestore();
+    }
+  });
 });

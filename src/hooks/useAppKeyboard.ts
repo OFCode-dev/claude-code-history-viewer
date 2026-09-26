@@ -5,6 +5,9 @@ import { useAppStore } from "@/store/useAppStore";
 import { isEditableTarget, isInArrowKeyWidget } from "@/utils/editableTarget";
 import { jumpToAdjacentPrompt } from "@/utils/promptNavigation";
 
+/** Panels that focus mode folds to rails. */
+const SIDE_PANEL_SELECTOR = "#project-explorer, #sessions-pane, #message-navigator";
+
 /**
  * Global keyboard shortcuts for the app.
  * - Cmd+K: open global search
@@ -43,7 +46,20 @@ export function useAppKeyboard() {
         !isEditableTarget(e.target)
       ) {
         e.preventDefault();
+        // Focus mode folds the side panels to rails, which unmounts whatever
+        // was focused inside them; hand focus to the transcript instead of
+        // letting it fall back to <body>.
+        const active = document.activeElement;
+        const inPanel =
+          active instanceof Element && active.closest(SIDE_PANEL_SELECTOR) != null;
         toggleFocusMode();
+        if (inPanel) {
+          requestAnimationFrame(() => {
+            if (!active.isConnected || document.activeElement === document.body) {
+              document.getElementById("main-content")?.focus({ preventScroll: true });
+            }
+          });
+        }
       }
       if (
         !e.defaultPrevented &&
