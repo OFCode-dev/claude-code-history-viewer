@@ -171,10 +171,26 @@ fn search_in_file(file_path: &PathBuf, matcher: &AhoCorasick) -> Vec<ClaudeMessa
         parse_buffer.clear();
         parse_buffer.extend_from_slice(&mmap[*start..*end]);
 
-        let log_entry: RawLogEntry = match simd_json::serde::from_slice(&mut parse_buffer) {
+        let mut log_entry: RawLogEntry = match simd_json::serde::from_slice(&mut parse_buffer) {
             Ok(entry) => entry,
             Err(_) => continue,
         };
+
+        // A message the person sent while Claude was working is an attachment
+        // record; it is found like any other prompt (see `queued_prompt`).
+        if let Some(prompt) = super::queued_prompt::take_human_queued_prompt(&mut log_entry) {
+            if search_in_value(&prompt, matcher) {
+                let mut message = super::queued_prompt::to_message(log_entry, prompt, line_num);
+                let following = line_ranges[line_num + 1..]
+                    .iter()
+                    .map(|&(start, end)| &mmap[start..end]);
+                if !super::queued_prompt::is_repeated_later(&message, following) {
+                    message.project_name.clone_from(&project_name);
+                    results.push(message);
+                }
+            }
+            continue;
+        }
 
         if log_entry.message_type != "user" && log_entry.message_type != "assistant" {
             continue;
@@ -253,6 +269,7 @@ fn search_in_file(file_path: &PathBuf, matcher: &AhoCorasick) -> Vec<ClaudeMessa
             compact_metadata: None,
             microcompact_metadata: None,
             provider: None,
+            queued: None,
         };
         results.push(claude_message);
     }

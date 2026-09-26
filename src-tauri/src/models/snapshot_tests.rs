@@ -48,6 +48,7 @@ mod claude_message_snapshots {
             compact_metadata: None,
             microcompact_metadata: None,
             provider: None,
+            queued: None,
         };
 
         assert_json_snapshot!("user_message", message);
@@ -98,6 +99,7 @@ mod claude_message_snapshots {
             compact_metadata: None,
             microcompact_metadata: None,
             provider: None,
+            queued: None,
         };
 
         assert_json_snapshot!("assistant_message", message);
@@ -166,6 +168,7 @@ mod claude_message_snapshots {
             compact_metadata: None,
             microcompact_metadata: None,
             provider: Some("forgecode".to_string()),
+            queued: None,
         };
 
         assert_json_snapshot!("forgecode_message", message);
@@ -225,6 +228,7 @@ mod claude_message_snapshots {
             compact_metadata: None,
             microcompact_metadata: None,
             provider: Some("pi".to_string()),
+            queued: None,
         };
 
         assert_json_snapshot!("pi_message", message);
@@ -285,6 +289,7 @@ mod claude_message_snapshots {
             compact_metadata: None,
             microcompact_metadata: None,
             provider: None,
+            queued: None,
         };
 
         assert_json_snapshot!("message_with_tool_use", message);

@@ -1619,7 +1619,7 @@ fn parse_line_to_message(
         return None;
     }
 
-    let log_entry: RawLogEntry = serde_json::from_str(line).ok()?;
+    let mut log_entry: RawLogEntry = serde_json::from_str(line).ok()?;
 
     // Skip meta messages (internal/command-related messages)
     if log_entry.is_meta.unwrap_or(false) {
@@ -1670,12 +1670,20 @@ fn parse_line_to_message(
             compact_metadata: None,
             microcompact_metadata: None,
             provider: None,
+            queued: None,
         });
     }
 
     // Skip entries without session_id and timestamp
     if log_entry.session_id.is_none() && log_entry.timestamp.is_none() {
         return None;
+    }
+
+    // A message the person sent while Claude was working (see `queued_prompt`).
+    if let Some(prompt) = super::queued_prompt::take_human_queued_prompt(&mut log_entry) {
+        return Some(super::queued_prompt::to_message(
+            log_entry, prompt, line_num,
+        ));
     }
 
     let uuid = log_entry
@@ -1731,6 +1739,7 @@ fn parse_line_to_message(
         compact_metadata: log_entry.compact_metadata,
         microcompact_metadata: log_entry.microcompact_metadata,
         provider: None,
+        queued: None,
     })
 }
 
@@ -1749,7 +1758,7 @@ fn parse_line_simd(
     }
 
     // Use simd_json for faster parsing
-    let log_entry: RawLogEntry = simd_json::serde::from_slice(line).ok()?;
+    let mut log_entry: RawLogEntry = simd_json::serde::from_slice(line).ok()?;
 
     // Skip meta messages
     if log_entry.is_meta.unwrap_or(false) {
@@ -1800,12 +1809,20 @@ fn parse_line_simd(
             compact_metadata: None,
             microcompact_metadata: None,
             provider: None,
+            queued: None,
         });
     }
 
     // Skip entries without session_id and timestamp
     if log_entry.session_id.is_none() && log_entry.timestamp.is_none() {
         return None;
+    }
+
+    // A message the person sent while Claude was working (see `queued_prompt`).
+    if let Some(prompt) = super::queued_prompt::take_human_queued_prompt(&mut log_entry) {
+        return Some(super::queued_prompt::to_message(
+            log_entry, prompt, line_num,
+        ));
     }
 
     let uuid = log_entry
@@ -1874,6 +1891,7 @@ fn parse_line_simd(
         compact_metadata: log_entry.compact_metadata,
         microcompact_metadata: log_entry.microcompact_metadata,
         provider: None,
+        queued: None,
     })
 }
 
@@ -1938,13 +1956,14 @@ fn load_all_messages_from_file(session_path: &Path) -> Result<Vec<ClaudeMessage>
 
     // Find line boundaries efficiently using SIMD-accelerated memchr
     let line_starts = find_line_starts(&mmap);
+    let line_end = |line_num: usize| line_starts.get(line_num + 1).map_or(mmap.len(), |&e| e - 1);
 
     // Parse lines in parallel using simd-json
     let mut messages: Vec<(usize, ClaudeMessage)> = line_starts
         .par_iter()
         .enumerate()
         .filter_map(|(line_num, &start)| {
-            let end = line_starts.get(line_num + 1).map_or(mmap.len(), |&e| e - 1);
+            let end = line_end(line_num);
             if start >= end {
                 return None;
             }
@@ -1962,7 +1981,12 @@ fn load_all_messages_from_file(session_path: &Path) -> Result<Vec<ClaudeMessage>
                     }
                     true
                 })
-                .map(|msg| (line_num, msg))
+                .map(|mut msg| {
+                    let following = (line_num + 1..line_starts.len())
+                        .map(|next| &mmap[line_starts[next]..line_end(next)]);
+                    super::queued_prompt::hide_if_repeated(&mut msg, following);
+                    (line_num, msg)
+                })
         })
         .collect();
 
@@ -2248,6 +2272,9 @@ fn extract_subagent_metadata(
 
 /// Shared viewer-visibility rules for a classified JSONL line.
 /// Must stay in sync with the filtering in `load_session_messages`.
+/// `attachment` records are rows as well: a person's queued prompt becomes a
+/// user message and every other attachment an empty row (see `queued_prompt`),
+/// so recognising queued prompts never changes these counts.
 fn is_viewer_visible_line(
     message_type: &str,
     subtype: Option<&str>,
@@ -2419,7 +2446,12 @@ fn load_message_window_from_file(
         .filter_map(|&range_idx| {
             let (start, end) = line_ranges[range_idx];
             let mut line_bytes = mmap[start..end].to_vec();
-            let msg = parse_line_simd(range_idx, &mut line_bytes, false)?;
+            let mut msg = parse_line_simd(range_idx, &mut line_bytes, false)?;
+            // Looks past the window's end: the decision must not depend on paging.
+            let following = line_ranges[range_idx + 1..]
+                .iter()
+                .map(|&(start, end)| &mmap[start..end]);
+            super::queued_prompt::hide_if_repeated(&mut msg, following);
             Some((range_idx, msg))
         })
         .collect();

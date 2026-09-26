@@ -128,6 +128,138 @@ pub struct RawLogEntry {
     // Meta message flag (internal/command-related messages)
     #[serde(rename = "isMeta")]
     pub is_meta: Option<bool>,
+
+    /// Payload of a `type: "attachment"` record (see [`RawAttachment`]).
+    pub attachment: Option<RawAttachment>,
+}
+
+/// The payload of a `type: "attachment"` record, reduced to the fields that
+/// identify a queued command — a message the person typed while Claude was
+/// still working.
+///
+/// Claude Code attaches many kinds of payloads (reminders, tool listings, hook
+/// output, file contents); their other fields are skipped while parsing instead
+/// of being materialised, and a payload of an unexpected shape yields an empty
+/// value rather than failing the whole record.
+#[derive(Debug, Clone, Default, Serialize)]
+pub struct RawAttachment {
+    /// Attachment kind, e.g. `queued_command` or `total_tokens_reminder`.
+    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    pub attachment_type: Option<String>,
+    /// For `queued_command`: `prompt` or `task-notification`.
+    #[serde(rename = "commandMode", skip_serializing_if = "Option::is_none")]
+    pub command_mode: Option<String>,
+    /// For `queued_command`: set when a person typed the message.
+    #[serde(rename = "humanTurn", skip_serializing_if = "Option::is_none")]
+    pub human_turn: Option<bool>,
+    /// For `queued_command`: set on subagent hand-backs and peer messages.
+    #[serde(rename = "isMeta", skip_serializing_if = "Option::is_none")]
+    pub is_meta: Option<bool>,
+    /// For `queued_command`: the queued text (a string or content blocks).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub prompt: Option<serde_json::Value>,
+}
+
+impl<'de> Deserialize<'de> for RawAttachment {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        deserializer.deserialize_any(RawAttachmentVisitor)
+    }
+}
+
+struct RawAttachmentVisitor;
+
+impl<'de> serde::de::Visitor<'de> for RawAttachmentVisitor {
+    type Value = RawAttachment;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        formatter.write_str("an attachment payload")
+    }
+
+    fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+    where
+        A: serde::de::MapAccess<'de>,
+    {
+        use serde::de::IgnoredAny;
+        use serde_json::Value;
+
+        let mut attachment = RawAttachment::default();
+        while let Some(key) = map.next_key::<String>()? {
+            // Known keys are read as loose JSON so an unexpected type is
+            // ignored instead of rejecting the record.
+            match key.as_str() {
+                "type" => {
+                    attachment.attachment_type =
+                        map.next_value::<Value>()?.as_str().map(str::to_owned);
+                }
+                "commandMode" => {
+                    attachment.command_mode =
+                        map.next_value::<Value>()?.as_str().map(str::to_owned);
+                }
+                "humanTurn" => attachment.human_turn = map.next_value::<Value>()?.as_bool(),
+                "isMeta" => attachment.is_meta = map.next_value::<Value>()?.as_bool(),
+                "prompt" => {
+                    attachment.prompt = Some(map.next_value::<Value>()?).filter(|v| !v.is_null());
+                }
+                _ => {
+                    map.next_value::<IgnoredAny>()?;
+                }
+            }
+        }
+        Ok(attachment)
+    }
+
+    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+    where
+        A: serde::de::SeqAccess<'de>,
+    {
+        while seq.next_element::<serde::de::IgnoredAny>()?.is_some() {}
+        Ok(RawAttachment::default())
+    }
+
+    fn visit_bool<E>(self, _: bool) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Ok(RawAttachment::default())
+    }
+
+    fn visit_i64<E>(self, _: i64) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Ok(RawAttachment::default())
+    }
+
+    fn visit_u64<E>(self, _: u64) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Ok(RawAttachment::default())
+    }
+
+    fn visit_f64<E>(self, _: f64) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Ok(RawAttachment::default())
+    }
+
+    fn visit_str<E>(self, _: &str) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Ok(RawAttachment::default())
+    }
+
+    fn visit_unit<E>(self) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Ok(RawAttachment::default())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -211,6 +343,10 @@ pub struct ClaudeMessage {
     /// Provider identifier (claude, codex, opencode)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub provider: Option<String>,
+    /// `Some(true)` on a user message the person sent while Claude was still
+    /// working (Claude Code records it as a queued-command attachment mid-turn).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub queued: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -436,6 +572,7 @@ mod tests {
             compact_metadata: None,
             microcompact_metadata: None,
             provider: None,
+            queued: None,
         };
 
         let serialized = serde_json::to_string(&message).unwrap();
@@ -481,6 +618,7 @@ mod tests {
             compact_metadata: None,
             microcompact_metadata: None,
             provider: None,
+            queued: None,
         };
 
         let serialized = serde_json::to_string(&message).unwrap();
@@ -624,5 +762,78 @@ mod tests {
         let metadata = entry.microcompact_metadata.unwrap();
         assert_eq!(metadata["trigger"], "token_limit");
         assert_eq!(metadata["preTokens"], 50000);
+    }
+
+    #[test]
+    fn test_raw_log_entry_queued_command_attachment() {
+        let json_str = r#"{
+            "type": "attachment",
+            "uuid": "att-1",
+            "parentUuid": "tool-result-1",
+            "sessionId": "session-1",
+            "timestamp": "2026-09-24T10:00:00Z",
+            "attachment": {
+                "type": "queued_command",
+                "commandMode": "prompt",
+                "humanTurn": true,
+                "prompt": "Also check the retry limit.",
+                "origin": {"kind": "human"},
+                "source_uuid": "src-1"
+            }
+        }"#;
+
+        let entry: RawLogEntry = serde_json::from_str(json_str).unwrap();
+        let attachment = entry.attachment.expect("attachment payload");
+        assert_eq!(
+            attachment.attachment_type.as_deref(),
+            Some("queued_command")
+        );
+        assert_eq!(attachment.command_mode.as_deref(), Some("prompt"));
+        assert_eq!(attachment.human_turn, Some(true));
+        assert_eq!(attachment.is_meta, None);
+        assert_eq!(
+            attachment.prompt,
+            Some(json!("Also check the retry limit."))
+        );
+
+        // simd-json (the loaders' parser) reads it the same way.
+        let mut bytes = json_str.as_bytes().to_vec();
+        let simd: RawLogEntry = simd_json::serde::from_slice(&mut bytes).unwrap();
+        assert_eq!(
+            simd.attachment.and_then(|a| a.prompt),
+            Some(json!("Also check the retry limit."))
+        );
+    }
+
+    #[test]
+    fn test_raw_log_entry_tolerates_unexpected_attachment_shapes() {
+        for attachment in [
+            json!("a plain string"),
+            json!(42),
+            json!(["a", "list"]),
+            json!(null),
+            json!({"type": 7, "commandMode": ["prompt"], "humanTurn": "yes", "prompt": null}),
+            json!({"type": "file", "content": {"file": {"filePath": "/a.rs", "content": "fn main() {}"}}}),
+        ] {
+            let line = json!({
+                "type": "attachment",
+                "uuid": "att-1",
+                "sessionId": "session-1",
+                "timestamp": "2026-09-24T10:00:00Z",
+                "attachment": attachment,
+            })
+            .to_string();
+
+            let entry: RawLogEntry = serde_json::from_str(&line)
+                .unwrap_or_else(|e| panic!("{attachment} rejected the record: {e}"));
+            assert_eq!(entry.uuid.as_deref(), Some("att-1"));
+            let parsed = entry.attachment.unwrap_or_default();
+            assert_eq!(parsed.command_mode, None, "{attachment}");
+            assert_eq!(parsed.human_turn, None, "{attachment}");
+            assert_eq!(parsed.prompt, None, "{attachment}");
+
+            let mut bytes = line.into_bytes();
+            assert!(simd_json::serde::from_slice::<RawLogEntry>(&mut bytes).is_ok());
+        }
     }
 }
