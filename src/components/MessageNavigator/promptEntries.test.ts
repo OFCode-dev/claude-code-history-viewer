@@ -55,6 +55,33 @@ describe("buildPromptEntries", () => {
     expect(second!.steps).toBe(0);
   });
 
+  it("lists a message sent while Claude was working as its own prompt", () => {
+    const queued = { ...(user("Also check the retry limit.", "q1") as object), queued: true } as ClaudeMessage;
+    const hiddenRow = {
+      uuid: "reminder",
+      type: "attachment",
+      timestamp: "2026-09-25T10:00:30Z",
+    } as unknown as ClaudeMessage;
+    const messages = [
+      user("Fix the billing retries", "p1"),
+      assistant([{ type: "tool_use", id: "t1", name: "Bash", input: {} }]),
+      toolResult(),
+      queued,
+      hiddenRow,
+      assistant([{ type: "text", text: "Capping the retries as well." }]),
+    ];
+
+    const entries = buildPromptEntries(messages);
+
+    expect(entries.map((entry) => [entry.uuid, entry.turnNumber])).toEqual([
+      ["p1", 1],
+      ["q1", 2],
+    ]);
+    expect(entries[1]!.preview).toBe("Also check the retry limit.");
+    // The attachment row the backend keeps in the chain is not a step.
+    expect(entries[1]!.steps).toBe(1);
+  });
+
   it("shows the closing question of a long pasted prompt", () => {
     const pasted = `${"log line\n".repeat(80)}\nWhy does the build fail here?`;
     const [entry] = buildPromptEntries([user(pasted)]);

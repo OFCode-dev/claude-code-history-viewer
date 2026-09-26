@@ -74,6 +74,18 @@ describe("getUserMessageKind", () => {
     expect(getUserMessageKind(user("Explain what <task-notification> means"))).toBe("prompt");
   });
 
+  it("treats a message sent while Claude was working as a prompt", () => {
+    const queued = (content: unknown) => ({ ...user(content), queued: true }) as ClaudeMessage;
+
+    expect(getUserMessageKind(queued("Also check the retry limit."))).toBe("prompt");
+    expect(isHumanPrompt(queued([{ type: "text", text: "Use the staging database." }]))).toBe(true);
+  });
+
+  it("ignores attachment rows the backend keeps for hidden records", () => {
+    const row = { uuid: "att", sessionId: "s1", timestamp: "2026-09-24T10:00:00.000Z", type: "attachment" };
+    expect(getUserMessageKind(row as unknown as ClaudeMessage)).toBeNull();
+  });
+
   it("returns null for non-user records", () => {
     expect(getUserMessageKind(assistant())).toBeNull();
     expect(isHumanPrompt(assistant())).toBe(false);

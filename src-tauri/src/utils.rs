@@ -657,6 +657,7 @@ pub fn build_provider_message(
         compact_metadata: None,
         microcompact_metadata: None,
         provider: Some(provider.to_string()),
+        queued: None,
     }
 }
 

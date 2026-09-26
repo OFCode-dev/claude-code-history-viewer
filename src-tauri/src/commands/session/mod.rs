@@ -11,6 +11,7 @@ mod chain;
 mod delete;
 mod edits;
 mod load;
+mod queued_prompt;
 mod rename;
 mod resume;
 mod search;

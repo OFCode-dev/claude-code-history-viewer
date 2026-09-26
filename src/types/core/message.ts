@@ -193,6 +193,12 @@ export interface ClaudeUserMessage extends BaseClaudeMessage {
   type: "user";
   role: "user";
   toolUseResult?: Record<string, unknown> | string;
+  /**
+   * The person sent this while Claude was still working: Claude Code queued it
+   * and handed it to Claude mid-turn (recorded as a queued-command attachment,
+   * which the backend turns into this user message).
+   */
+  queued?: boolean;
 }
 
 /** Represents response from Claude */

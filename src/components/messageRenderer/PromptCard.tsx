@@ -6,7 +6,7 @@
  * collapse, but keep their closing question visible (see promptCollapse).
  */
 import React, { useId, useMemo, useRef } from "react";
-import { ChevronDown, Copy } from "lucide-react";
+import { ChevronDown, Copy, Hourglass } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -33,6 +33,8 @@ interface PromptCardProps {
    * agent that handed the task over.
    */
   author?: "user" | "parentAgent";
+  /** Sent while Claude was still working (a mid-turn, queued message). */
+  queued?: boolean;
   /** Further content blocks of the prompt (images, documents, later text blocks). */
   children?: React.ReactNode;
 }
@@ -63,6 +65,7 @@ export const PromptCard: React.FC<PromptCardProps> = ({
   isCurrentMatch = false,
   currentMatchIndex = 0,
   author = "user",
+  queued = false,
   children,
 }) => {
   const { t } = useTranslation();
@@ -136,6 +139,26 @@ export const PromptCard: React.FC<PromptCardProps> = ({
           <>
             <span aria-hidden="true">·</span>
             <span className="tabular-nums">{t("promptCard.turn", { number: turnNumber })}</span>
+          </>
+        )}
+        {queued && (
+          <>
+            <span aria-hidden="true">·</span>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  data-prompt-queued=""
+                  className="inline-flex min-w-0 items-center gap-1 cursor-default"
+                >
+                  <Hourglass className="w-3 h-3 shrink-0" aria-hidden="true" />
+                  <span className="truncate">{t("promptCard.queued")}</span>
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="top" sideOffset={4} className="max-w-xs">
+                {t("promptCard.queuedTooltip")}
+              </TooltipContent>
+            </Tooltip>
           </>
         )}
 

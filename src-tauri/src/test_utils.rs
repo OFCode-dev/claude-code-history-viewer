@@ -204,6 +204,7 @@ impl MessageBuilder {
             compact_metadata: None,
             microcompact_metadata: None,
             provider: None,
+            queued: None,
         }
     }
 

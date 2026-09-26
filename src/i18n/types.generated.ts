@@ -5,8 +5,8 @@
  * 직접 수정하지 마세요.
  *
  * 생성 명령: pnpm run generate:i18n-types
- * 생성 시간: 2026-09-26T00:34:09.171Z
- * 총 키 개수: 2049
+ * 생성 시간: 2026-09-26T00:36:46.494Z
+ * 총 키 개수: 2051
  * Namespace 수: 11
  */
 
@@ -1404,7 +1404,7 @@ export type ErrorKeys =
   | 'error.viewDetails';
 
 /**
- * message namespace의 번역 키 (156개)
+ * message namespace의 번역 키 (158개)
  * 파일: locales/{lang}/message.json
  */
 export type MessageKeys =
@@ -1552,6 +1552,8 @@ export type MessageKeys =
   | 'promptCard.hiddenLines_one'
   | 'promptCard.hiddenLines_other'
   | 'promptCard.parentAgent'
+  | 'promptCard.queued'
+  | 'promptCard.queuedTooltip'
   | 'promptCard.taskAriaLabel'
   | 'promptCard.turn'
   | 'promptCard.you'
@@ -3053,6 +3055,8 @@ export type TranslationKey =
   | 'promptCard.hiddenLines_one'
   | 'promptCard.hiddenLines_other'
   | 'promptCard.parentAgent'
+  | 'promptCard.queued'
+  | 'promptCard.queuedTooltip'
   | 'promptCard.taskAriaLabel'
   | 'promptCard.turn'
   | 'promptCard.you'

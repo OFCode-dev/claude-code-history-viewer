@@ -27,6 +27,8 @@
   "promptCard.ariaLabelWithTurn": "Your prompt, turn {{number}}",
   "promptCard.parentAgent": "Parent agent",
   "promptCard.taskAriaLabel": "Task from the parent agent",
+  "promptCard.queued": "Sent while Claude was working",
+  "promptCard.queuedTooltip": "You sent this while Claude was still working. Claude Code passed it to Claude mid-turn, without waiting for the turn to end.",
   "promptCard.copy": "Copy prompt",
   "promptCard.copied": "Prompt copied",
   "promptCard.copyFailed": "Could not copy the prompt",

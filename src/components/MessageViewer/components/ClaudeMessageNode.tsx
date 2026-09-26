@@ -437,6 +437,7 @@ export const ClaudeMessageNode = React.memo(
                   isCurrentMatch={isCurrentMatch}
                   currentMatchIndex={currentMatchIndex}
                   author={isInSubagent ? "parentAgent" : "user"}
+                  queued={message.type === "user" && message.queued === true}
                 >
                   {hasAttachments && Array.isArray(message.content) && (
                     <ClaudeContentArrayRenderer
