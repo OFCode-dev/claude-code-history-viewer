@@ -192,6 +192,7 @@ export interface AppStoreState {
 
   // Navigation state
   targetMessageUuid: string | null;
+  targetRequestId: number;
   shouldHighlightTarget: boolean;
   explorerRevealRequest: import("./navigationSlice").ExplorerRevealRequest | null;
 

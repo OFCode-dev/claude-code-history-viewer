@@ -31,6 +31,7 @@ describe("navigationSlice WebUI history", () => {
 
     expect(set).toHaveBeenCalledWith({
       targetMessageUuid: "message-123",
+      targetRequestId: 1,
       shouldHighlightTarget: true,
     });
     expect(readLocation()).toEqual({
@@ -53,6 +54,27 @@ describe("navigationSlice WebUI history", () => {
       session: "canonical-session",
       message: "message-123",
     });
+  });
+});
+
+describe("navigationSlice target requests", () => {
+  it("makes a repeated jump to the same message a new request", () => {
+    let state: Record<string, unknown> = { selectedSession: null };
+    const set = (partial: Record<string, unknown>) => {
+      state = { ...state, ...partial };
+    };
+    const get = () => state;
+    const slice = createNavigationSlice(set as never, get as never, {} as never);
+    state = { ...slice, ...state };
+
+    slice.navigateToMessage("prompt-1");
+    const first = state.targetRequestId;
+    slice.navigateToMessage("prompt-1");
+
+    expect(state.targetMessageUuid).toBe("prompt-1");
+    expect(first).toBe(1);
+    // Same uuid, new id: the viewer's target effect re-runs and scrolls again.
+    expect(state.targetRequestId).toBe(2);
   });
 });
 

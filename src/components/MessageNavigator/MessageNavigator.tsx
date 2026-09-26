@@ -1,11 +1,12 @@
 import React, { useRef, useCallback, useState, useMemo, useEffect } from "react";
-import { useVirtualizer } from "@tanstack/react-virtual";
+import { defaultRangeExtractor, useVirtualizer, type Range } from "@tanstack/react-virtual";
 import { useTranslation } from "react-i18next";
-import { ListTree, Search, X, PanelRightClose, PanelRight, Zap } from "lucide-react";
+import { EyeOff, ListTree, Search, X, PanelRightClose, PanelRight, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ClaudeMessage } from "../../types";
 import { useAppStore } from "../../store/useAppStore";
 import { useViewportAnchorStore } from "../../store/viewportAnchorStore";
+import { isHumanPrompt } from "../../utils/userMessageKind";
 import {
   filterMessagesByCategory,
   getMessageUuidsByCategory,
@@ -75,6 +76,9 @@ export const MessageNavigator: React.FC<MessageNavigatorProps> = ({
   // beginning of the session; otherwise they are omitted.
   const isWindowComplete = useAppStore((s) => !s.pagination.hasMore);
   const selectedSessionPath = useAppStore((s) => s.selectedSession?.file_path ?? null);
+  const isInSubagent = useAppStore((s) => (s.parentSessionStack?.length ?? 0) > 0);
+  const isMessageFilterActive = useAppStore((s) => s.isMessageFilterActive());
+  const resetMessageFilter = useAppStore((s) => s.resetMessageFilter);
 
   const isPromptsMode = navigatorMode !== "all";
   // Scroll-spy: the turn (Prompts) or the row (All) at the top of the conversation.
@@ -96,14 +100,15 @@ export const MessageNavigator: React.FC<MessageNavigatorProps> = ({
     [messages],
   );
 
-  // All mode: every non-noise record (optionally without parallel tasks)
+  // All mode: every non-noise record the conversation renders (optionally
+  // without parallel tasks), so each row has a row to scroll to.
   const navigatorMessages = useMemo(
     () => filterMessagesByCategory(
-      messages,
+      renderedMessages,
       "parallel-task",
       showParallelTasksInNavigator,
     ),
-    [messages, showParallelTasksInNavigator],
+    [renderedMessages, showParallelTasksInNavigator],
   );
   const allEntries = useNavigatorEntries(navigatorMessages);
 
@@ -133,6 +138,16 @@ export const MessageNavigator: React.FC<MessageNavigatorProps> = ({
     () => buildPromptListRows(promptEntries, filterText),
     [promptEntries, filterText]
   );
+  // The session has prompts, but the conversation's display filter (e.g.
+  // User unchecked) hides all of them.
+  const promptsHiddenByFilter = useMemo(
+    () =>
+      isPromptsMode &&
+      isMessageFilterActive &&
+      promptEntries.length === 0 &&
+      messages.some(isHumanPrompt),
+    [isPromptsMode, isMessageFilterActive, promptEntries.length, messages]
+  );
 
   const rowCount = isPromptsMode ? promptRows.length : entries.length;
   const rowKey = useCallback(
@@ -156,12 +171,26 @@ export const MessageNavigator: React.FC<MessageNavigatorProps> = ({
     return BASE_ENTRY_HEIGHT + estimatePreviewLines(entry.preview ?? "") * PREVIEW_LINE_HEIGHT;
   }, [isPromptsMode, promptRows, entries]);
 
+  // Always render the roving tab stop, even when it is scrolled far out of
+  // view (scroll-spy moving the list, Alt+Arrow jumps from a focused row):
+  // unmounting the focused option would drop focus to <body>, and Tab would
+  // skip the list when its only tabIndex=0 row is gone.
+  const rangeExtractor = useCallback(
+    (range: Range) => {
+      const indexes = defaultRangeExtractor(range);
+      if (focusedIndex >= rowCount || indexes.includes(focusedIndex)) return indexes;
+      return [...indexes, focusedIndex].sort((a, b) => a - b);
+    },
+    [focusedIndex, rowCount]
+  );
+
   const virtualizer = useVirtualizer({
     count: rowCount,
     getScrollElement: () => scrollElementRef.current,
     estimateSize,
     getItemKey: rowKey,
     overscan: 5,
+    rangeExtractor,
   });
 
   const activeIndex = useMemo(() => {
@@ -350,11 +379,13 @@ export const MessageNavigator: React.FC<MessageNavigatorProps> = ({
   const visibleCount = isPromptsMode
     ? promptRows.reduce((count, row) => (row.kind === "prompt" ? count + 1 : count), 0)
     : entries.length;
-  const emptyLabel = filterText
-    ? t("messageViewer.noSearchResults")
-    : isPromptsMode
-      ? t("navigator.noPrompts")
-      : t("navigator.noMessages");
+  const emptyLabel = promptsHiddenByFilter
+    ? t("navigator.promptsHidden")
+    : filterText
+      ? t("messageViewer.noSearchResults")
+      : isPromptsMode
+        ? t("navigator.noPrompts")
+        : t("navigator.noMessages");
 
   // Expanded view
   return (
@@ -383,6 +414,7 @@ export const MessageNavigator: React.FC<MessageNavigatorProps> = ({
         <NavigatorModeToggle
           mode={isPromptsMode ? "prompts" : "all"}
           onChange={setNavigatorMode}
+          inSubagent={isInSubagent}
         />
         <span
           className="ml-auto text-2xs text-muted-foreground tabular-nums"
@@ -441,8 +473,24 @@ export const MessageNavigator: React.FC<MessageNavigatorProps> = ({
 
       {/* Entry list with virtual scrolling */}
       {rowCount === 0 ? (
-        <div className="flex-1 flex items-center justify-center p-4">
+        <div className="flex-1 flex flex-col items-center justify-center gap-2 p-4">
+          {promptsHiddenByFilter && (
+            <EyeOff aria-hidden className="w-4 h-4 text-muted-foreground/70" />
+          )}
           <p className="text-xs text-muted-foreground text-center">{emptyLabel}</p>
+          {promptsHiddenByFilter && (
+            <button
+              type="button"
+              onClick={resetMessageFilter}
+              className={cn(
+                "rounded px-1.5 py-0.5 text-xs font-medium text-foreground/80 underline-offset-2",
+                "hover:text-foreground hover:underline",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              )}
+            >
+              {t("filter.showAll")}
+            </button>
+          )}
         </div>
       ) : (
         <div
@@ -479,6 +527,7 @@ export const MessageNavigator: React.FC<MessageNavigatorProps> = ({
                     key={row.key}
                     row={row}
                     index={virtualItem.index}
+                    setSize={rowCount}
                     showTurnNumber={isWindowComplete}
                     isActive={row.entry.uuid === spyUuid}
                     isFocused={virtualItem.index === focusedIndex}
@@ -508,6 +557,7 @@ export const MessageNavigator: React.FC<MessageNavigatorProps> = ({
                   // Real heights, so two-line previews never overlap.
                   measureRef={virtualizer.measureElement}
                   index={virtualItem.index}
+                  setSize={rowCount}
                   start={virtualItem.start}
                 />
               );

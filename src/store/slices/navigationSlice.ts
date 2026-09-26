@@ -17,6 +17,11 @@ export interface ExplorerRevealRequest {
 
 export interface NavigationSliceState {
     targetMessageUuid: string | null;
+    /**
+     * Bumped by every `navigateToMessage`, so a repeated jump to the same
+     * message is a new request (the conversation scrolls to it again).
+     */
+    targetRequestId: number;
     shouldHighlightTarget: boolean;
     explorerRevealRequest: ExplorerRevealRequest | null;
 }
@@ -38,12 +43,14 @@ export const createNavigationSlice: StateCreator<
     NavigationSlice
 > = (set, get) => ({
     targetMessageUuid: null,
+    targetRequestId: 0,
     shouldHighlightTarget: false,
     explorerRevealRequest: null,
 
     navigateToMessage: (uuid, options) => {
         set({
             targetMessageUuid: uuid,
+            targetRequestId: (get().targetRequestId ?? 0) + 1,
             shouldHighlightTarget: true
         });
 

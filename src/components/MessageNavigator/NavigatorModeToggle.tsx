@@ -8,13 +8,19 @@ const MODES: readonly NavigatorMode[] = ["prompts", "all"];
 interface NavigatorModeToggleProps {
   mode: NavigatorMode;
   onChange: (mode: NavigatorMode) => void;
+  /** In a subagent transcript the prompts come from the parent agent. */
+  inSubagent?: boolean;
 }
 
 /**
  * Two-option segmented control (Prompts | All) as a radio group: one tab
  * stop, arrow keys move and select.
  */
-export const NavigatorModeToggle: React.FC<NavigatorModeToggleProps> = ({ mode, onChange }) => {
+export const NavigatorModeToggle: React.FC<NavigatorModeToggleProps> = ({
+  mode,
+  onChange,
+  inSubagent = false,
+}) => {
   const { t } = useTranslation();
   const buttonRefs = useRef(new Map<NavigatorMode, HTMLButtonElement>());
 
@@ -56,7 +62,11 @@ export const NavigatorModeToggle: React.FC<NavigatorModeToggleProps> = ({ mode, 
             tabIndex={isSelected ? 0 : -1}
             onClick={() => onChange(option)}
             onKeyDown={handleKeyDown}
-            title={t(`navigator.mode.${option}Hint`)}
+            title={
+              option === "prompts" && inSubagent
+                ? t("navigator.mode.promptsHintSubagent")
+                : t(`navigator.mode.${option}Hint`)
+            }
             className={cn(
               "px-2 py-0.5 rounded text-2xs font-medium transition-colors whitespace-nowrap",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60",

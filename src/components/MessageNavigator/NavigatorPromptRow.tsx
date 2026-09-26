@@ -8,6 +8,8 @@ import type { PromptListRow } from "./promptEntries";
 interface NavigatorPromptRowProps {
   row: PromptListRow;
   index: number;
+  /** Rows in the whole (virtualized) list, for aria-setsize. */
+  setSize: number;
   /** Show "Turn N" — only when the loaded window starts at the session start. */
   showTurnNumber: boolean;
   /** Scroll-spy: this prompt's turn contains the first visible conversation row. */
@@ -27,6 +29,7 @@ export const NavigatorPromptRow = React.memo<NavigatorPromptRowProps>(
   ({
     row,
     index,
+    setSize,
     showTurnNumber,
     isActive,
     isFocused,
@@ -51,6 +54,9 @@ export const NavigatorPromptRow = React.memo<NavigatorPromptRowProps>(
       type: "button" as const,
       ref: setRef,
       role: "option",
+      // Only a window of rows is in the DOM: give the real position.
+      "aria-setsize": setSize,
+      "aria-posinset": index + 1,
       "data-index": index,
       tabIndex: isFocused ? 0 : -1,
       onClick: () => onActivate(row),

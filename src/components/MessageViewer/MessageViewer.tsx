@@ -93,6 +93,7 @@ export const MessageViewer: React.FC<MessageViewerProps> = ({
     clearSelection,
     // Navigation state
     targetMessageUuid,
+    targetRequestId,
     shouldHighlightTarget,
     clearTargetMessage,
     messageFilter,
@@ -722,7 +723,8 @@ export const MessageViewer: React.FC<MessageViewerProps> = ({
         };
       }
     }
-  }, [targetMessageUuid, scrollElementReady, flattenedMessages, messages, virtualizer, clearTargetMessage, ensureMessageLoaded, getScrollElement]);
+    // targetRequestId: a repeated jump to the same message scrolls again.
+  }, [targetMessageUuid, targetRequestId, scrollElementReady, flattenedMessages, messages, virtualizer, clearTargetMessage, ensureMessageLoaded, getScrollElement]);
 
   // 검색어 초기화 핸들러
   const handleClearSearch = useCallback(() => {
