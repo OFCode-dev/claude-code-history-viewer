@@ -180,6 +180,20 @@ export const ProjectItem: React.FC<ProjectItemProps> = ({
             {parentPath}
           </span>
         )}
+        {/* Nested tree rows are narrow: the single-provider badge moves under
+            the name, like the multi-provider chips below. */}
+        {showProviderBadge && !hasSiblings && nested && (
+          <span className="mt-1 flex">
+            <span
+              className={cn(
+                "px-1.5 py-0.5 text-2xs font-medium rounded-full leading-none",
+                getProviderBadgeStyle(providerId)
+              )}
+            >
+              {providerLabel}
+            </span>
+          </span>
+        )}
         {/* Several providers for one folder: chips get their own line so the
             name keeps its width. Spans, not buttons — we are inside the
             treeitem button. */}
@@ -228,7 +242,7 @@ export const ProjectItem: React.FC<ProjectItemProps> = ({
       </span>
 
       {/* Single-provider folder: badge stays inline on the right */}
-      {showProviderBadge && !hasSiblings && (
+      {showProviderBadge && !hasSiblings && !nested && (
         <span
           className={cn(
             "px-1.5 py-0.5 text-2xs font-medium rounded-full flex-shrink-0 leading-none",

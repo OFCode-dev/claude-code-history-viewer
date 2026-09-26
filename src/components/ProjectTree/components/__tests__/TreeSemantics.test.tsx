@@ -57,6 +57,39 @@ describe("ProjectTree tree semantics", () => {
     expect(treeItem).toHaveAttribute("aria-level", "2");
   });
 
+  it("puts the provider badge under the name in nested tree rows", () => {
+    const project = createProject("/work/project-a", "project-a");
+    const { rerender } = render(
+      <ProjectItem
+        project={project}
+        isExpanded={false}
+        isSelected={false}
+        ariaLevel={3}
+        nested
+        onToggle={vi.fn()}
+        onClick={vi.fn()}
+        onContextMenu={vi.fn()}
+      />
+    );
+    const nameColumn = screen.getByText("project-a").parentElement!;
+    expect(nameColumn).toHaveTextContent(/Claude Code/);
+
+    // Top-level rows keep the badge inline on the right, outside the name column.
+    rerender(
+      <ProjectItem
+        project={project}
+        isExpanded={false}
+        isSelected={false}
+        ariaLevel={1}
+        onToggle={vi.fn()}
+        onClick={vi.fn()}
+        onContextMenu={vi.fn()}
+      />
+    );
+    expect(screen.getByText("project-a").parentElement!).not.toHaveTextContent(/Claude Code/);
+    expect(screen.getByRole("treeitem")).toHaveTextContent(/Claude Code/);
+  });
+
   it("keeps an unavailable project selectable and exposes its location status", () => {
     const project = {
       ...createProject("/work/deleted-worktree", "deleted-worktree"),
