@@ -273,6 +273,7 @@
   "subagent.positionAria": "サブエージェント {{total}} 件中 {{index}} 件目",
   "subagent.openTranscript": "トランスクリプトを開く",
   "subagent.openTranscriptOf": "トランスクリプトを開く: {{label}}",
+  "subagent.fallbackLabel": "エージェント {{id}}",
   "sessionPicker.title": "セッションを選択",
   "sessionPicker.subtitle": "「{{value}}」に一致するセッションが{{count}}件",
   "sessionPicker.empty": "一致するセッションがありません",

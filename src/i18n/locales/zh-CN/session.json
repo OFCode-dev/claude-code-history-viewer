@@ -273,6 +273,7 @@
   "subagent.positionAria": "第 {{index}} 个子代理，共 {{total}} 个",
   "subagent.openTranscript": "打开对话记录",
   "subagent.openTranscriptOf": "打开对话记录：{{label}}",
+  "subagent.fallbackLabel": "代理 {{id}}",
   "sessionPicker.title": "选择会话",
   "sessionPicker.subtitle": "{{count}} 个会话匹配 \"{{value}}\"",
   "sessionPicker.empty": "没有匹配的会话",

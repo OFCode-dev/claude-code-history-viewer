@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { getSubagentLabel } from "@/utils/subagentLabel";
 import { groupSubagentsForDisplay } from "@/utils/subagentNavigation";
-import { formatTimeAgo } from "@/utils/time";
+import { formatTime, formatTimeAgo } from "@/utils/time";
 import { getSubagentStyle } from "@/utils/agentStyles";
 import type { SubagentSession } from "@/types";
 import { SubagentMetaBadges } from "./SubagentMetaBadges";
@@ -37,6 +37,9 @@ export const SubagentList = memo(function SubagentList({
   const groups = useMemo(() => groupSubagentsForDisplay(subagents), [subagents]);
 
   const handleKeyDown = useCallback((e: KeyboardEvent<HTMLDivElement>) => {
+    // Modified arrows belong to app-level shortcuts (Alt+Up/Down jumps
+    // between prompts), as in MessageNavigator.
+    if (e.altKey || e.ctrlKey || e.metaKey) return;
     if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(e.key)) return;
     const items = Array.from(e.currentTarget.querySelectorAll<HTMLElement>(ITEM_SELECTOR));
     if (items.length === 0) return;
@@ -154,10 +157,7 @@ const SubagentListItem = memo(function SubagentListItem({
             </>
           )}
           <span className="shrink-0 tabular-nums">
-            {t("renderers.agentTool.messages", {
-              count: subagent.message_count,
-              defaultValue: "{{count}} messages",
-            })}
+            {t("renderers.agentTool.messages", { count: subagent.message_count })}
           </span>
           {/* Lowest priority: the separator and time truncate together. */}
           {lastTime && (
@@ -165,7 +165,7 @@ const SubagentListItem = memo(function SubagentListItem({
               <span aria-hidden="true">· </span>
               <time
                 dateTime={lastTime}
-                title={t("subagent.lastActivity", { time: new Date(lastTime).toLocaleString() })}
+                title={t("subagent.lastActivity", { time: formatTime(lastTime) })}
               >
                 {formatTimeAgo(lastTime)}
               </time>

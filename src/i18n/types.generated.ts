@@ -5,8 +5,8 @@
  * 직접 수정하지 마세요.
  *
  * 생성 명령: pnpm run generate:i18n-types
- * 생성 시간: 2026-09-25T23:28:34.205Z
- * 총 키 개수: 2047
+ * 생성 시간: 2026-09-26T00:34:09.171Z
+ * 총 키 개수: 2049
  * Namespace 수: 11
  */
 
@@ -452,7 +452,7 @@ export type AnalyticsKeys =
   | 'analytics.weeklyActivity';
 
 /**
- * session namespace의 번역 키 (283개)
+ * session namespace의 번역 키 (284개)
  * 파일: locales/{lang}/session.json
  */
 export type SessionKeys =
@@ -725,6 +725,7 @@ export type SessionKeys =
   | 'subagent.backToParent'
   | 'subagent.contextAria'
   | 'subagent.contextLabel'
+  | 'subagent.fallbackLabel'
   | 'subagent.lastActivity'
   | 'subagent.listAria'
   | 'subagent.listTitle'
@@ -1565,7 +1566,7 @@ export type MessageKeys =
   | 'systemRow.taskNotification';
 
 /**
- * renderers namespace의 번역 키 (390개)
+ * renderers namespace의 번역 키 (391개)
  * 파일: locales/{lang}/renderers.json
  */
 export type RenderersKeys =
@@ -1829,7 +1830,8 @@ export type RenderersKeys =
   | 'rendererLabels.type'
   | 'renderers.agentTool.background'
   | 'renderers.agentTool.isolation'
-  | 'renderers.agentTool.messages'
+  | 'renderers.agentTool.messages_one'
+  | 'renderers.agentTool.messages_other'
   | 'renderers.agentTool.prompt'
   | 'renderers.agentTool.result'
   | 'renderers.agentTool.title'
@@ -3151,7 +3153,8 @@ export type TranslationKey =
   | 'rendererLabels.type'
   | 'renderers.agentTool.background'
   | 'renderers.agentTool.isolation'
-  | 'renderers.agentTool.messages'
+  | 'renderers.agentTool.messages_one'
+  | 'renderers.agentTool.messages_other'
   | 'renderers.agentTool.prompt'
   | 'renderers.agentTool.result'
   | 'renderers.agentTool.title'
@@ -3971,6 +3974,7 @@ export type TranslationKey =
   | 'subagent.backToParent'
   | 'subagent.contextAria'
   | 'subagent.contextLabel'
+  | 'subagent.fallbackLabel'
   | 'subagent.lastActivity'
   | 'subagent.listAria'
   | 'subagent.listTitle'

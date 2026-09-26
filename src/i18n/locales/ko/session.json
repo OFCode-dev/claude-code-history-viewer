@@ -273,6 +273,7 @@
   "subagent.positionAria": "서브에이전트 {{total}}개 중 {{index}}번째",
   "subagent.openTranscript": "대화 기록 열기",
   "subagent.openTranscriptOf": "대화 기록 열기: {{label}}",
+  "subagent.fallbackLabel": "에이전트 {{id}}",
   "sessionPicker.title": "세션 선택",
   "sessionPicker.subtitle": "\"{{value}}\"에 일치하는 세션 {{count}}개",
   "sessionPicker.empty": "일치하는 세션 없음",

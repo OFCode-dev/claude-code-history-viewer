@@ -273,6 +273,7 @@
   "subagent.positionAria": "第 {{index}} 個子代理，共 {{total}} 個",
   "subagent.openTranscript": "開啟對話記錄",
   "subagent.openTranscriptOf": "開啟對話記錄：{{label}}",
+  "subagent.fallbackLabel": "代理 {{id}}",
   "sessionPicker.title": "選擇工作階段",
   "sessionPicker.subtitle": "{{count}} 個工作階段符合 \"{{value}}\"",
   "sessionPicker.empty": "沒有符合的工作階段",

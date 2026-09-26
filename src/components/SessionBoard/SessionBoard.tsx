@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useState, useCallback, useMemo } from "react"
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useAppStore } from "../../store/useAppStore";
 import { SessionLane } from "./SessionLane";
+import { openBoardSessionAt } from "./openBoardSession";
 import { BoardControls } from "./BoardControls";
 import { SessionActivityTimeline } from "./SessionActivityTimeline";
 import { getFilterEndMs } from "./useActivityData";
@@ -13,7 +14,6 @@ import type { ActiveBrush } from "../../types/board.types";
 
 import { getToolUseBlock } from "../../utils/messageUtils";
 import { getToolVariant } from "@/utils/toolIconUtils";
-import { buildSearchIndex, clearSearchIndex } from "../../utils/searchIndex";
 
 const selectBoardSessions = (s: ReturnType<typeof useAppStore.getState>) => s.boardSessions;
 
@@ -451,31 +451,7 @@ export const SessionBoard = () => {
                                     onToggleSticky={handleToggleSticky}
                                     isSelected={selectedSession?.session_id === sessionId}
                                     onInteractionClick={handleInteractionClick}
-                                    onNavigate={(messageId) => {
-                                        // Set session and messages from board cache when session
-                                        // differs or messages are empty (e.g., after board view switch)
-                                        const currentMessages = useAppStore.getState().messages;
-                                        if (selectedSession?.session_id !== sessionId || currentMessages.length === 0) {
-                                            useAppStore.setState({
-                                                selectedSession: data.session,
-                                                messages: data.messages,
-                                                isLoadingMessages: false,
-                                                pagination: {
-                                                    currentOffset: data.messages.length,
-                                                    pageSize: data.messages.length,
-                                                    totalCount: data.messages.length,
-                                                    hasMore: false,
-                                                    isLoadingMore: false,
-                                                }
-                                            });
-
-                                            clearSearchIndex();
-                                            buildSearchIndex(data.messages);
-                                        }
-                                        // Navigate to message and switch view
-                                        useAppStore.getState().navigateToMessage(messageId);
-                                        useAppStore.getState().setAnalyticsCurrentView("messages");
-                                    }}
+                                    onNavigate={(messageId) => openBoardSessionAt(data, messageId)}
                                     scrollContainerRef={parentRef as React.RefObject<HTMLDivElement>}
                                     onHeightChange={(h) => handleLaneHeightChange(sessionId, h)}
                                     onFileClick={(file) => {

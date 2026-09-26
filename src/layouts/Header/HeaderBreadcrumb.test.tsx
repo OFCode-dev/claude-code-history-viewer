@@ -18,7 +18,9 @@ vi.mock("@/store/useAppStore", () => ({
   useAppStore: (selector: (state: typeof store) => unknown) => selector(store),
 }));
 
-vi.mock("react-i18next", () => ({
+vi.mock("react-i18next", async (importOriginal) => ({
+  // Keep initReactI18next: subagentLabel pulls in the i18n singleton.
+  ...(await importOriginal<typeof import("react-i18next")>()),
   useTranslation: () => ({
     t: (key: string, options?: Record<string, string>) =>
       options ? `${key}(${Object.values(options).join(",")})` : key,

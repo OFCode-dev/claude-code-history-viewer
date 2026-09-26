@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import i18n from "@/i18n";
 import type { ClaudeMessage } from "@/types";
 import { buildTurnAnchors, findTurnForIndex } from "./turns";
 import { getSubagentLabel } from "./subagentLabel";
@@ -74,5 +75,16 @@ describe("getSubagentLabel", () => {
     expect(getSubagentLabel({ agent_id: "a940d6eb27c2ef3ce", summary: null, description: null })).toBe(
       "Agent a940d6eb"
     );
+  });
+
+  it("translates the id fallback into the app language", async () => {
+    await i18n.changeLanguage("ko");
+    try {
+      expect(getSubagentLabel({ agent_id: "a940d6eb27c2ef3ce", summary: "  ", description: null })).toBe(
+        "에이전트 a940d6eb"
+      );
+    } finally {
+      await i18n.changeLanguage("en");
+    }
   });
 });
