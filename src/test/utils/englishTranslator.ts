@@ -7,10 +7,14 @@ const EN: Record<string, string> = { ...common, ...session, ...renderers };
 /**
  * `t()` stand-in for component tests: resolves keys against the English
  * locale files and interpolates `{{name}}` placeholders, so assertions read
- * like the real UI. Unknown keys fall back to `defaultValue`, then the key.
+ * like the real UI. A numeric `count` picks the `_one`/`_other` plural form
+ * (English rules). Unknown keys fall back to `defaultValue`, then the key.
  */
 export function englishT(key: string, options?: Record<string, unknown>): string {
-  const template = EN[key] ?? (options?.defaultValue as string | undefined) ?? key;
+  const count = options?.count;
+  const plural =
+    typeof count === "number" ? EN[`${key}_${count === 1 ? "one" : "other"}`] : undefined;
+  const template = plural ?? EN[key] ?? (options?.defaultValue as string | undefined) ?? key;
   return template.replace(/\{\{\s*(\w+)\s*\}\}/g, (match, name: string) =>
     options && name in options ? String(options[name]) : match,
   );

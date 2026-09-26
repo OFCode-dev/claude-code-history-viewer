@@ -273,6 +273,7 @@
   "subagent.positionAria": "Subagent {{index}} of {{total}}",
   "subagent.openTranscript": "Open transcript",
   "subagent.openTranscriptOf": "Open transcript: {{label}}",
+  "subagent.fallbackLabel": "Agent {{id}}",
   "sessionPicker.title": "Choose a session",
   "sessionPicker.subtitle": "{{count}} sessions match \"{{value}}\"",
   "sessionPicker.empty": "No sessions match",
