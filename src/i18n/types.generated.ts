@@ -5,8 +5,8 @@
  * 직접 수정하지 마세요.
  *
  * 생성 명령: pnpm run generate:i18n-types
- * 생성 시간: 2026-09-26T00:36:46.494Z
- * 총 키 개수: 2051
+ * 생성 시간: 2026-09-26T00:38:51.898Z
+ * 총 키 개수: 2053
  * Namespace 수: 11
  */
 
@@ -1404,7 +1404,7 @@ export type ErrorKeys =
   | 'error.viewDetails';
 
 /**
- * message namespace의 번역 키 (158개)
+ * message namespace의 번역 키 (160개)
  * 파일: locales/{lang}/message.json
  */
 export type MessageKeys =
@@ -1513,6 +1513,7 @@ export type MessageKeys =
   | 'navigator.emptyPrompt'
   | 'navigator.filter'
   | 'navigator.filterPrompts'
+  | 'navigator.loadEarlier'
   | 'navigator.messageCount'
   | 'navigator.mode.all'
   | 'navigator.mode.allHint'
@@ -1522,6 +1523,7 @@ export type MessageKeys =
   | 'navigator.mode.promptsHintSubagent'
   | 'navigator.noMessages'
   | 'navigator.noPrompts'
+  | 'navigator.noPromptsLoaded'
   | 'navigator.promptBar.jump'
   | 'navigator.promptBar.label'
   | 'navigator.promptBar.next'
@@ -2959,6 +2961,7 @@ export type TranslationKey =
   | 'navigator.emptyPrompt'
   | 'navigator.filter'
   | 'navigator.filterPrompts'
+  | 'navigator.loadEarlier'
   | 'navigator.messageCount'
   | 'navigator.mode.all'
   | 'navigator.mode.allHint'
@@ -2968,6 +2971,7 @@ export type TranslationKey =
   | 'navigator.mode.promptsHintSubagent'
   | 'navigator.noMessages'
   | 'navigator.noPrompts'
+  | 'navigator.noPromptsLoaded'
   | 'navigator.promptBar.jump'
   | 'navigator.promptBar.label'
   | 'navigator.promptBar.next'

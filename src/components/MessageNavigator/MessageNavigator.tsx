@@ -79,6 +79,8 @@ export const MessageNavigator: React.FC<MessageNavigatorProps> = ({
   const isInSubagent = useAppStore((s) => (s.parentSessionStack?.length ?? 0) > 0);
   const isMessageFilterActive = useAppStore((s) => s.isMessageFilterActive());
   const resetMessageFilter = useAppStore((s) => s.resetMessageFilter);
+  const loadMoreMessages = useAppStore((s) => s.loadMoreMessages);
+  const isLoadingOlder = useAppStore((s) => s.pagination.isLoadingMore);
 
   const isPromptsMode = navigatorMode !== "all";
   // Scroll-spy: the turn (Prompts) or the row (All) at the top of the conversation.
@@ -384,8 +386,13 @@ export const MessageNavigator: React.FC<MessageNavigatorProps> = ({
     : filterText
       ? t("messageViewer.noSearchResults")
       : isPromptsMode
-        ? t("navigator.noPrompts")
+        ? isWindowComplete
+          ? t("navigator.noPrompts")
+          : t("navigator.noPromptsLoaded")
         : t("navigator.noMessages");
+  // Long sessions load newest-first: the prompts may simply be on older pages.
+  const canLoadOlderForPrompts =
+    isPromptsMode && !promptsHiddenByFilter && !filterText && !isWindowComplete;
 
   // Expanded view
   return (
@@ -489,6 +496,20 @@ export const MessageNavigator: React.FC<MessageNavigatorProps> = ({
               )}
             >
               {t("filter.showAll")}
+            </button>
+          )}
+          {canLoadOlderForPrompts && (
+            <button
+              type="button"
+              onClick={() => void loadMoreMessages()}
+              disabled={isLoadingOlder}
+              className={cn(
+                "rounded px-1.5 py-0.5 text-xs font-medium text-foreground/80 underline-offset-2",
+                "hover:text-foreground hover:underline disabled:opacity-60 disabled:no-underline",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              )}
+            >
+              {isLoadingOlder ? t("common.loading") : t("navigator.loadEarlier")}
             </button>
           )}
         </div>

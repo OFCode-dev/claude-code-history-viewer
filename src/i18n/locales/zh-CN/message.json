@@ -124,6 +124,8 @@
   "navigator.steps_other": "{{count}} 步",
   "navigator.emptyPrompt": "(图片或空提示)",
   "navigator.noPrompts": "此会话中没有提示",
+  "navigator.noPromptsLoaded": "已加载的消息中没有提示",
+  "navigator.loadEarlier": "加载更早的消息",
   "navigator.promptsHidden": "当前筛选隐藏了所有提示",
   "navigator.spawnHint": "跳转到启动此子代理的调用",
   "navigator.a11y.promptLabel": "{{turn}},{{time}}:{{preview}}",

@@ -9,11 +9,13 @@ const {
   setNavigatorModeMock,
   scrollToIndexMock,
   resetMessageFilterMock,
+  loadMoreMessagesMock,
   useAppStoreMock,
   storeState,
 } = vi.hoisted(() => {
   const navigateToMessage = vi.fn();
   const resetMessageFilter = vi.fn();
+  const loadMoreMessages = vi.fn();
   const toggleShowParallelTasks = vi.fn();
   const setNavigatorMode = vi.fn();
 
@@ -30,11 +32,13 @@ const {
     messageFilterActive: false,
     isMessageFilterActive: () => state.messageFilterActive,
     resetMessageFilter,
+    loadMoreMessages,
   };
 
   return {
     scrollToIndexMock: vi.fn(),
     resetMessageFilterMock: resetMessageFilter,
+    loadMoreMessagesMock: loadMoreMessages,
     navigateToMessageMock: navigateToMessage,
     toggleShowParallelTasksMock: toggleShowParallelTasks,
     setNavigatorModeMock: setNavigatorMode,
@@ -572,6 +576,27 @@ describe("MessageNavigator prompts mode", () => {
 
     expect(screen.getByText("navigator.noPrompts")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "filter.showAll" })).not.toBeInTheDocument();
+  });
+
+  it("offers to load earlier messages when no prompt is in the loaded window", () => {
+    storeState.navigatorMode = "prompts";
+    storeState.pagination = { hasMore: true };
+    render(
+      <MessageNavigator
+        messages={[promptSession[1]!, promptSession[5]!]}
+        width={260}
+        isResizing={false}
+        onResizeStart={vi.fn()}
+        isCollapsed={false}
+        onToggleCollapse={vi.fn()}
+      />
+    );
+
+    // Older pages may hold the prompts: do not claim the session has none.
+    expect(screen.getByText("navigator.noPromptsLoaded")).toBeInTheDocument();
+    expect(screen.queryByText("navigator.noPrompts")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "navigator.loadEarlier" }));
+    expect(loadMoreMessagesMock).toHaveBeenCalledOnce();
   });
 
   it("describes Prompts mode as the parent agent's prompts inside a subagent", () => {

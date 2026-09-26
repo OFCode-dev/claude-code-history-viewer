@@ -124,6 +124,8 @@
   "navigator.steps_other": "{{count}}단계",
   "navigator.emptyPrompt": "(이미지 또는 빈 프롬프트)",
   "navigator.noPrompts": "이 세션에 프롬프트가 없습니다",
+  "navigator.noPromptsLoaded": "불러온 메시지에 프롬프트가 없습니다",
+  "navigator.loadEarlier": "이전 메시지 불러오기",
   "navigator.promptsHidden": "현재 필터가 모든 프롬프트를 숨기고 있습니다",
   "navigator.spawnHint": "이 서브에이전트를 시작한 호출로 이동",
   "navigator.a11y.promptLabel": "{{turn}}, {{time}}: {{preview}}",

@@ -124,6 +124,8 @@
   "navigator.steps_other": "{{count}}ステップ",
   "navigator.emptyPrompt": "(画像または空のプロンプト)",
   "navigator.noPrompts": "このセッションにプロンプトはありません",
+  "navigator.noPromptsLoaded": "読み込んだメッセージにプロンプトはありません",
+  "navigator.loadEarlier": "以前のメッセージを読み込む",
   "navigator.promptsHidden": "現在のフィルターですべてのプロンプトが非表示になっています",
   "navigator.spawnHint": "このサブエージェントを開始した呼び出しへ移動",
   "navigator.a11y.promptLabel": "{{turn}}、{{time}}: {{preview}}",

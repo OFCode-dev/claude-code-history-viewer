@@ -124,6 +124,8 @@
   "navigator.steps_other": "{{count}} steps",
   "navigator.emptyPrompt": "(image or empty prompt)",
   "navigator.noPrompts": "No prompts in this session",
+  "navigator.noPromptsLoaded": "No prompts in the loaded messages",
+  "navigator.loadEarlier": "Load earlier messages",
   "navigator.promptsHidden": "The current filter hides every prompt",
   "navigator.spawnHint": "Jump to the call that started this subagent",
   "navigator.a11y.promptLabel": "{{turn}}, {{time}}: {{preview}}",
