@@ -112,7 +112,8 @@ export interface MessageSliceActions {
   // SubAgent navigation
   loadSubagents: (sessionPath: string, sourceMessages: ClaudeMessage[]) => Promise<void>;
   navigateToSubagent: (subagent: SubagentSession) => Promise<void>;
-  navigateBackToParent: () => Promise<void>;
+  /** Go up `levels` (default 1) sessions of the subagent chain. */
+  navigateBackToParent: (levels?: number) => Promise<void>;
 }
 
 export type MessageSlice = MessageSliceState & MessageSliceActions;
@@ -1138,15 +1139,18 @@ export const createMessageSlice: StateCreator<
     }
   },
 
-  navigateBackToParent: async () => {
+  navigateBackToParent: async (levels = 1) => {
     if (subagentNavInFlight) return;
     const stack = get().parentSessionStack;
     if (stack.length === 0) return;
+    // Going up several levels (a breadcrumb crumb) loads only the target,
+    // not every session in between.
+    const depth = Math.min(Math.max(1, Math.floor(levels)), stack.length);
 
     subagentNavInFlight = true;
     try {
-      const parentSession = stack[stack.length - 1]!;
-      const remainingStack = stack.slice(0, -1);
+      const parentSession = stack[stack.length - depth]!;
+      const remainingStack = stack.slice(0, stack.length - depth);
       set((s) => ({
         parentSessionStack: remainingStack,
         subagentNavStack: s.subagentNavStack.slice(0, remainingStack.length),
