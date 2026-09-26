@@ -173,4 +173,36 @@ describe("SessionsPane collapse", () => {
     act(() => secondObserver?.resize(secondBody, 640));
     expect(screen.getByTestId("session-list")).toHaveAttribute("data-list-height", "490");
   });
+
+  it("moves focus to the expand button after collapsing from the keyboard, and back", () => {
+    const { rerender } = renderPane({ onToggleCollapse: vi.fn() });
+    const collapse = screen.getByRole("button", { name: "session.pane.collapse" });
+    collapse.focus();
+
+    rerender(paneElement({ isCollapsed: true, onToggleCollapse: vi.fn() }));
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "session.pane.expand" }));
+
+    rerender(paneElement({ isCollapsed: false, onToggleCollapse: vi.fn() }));
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "session.pane.collapse" }));
+  });
+
+  it("does not take focus on mount or away from an element outside the pane", () => {
+    const { rerender } = render(
+      <>
+        <button type="button">elsewhere</button>
+        {paneElement({ onToggleCollapse: vi.fn() })}
+      </>,
+    );
+    expect(document.activeElement).toBe(document.body);
+
+    const elsewhere = screen.getByRole("button", { name: "elsewhere" });
+    elsewhere.focus();
+    rerender(
+      <>
+        <button type="button">elsewhere</button>
+        {paneElement({ isCollapsed: true, onToggleCollapse: vi.fn() })}
+      </>,
+    );
+    expect(document.activeElement).toBe(elsewhere);
+  });
 });

@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { MessageSquare, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { OverlayScrollbarsComponent } from "overlayscrollbars-react";
@@ -59,6 +59,21 @@ export function SessionsPane({
   const providerId = getProviderId(selectedProject.provider ?? undefined);
   const providerLabel = getProviderLabel((key, fallback) => t(key, fallback), providerId);
   const count = sessionsTotal ?? sessions.length;
+  const collapseRef = useRef<HTMLButtonElement>(null);
+  const expandRef = useRef<HTMLButtonElement>(null);
+  const wasCollapsed = useRef(isCollapsed);
+
+  // Collapsing swaps the pane for the rail (and back), which unmounts the
+  // button that was just activated. Hand focus to its counterpart, but only
+  // when focus was actually lost, so a click elsewhere is not overridden.
+  useEffect(() => {
+    if (wasCollapsed.current === isCollapsed) return;
+    wasCollapsed.current = isCollapsed;
+    const active = document.activeElement;
+    if (active == null || active === document.body || !active.isConnected) {
+      (isCollapsed ? expandRef : collapseRef).current?.focus();
+    }
+  }, [isCollapsed]);
 
   if (isCollapsed) {
     return (
@@ -66,6 +81,7 @@ export function SessionsPane({
         count={count}
         projectPath={selectedProject.actual_path}
         onExpand={onToggleCollapse}
+        expandRef={expandRef}
       />
     );
   }
@@ -102,9 +118,10 @@ export function SessionsPane({
           </span>
           {onToggleCollapse && (
             <button
+              ref={collapseRef}
               type="button"
               onClick={onToggleCollapse}
-              className="-my-1 -mr-1 p-1 rounded-md shrink-0 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              className="-my-1 -mr-1 p-1 rounded-md shrink-0 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               title={t("session.pane.collapse")}
               aria-label={t("session.pane.collapse")}
             >
@@ -200,10 +217,11 @@ interface SessionsPaneRailProps {
   count: number;
   projectPath: string;
   onExpand?: () => void;
+  expandRef?: React.Ref<HTMLButtonElement>;
 }
 
 /** Collapsed form of the pane, matching the explorer and navigator rails. */
-function SessionsPaneRail({ count, projectPath, onExpand }: SessionsPaneRailProps) {
+function SessionsPaneRail({ count, projectPath, onExpand, expandRef }: SessionsPaneRailProps) {
   const { t } = useTranslation();
   const countLabel = t("session.count", { count });
 
@@ -218,9 +236,10 @@ function SessionsPaneRail({ count, projectPath, onExpand }: SessionsPaneRailProp
       <div className="flex-1 flex flex-col items-center py-3 gap-2">
         {onExpand && (
           <button
+            ref={expandRef}
             type="button"
             onClick={onExpand}
-            className="w-8 h-8 rounded-lg flex items-center justify-center bg-accent/10 text-accent hover:bg-accent/20 transition-colors"
+            className="w-8 h-8 rounded-lg flex items-center justify-center bg-accent/10 text-accent hover:bg-accent/20 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             title={t("session.pane.expand")}
             aria-label={t("session.pane.expand")}
           >
