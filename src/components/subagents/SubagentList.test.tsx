@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import i18n from "@/i18n";
 import type { SubagentSession } from "@/types";
 import { englishT } from "@/test/utils/englishTranslator";
 import { SubagentList } from "./SubagentList";
@@ -62,6 +63,28 @@ describe("SubagentList", () => {
     expect(plain).toHaveTextContent("3 messages");
   });
 
+  it("uses the singular form for a single message", () => {
+    render(<SubagentList subagents={[sub("c4", { message_count: 1 })]} onSelect={vi.fn()} />);
+
+    const row = screen.getByRole("button");
+    expect(row).toHaveTextContent("1 message");
+    expect(row).not.toHaveTextContent("1 messages");
+  });
+
+  describe("last activity tooltip", () => {
+    afterEach(async () => {
+      await i18n.changeLanguage("en");
+    });
+
+    it("formats the date in the app language, not the browser locale", async () => {
+      await i18n.changeLanguage("ko");
+      render(<SubagentList subagents={[described]} onSelect={vi.fn()} />);
+
+      const time = screen.getByRole("button").querySelector("time");
+      expect(time).toHaveAttribute("title", expect.stringMatching(/^Last activity 2026년 9월 20일/));
+    });
+  });
+
   it("groups workflow agents under their run after the flat subagents", () => {
     render(
       <SubagentList subagents={[workflowAgent, described, summaryOnly]} onSelect={vi.fn()} />,
@@ -117,5 +140,17 @@ describe("SubagentList", () => {
     expect(third).toHaveFocus();
     fireEvent.keyDown(third!, { key: "ArrowUp" });
     expect(second).toHaveFocus();
+  });
+
+  it("leaves modified arrows to app shortcuts (Alt+Up/Down prompt jump)", () => {
+    render(<SubagentList subagents={[described, summaryOnly]} onSelect={vi.fn()} />);
+    const [first] = screen.getAllByRole("button");
+
+    first!.focus();
+    for (const modifier of ["altKey", "ctrlKey", "metaKey"] as const) {
+      // fireEvent returns false when a handler called preventDefault().
+      expect(fireEvent.keyDown(first!, { key: "ArrowDown", [modifier]: true })).toBe(true);
+      expect(first).toHaveFocus();
+    }
   });
 });
