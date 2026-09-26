@@ -1231,7 +1231,8 @@ export const ProjectTree: React.FC<ProjectTreeProps> = ({
                   onClick={collapseAllGroups}
                   className={cn(
                     "inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-transparent",
-                    "bg-muted/30 text-muted-foreground transition-colors hover:bg-accent/8 hover:text-accent"
+                    "bg-muted/30 text-muted-foreground transition-colors hover:bg-accent/8 hover:text-accent",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   )}
                   title={t("project.collapseAll", "Collapse all")}
                   aria-label={t("project.collapseAll", "Collapse all")}

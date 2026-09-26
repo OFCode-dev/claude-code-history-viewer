@@ -96,4 +96,14 @@ describe("FilterToolbar", () => {
       storeState.messageFilter.dialogue = false;
     }
   });
+
+  it("draws a focus ring on its toggles for keyboard users", () => {
+    render(<FilterToolbar totalCount={2} filteredCount={2} hasParallelTasks />);
+    for (const button of screen.getAllByRole("button", { pressed: true })) {
+      expect(button).toHaveClass("focus-visible:ring-2");
+    }
+    for (const button of screen.getAllByRole("button", { pressed: false })) {
+      expect(button).toHaveClass("focus-visible:ring-2");
+    }
+  });
 });
