@@ -45,6 +45,7 @@ import {
 import {
   buildDirectoryTree,
   getAllFolderKeys,
+  getPathIdentity,
   getProjectExpansionKeys,
   locateInDirectoryTree,
   TEMPORARY_BUCKET_KEY,
@@ -145,6 +146,13 @@ export const ProjectTree: React.FC<ProjectTreeProps> = ({
     (state) => state.clearExplorerRevealRequest
   );
 
+  // Folders the current search opened (see the search expansion effect); they
+  // are left out of the persisted expansion until the search clears.
+  const searchExpansionRef = useRef<{ term: string; opened: string[]; selectionAtStart: string | null }>({
+    term: "",
+    opened: [],
+    selectionAtStart: null,
+  });
   const {
     expandedProjects,
     setExpandedProjects,
@@ -152,13 +160,12 @@ export const ProjectTree: React.FC<ProjectTreeProps> = ({
     ensureProjectExpanded,
     expandGroups,
     collapseGroup,
-    collapseGroups,
     expandDefaultRoots,
     collapseAllGroups,
     contextMenu,
     handleContextMenu,
     closeContextMenu,
-  } = useProjectTreeState(groupingMode);
+  } = useProjectTreeState(groupingMode, searchExpansionRef);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [areProviderFiltersOpen, setAreProviderFiltersOpen] = useState(
@@ -609,11 +616,6 @@ export const ProjectTree: React.FC<ProjectTreeProps> = ({
   // matches are visible; clearing the search closes the folders it opened,
   // except the ancestors of a project selected while searching. Runs once per
   // search term, so collapsing a folder while searching sticks.
-  const searchExpansionRef = useRef<{ term: string; opened: string[]; selectionAtStart: string | null }>({
-    term: "",
-    opened: [],
-    selectionAtStart: null,
-  });
   useEffect(() => {
     const search = searchExpansionRef.current;
     if (!directoryTree || search.term === normalizedSearchTerm) return;
@@ -628,16 +630,25 @@ export const ProjectTree: React.FC<ProjectTreeProps> = ({
     }
     const selectedWhileSearching = (selectedProject?.path ?? null) !== search.selectionAtStart;
     const keep = new Set(selectedWhileSearching ? getSelectedProjectGroupKeys() ?? [] : []);
-    collapseGroups(search.opened.filter((key) => !keep.has(key)));
+    const close = search.opened.filter((key) => !keep.has(key));
+    const hadOpened = search.opened.length > 0;
     search.opened = [];
+    if (!hadOpened) return;
+    // Always a new Set, so the kept ancestors (left out of storage while
+    // searching) are persisted even when there is nothing to close.
+    setExpandedProjects((prev) => {
+      const next = new Set(prev);
+      for (const key of close) next.delete(key);
+      return next;
+    });
   }, [
-    collapseGroups,
     directoryTree,
     expandGroups,
     expandedProjects,
     getSelectedProjectGroupKeys,
     normalizedSearchTerm,
     selectedProject?.path,
+    setExpandedProjects,
   ]);
 
   const handleGlobalStatsClick = useCallback(() => {
@@ -764,6 +775,9 @@ export const ProjectTree: React.FC<ProjectTreeProps> = ({
   // ancestors of the requested path, then scroll to and focus its row. Each
   // step that changes props/state returns and resumes on the next run.
   const [revealFocusKey, setRevealFocusKey] = useState<string | null>(null);
+  const selectedProjectPath = selectedProject
+    ? selectedProject.actual_path || selectedProject.path
+    : null;
   const handledRevealNonceRef = useRef<number | null>(null);
   // Side effects already requested for a nonce; the effect re-runs until the
   // props catch up and must not toggle the sidebar or save settings again.
@@ -825,6 +839,17 @@ export const ProjectTree: React.FC<ProjectTreeProps> = ({
       clearExplorerRevealRequest();
       return;
     }
+    // The selected project's crumb means that project's row: when its folder
+    // also holds other projects, the row is the folder's first child, so the
+    // folder opens too. Other crumbs keep focusing the folder row.
+    const isSelectedProject =
+      selectedProjectPath !== null &&
+      getPathIdentity(selectedProjectPath) === getPathIdentity(request.path);
+    if (target.selfKey && isSelectedProject) {
+      expandGroups([...target.ancestorKeys, target.key]);
+      setRevealFocusKey(target.selfKey);
+      return;
+    }
     expandGroups(target.ancestorKeys);
     setRevealFocusKey(target.key);
   }, [
@@ -839,6 +864,7 @@ export const ProjectTree: React.FC<ProjectTreeProps> = ({
     onGroupingModeChange,
     onToggleCollapse,
     searchTerm,
+    selectedProjectPath,
   ]);
 
   useEffect(() => {

@@ -332,6 +332,35 @@ describe("ProjectTree directory tree state", () => {
     // The root was open before the search and stays open.
     expect(row("dir:/home/jack")).toHaveAttribute("aria-expanded", "true");
   });
+
+  it("does not persist the folders a search opened when the tree unmounts mid-search", async () => {
+    // The mobile drawer unmounts the tree after a session pick, search still typed.
+    const { unmount } = renderTree();
+    typeSearch("e");
+    await waitFor(() => expect(row("loc:/home/jack/work/crawl/reports/weekly")).not.toBeNull());
+    unmount();
+
+    const stored = JSON.parse(localStorage.getItem(EXPANDED_GROUPS_STORAGE_KEY) ?? "{}");
+    expect(stored.keys).toEqual(["dir:/home/jack"]);
+  });
+
+  it("persists the ancestors of a project selected while searching once the search clears", async () => {
+    const { rerenderWith } = renderTree();
+    // The whole tree matches, so the search opens every folder...
+    typeSearch("e");
+    await waitFor(() => expect(row("loc:/home/jack/work/crawl/reports/daily")).not.toBeNull());
+    rerenderWith({ selectedProject: projects[1]! });
+    typeSearch("");
+
+    // ...and all of them are the selection's ancestors: nothing closes, yet
+    // they must reach storage now that the search no longer owns them.
+    await waitFor(() => {
+      const stored = JSON.parse(localStorage.getItem(EXPANDED_GROUPS_STORAGE_KEY) ?? "{}");
+      expect(stored.keys).toEqual(
+        expect.arrayContaining(["dir:/home/jack/work", "dir:/home/jack/work/crawl"])
+      );
+    });
+  });
 });
 
 describe("ProjectTree reveal requests", () => {
@@ -367,6 +396,39 @@ describe("ProjectTree reveal requests", () => {
     await waitFor(() => expect(document.activeElement).toBe(row("dir:/home/jack/work")));
     expect(row("dir:/home/jack/work")).toHaveAttribute("aria-expanded", "false");
     expect(store.explorerRevealRequest).toBeNull();
+  });
+
+  describe("a folder that is itself a project", () => {
+    // ~/work is a project and a folder holding two more projects.
+    const nested = [
+      project("/home/jack/work"),
+      project("/home/jack/work/app"),
+      project("/home/jack/work/lib"),
+      project("/home/jack/notes"),
+    ];
+    const workProject = nested[0]!;
+
+    it("opens the folder and focuses the project row for the selected project's crumb", async () => {
+      const { rerenderWith } = renderTree({ selectedProject: workProject }, nested);
+      expect(row("dir:/home/jack/work")).toHaveAttribute("aria-expanded", "true");
+      fireEvent.click(row("dir:/home/jack/work")!);
+      expect(row("loc:/home/jack/work")).toBeNull();
+
+      store.explorerRevealRequest = { path: "/home/jack/work", nonce: 9 };
+      rerenderWith({ selectedProject: workProject });
+
+      await waitFor(() => expect(document.activeElement).toBe(row("loc:/home/jack/work")));
+      expect(row("dir:/home/jack/work")).toHaveAttribute("aria-expanded", "true");
+      expect(store.explorerRevealRequest).toBeNull();
+    });
+
+    it("keeps focusing the folder row when that folder is not the selected project", async () => {
+      store.explorerRevealRequest = { path: "/home/jack/work", nonce: 10 };
+
+      renderTree({ selectedProject: nested[1]! }, nested);
+
+      await waitFor(() => expect(document.activeElement).toBe(row("dir:/home/jack/work")));
+    });
   });
 
   it("reveals the nearest node for a parent above every project", async () => {

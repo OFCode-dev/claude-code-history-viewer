@@ -17,6 +17,7 @@ import { LoadingSpinner } from "@/components/ui/loading";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { ProjectTree } from "@/components/ProjectTree";
+import { useOpenDrawerOnExplorerReveal } from "@/components/ProjectTree/hooks/useOpenDrawerOnExplorerReveal";
 import { MessageViewer } from "@/components/MessageViewer";
 import { MessageNavigator } from "@/components/MessageNavigator";
 import { PanelDock } from "@/components/PanelDock";
@@ -236,6 +237,8 @@ export const AppLayout: React.FC<AppLayoutProps> = (props) => {
 
   // Called before the early returns below, as hook order must not vary.
   const isXlUp = useIsXlUp();
+  // A breadcrumb reveal on mobile needs the explorer drawer (and its tree) open.
+  useOpenDrawerOnExplorerReveal(isMobile, setIsMobileSidebarOpen);
   // Sessions get their own column from `lg` up; below that they stay inline in
   // the explorer so narrow windows keep a usable transcript width. The column
   // only exists for a selected project, and not on app-level views (Settings,

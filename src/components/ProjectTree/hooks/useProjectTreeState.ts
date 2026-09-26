@@ -55,7 +55,15 @@ function groupKeysOf(set: Set<string>): Set<string> {
   return new Set(Array.from(set).filter(isGroupExpansionKey));
 }
 
-export function useProjectTreeState(groupingMode: GroupingMode) {
+/** Group keys opened for the moment (by a search) that must not outlive it in storage. */
+export interface TransientGroupKeys {
+  opened: readonly string[];
+}
+
+export function useProjectTreeState(
+  groupingMode: GroupingMode,
+  transientGroupsRef?: { readonly current: TransientGroupKeys }
+) {
   const [initialExpansion] = useState(loadStoredExpansion);
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(
     () => new Set(initialExpansion?.keys ?? [])
@@ -74,12 +82,17 @@ export function useProjectTreeState(groupingMode: GroupingMode) {
   }, [groupingMode]);
 
   useEffect(() => {
+    // Folders a search opened are closed again when it clears, but the tree can
+    // unmount first (the mobile drawer closes on a session pick): keep them out.
+    const transient = new Set(transientGroupsRef?.current.opened ?? []);
     // Set order is insertion order, so the most recently opened keys survive the cap.
     saveStoredExpansion({
-      keys: Array.from(groupKeysOf(expandedProjects)).slice(-MAX_STORED_GROUP_KEYS),
+      keys: Array.from(groupKeysOf(expandedProjects))
+        .filter((key) => !transient.has(key))
+        .slice(-MAX_STORED_GROUP_KEYS),
       seenRoots: seenRootsRef.current.slice(-MAX_STORED_ROOTS),
     });
-  }, [expandedProjects]);
+  }, [expandedProjects, transientGroupsRef]);
 
   const toggleProject = useCallback((projectPath: string) => {
     setExpandedProjects((prev) => {
