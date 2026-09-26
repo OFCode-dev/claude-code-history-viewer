@@ -99,6 +99,15 @@ describe("applyMessageDisplayFilter", () => {
     expect(result[2]).toBe(prose);
   });
 
+  it("keeps a message sent while Claude was working in the dialogue view", () => {
+    const queued = user("Also check the retry limit.", { queued: true });
+    const hiddenRow = record("attachment", {});
+    const result = applyMessageDisplayFilter([prompt, toolOnly, queued, hiddenRow, prose], filter({ dialogue: true }));
+    expect(uuids(result)).toEqual(uuids([prompt, queued, prose]));
+    // Passed through as-is, so the card still knows it was queued.
+    expect(result[1]).toBe(queued);
+  });
+
   it("ignores the individual toggles while the dialogue view is on", () => {
     const result = applyMessageDisplayFilter(
       all,

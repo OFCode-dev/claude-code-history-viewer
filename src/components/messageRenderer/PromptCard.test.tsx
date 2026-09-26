@@ -66,6 +66,22 @@ describe("PromptCard", () => {
     expect(card).not.toHaveTextContent("promptCard.you");
   });
 
+  it("notes a prompt sent while Claude was working and explains it on focus", async () => {
+    renderCard({ text: "Also check the retry limit.", queued: true });
+    const card = screen.getByRole("article");
+    const note = screen.getByRole("button", { name: "promptCard.queued" });
+    expect(card).toContainElement(note);
+    expect(card).toHaveTextContent("promptCard.you");
+
+    fireEvent.focus(note);
+    expect(await screen.findByRole("tooltip")).toHaveTextContent("promptCard.queuedTooltip");
+  });
+
+  it("does not mark a prompt typed between turns", () => {
+    renderCard({ text: "Why does the build fail on CI?" });
+    expect(screen.queryByText("promptCard.queued")).not.toBeInTheDocument();
+  });
+
   it("omits the turn number when it is not known", () => {
     renderCard({ text: "Short prompt" });
     const card = screen.getByRole("article", { name: "promptCard.ariaLabel" });

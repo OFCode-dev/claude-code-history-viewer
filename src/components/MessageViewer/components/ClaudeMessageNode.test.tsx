@@ -69,6 +69,18 @@ describe("ClaudeMessageNode user records", () => {
     expect(card).toHaveTextContent("Why does the build fail on CI?");
   });
 
+  it("marks a prompt the person sent while Claude was working", () => {
+    renderNode(record("user", "Also check the retry limit.", { queued: true }));
+    const card = screen.getByRole("article");
+    expect(card).toHaveTextContent("Also check the retry limit.");
+    expect(card).toHaveTextContent("promptCard.queued");
+  });
+
+  it("renders nothing for an attachment row", () => {
+    const { container } = renderNode(record("attachment", undefined));
+    expect(container).toBeEmptyDOMElement();
+  });
+
   it("attributes prompts inside a subagent transcript to the parent agent", () => {
     storeState.parentSessionStack = [{ session: {} }];
     renderNode(record("user", "Audit the billing retries.", { isSidechain: true }));

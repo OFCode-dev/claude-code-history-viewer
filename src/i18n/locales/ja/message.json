@@ -27,6 +27,8 @@
   "promptCard.ariaLabelWithTurn": "あなたのプロンプト、ターン {{number}}",
   "promptCard.parentAgent": "親エージェント",
   "promptCard.taskAriaLabel": "親エージェントからのタスク",
+  "promptCard.queued": "Claude の作業中に送信",
+  "promptCard.queuedTooltip": "Claude が作業している間に送信したメッセージです。Claude Code はターンの終了を待たずに、作業の途中で Claude に渡しました。",
   "promptCard.copy": "プロンプトをコピー",
   "promptCard.copied": "プロンプトをコピーしました",
   "promptCard.copyFailed": "プロンプトをコピーできませんでした",

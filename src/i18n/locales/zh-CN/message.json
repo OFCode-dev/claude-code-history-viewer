@@ -27,6 +27,8 @@
   "promptCard.ariaLabelWithTurn": "你的提示，第 {{number}} 轮",
   "promptCard.parentAgent": "父代理",
   "promptCard.taskAriaLabel": "来自父代理的任务",
+  "promptCard.queued": "在 Claude 工作时发送",
+  "promptCard.queuedTooltip": "你在 Claude 仍在工作时发送了这条消息。Claude Code 没有等待本轮结束，而是在中途将其交给了 Claude。",
   "promptCard.copy": "复制提示",
   "promptCard.copied": "已复制提示",
   "promptCard.copyFailed": "无法复制提示",

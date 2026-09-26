@@ -31,6 +31,28 @@ describe("buildTurnAnchors", () => {
     ]);
     expect(anchors[1]!.uuid).toBe(list[4]!.uuid);
   });
+
+  it("starts a turn at a message sent while Claude was working", () => {
+    const queued = { ...msg("user", "Also check the retry limit."), queued: true } as ClaudeMessage;
+    const hiddenRow = {
+      uuid: "reminder",
+      sessionId: "s1",
+      timestamp: "2026-09-24T10:00:59.000Z",
+      type: "attachment",
+    } as unknown as ClaudeMessage;
+    const list = [
+      msg("user", "Fix the billing retries"),
+      msg("assistant", [{ type: "tool_use", id: "t1", name: "Bash", input: {} }]),
+      msg("user", [{ type: "tool_result", tool_use_id: "t1", content: "ok" }]),
+      queued,
+      hiddenRow,
+      msg("assistant", [{ type: "text", text: "I'll cap the retries as well." }]),
+    ];
+    expect(buildTurnAnchors(list).map((a) => [a.uuid, a.messageIndex, a.turnNumber])).toEqual([
+      [list[0]!.uuid, 0, 1],
+      [queued.uuid, 3, 2],
+    ]);
+  });
 });
 
 describe("findTurnForIndex", () => {
