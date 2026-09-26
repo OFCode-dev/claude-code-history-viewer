@@ -23,7 +23,8 @@ export interface FilteredSearchMatches {
  * Split matches into the ones the display filter shows and a hidden count.
  *
  * A record the filter keeps but trims (the dialogue view reduces assistant
- * records to their prose) is searched again as displayed, so its match
+ * records to their prose; the content toggles drop hidden blocks such as
+ * thinking or tool calls) is searched again as displayed, so its match
  * indices line up with the highlights actually rendered and matches in the
  * trimmed-away blocks count as hidden.
  */

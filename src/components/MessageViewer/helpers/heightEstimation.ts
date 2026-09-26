@@ -6,6 +6,8 @@
 
 import type { FlattenedMessage } from "../types";
 import { isEmptyMessage } from "./messageHelpers";
+import { getUserRecordPresentation } from "../../messageRenderer/systemRecordSummary";
+import { PROMPT_HEAD_CHARS, PROMPT_LINE_LIMIT } from "../../messageRenderer/promptCollapse";
 
 // Default heights by message type (in pixels)
 const HEIGHT_DEFAULTS = {
@@ -16,6 +18,8 @@ const HEIGHT_DEFAULTS = {
   toolResult: 200,
   assistant: 180,
   user: 120,
+  // Collapsed SystemRecordRow plus its py-0.5 wrapper
+  systemRecordRow: 32,
   system: 100,
   default: 120,
   // Hidden group members
@@ -67,8 +71,24 @@ function measureUnknownContent(value: unknown, measure: ContentMeasure): void {
   }
 }
 
+/** Upper bounds on the measured text, for content shown folded. */
+interface VisibleTextLimit {
+  chars: number;
+  lines: number;
+}
+
+/**
+ * What a collapsed PromptCard shows at most: about PROMPT_LINE_LIMIT lines, or
+ * PROMPT_HEAD_CHARS plus the closing paragraph.
+ */
+const FOLDED_PROMPT_LIMIT: VisibleTextLimit = {
+  chars: PROMPT_HEAD_CHARS * 2,
+  lines: PROMPT_LINE_LIMIT,
+};
+
 function estimateContentExtraHeight(
-  item: Extract<FlattenedMessage, { type: "message" }>
+  item: Extract<FlattenedMessage, { type: "message" }>,
+  limit?: VisibleTextLimit
 ): number {
   const { message } = item;
   const messageRecord = message as unknown as Record<string, unknown>;
@@ -82,6 +102,10 @@ function estimateContentExtraHeight(
 
   if (measure.chars === 0) {
     return 0;
+  }
+  if (limit) {
+    measure.chars = Math.min(measure.chars, limit.chars);
+    measure.lineBreaks = Math.min(measure.lineBreaks, limit.lines - 1);
   }
 
   const wrappedLines = Math.ceil(measure.chars / CONTENT_WRAP_CHARS);
@@ -171,6 +195,19 @@ export function estimateMessageHeight(
   // Progress messages
   if (message.type === "progress") {
     return HEIGHT_DEFAULTS.progress;
+  }
+
+  // User records render as ClaudeMessageNode draws them: records nobody typed
+  // as a one-line row (collapsed by default), prompts as a card folded to
+  // about a dozen lines.
+  if (message.type === "user") {
+    const { kind, systemRecordKind } = getUserRecordPresentation(message);
+    if (systemRecordKind) {
+      return HEIGHT_DEFAULTS.systemRecordRow;
+    }
+    if (kind === "prompt") {
+      return HEIGHT_DEFAULTS.user + estimateContentExtraHeight(item, FOLDED_PROMPT_LIMIT);
+    }
   }
 
   // Messages with tool results tend to be taller

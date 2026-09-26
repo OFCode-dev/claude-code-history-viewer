@@ -14,6 +14,7 @@ import { Markdown } from "../../common/Markdown";
 import { useAppStore } from "../../../store/useAppStore";
 import { getSubagentLabel } from "@/utils/subagentLabel";
 import { SubagentMetaBadges } from "../../subagents/SubagentMetaBadges";
+import { openSubagentKeepingFocus } from "../../subagents/subagentFocus";
 import type { Props } from "./shared";
 import { str, isError } from "./shared";
 import { StatusBadge } from "./StatusBadge";
@@ -125,7 +126,7 @@ export const WorkflowCard = memo(function WorkflowCard({ toolUse, toolResults }:
                 <li key={agent.file_path} className="border-b border-border last:border-b-0">
                   <button
                     type="button"
-                    onClick={() => { void navigateToSubagent(agent); }}
+                    onClick={() => { void openSubagentKeepingFocus(navigateToSubagent, agent); }}
                     className={cn(
                       "w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-primary/5 transition-colors",
                       "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",

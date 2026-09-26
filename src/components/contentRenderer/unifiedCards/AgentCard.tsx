@@ -18,6 +18,7 @@ import { ResultBlock } from "./ResultBlock";
 import { ToolIdBadge } from "./ToolIdBadge";
 import { useAppStore } from "../../../store/useAppStore";
 import { useSubagentForToolUse } from "../../subagents/useSubagentForToolUse";
+import { openSubagentKeepingFocus } from "../../subagents/subagentFocus";
 import { getSubagentLabel } from "@/utils/subagentLabel";
 
 function extractAgentResultText(results: ToolResultLike[]): string | null {
@@ -102,7 +103,7 @@ export const AgentCard = memo(function AgentCard({ toolUse, toolResults }: Props
               <button
                 type="button"
                 onClick={() => {
-                  void navigateToSubagent(subagent);
+                  void openSubagentKeepingFocus(navigateToSubagent, subagent);
                 }}
                 className={cn(
                   "inline-flex items-center gap-1 px-2 py-0.5 font-medium",

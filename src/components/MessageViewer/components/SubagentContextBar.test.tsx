@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ClaudeSession, SubagentNavFrame, SubagentSession } from "@/types";
 import { englishT } from "@/test/utils/englishTranslator";
 import { useAppStore } from "@/store/useAppStore";
+import { restoreFocusAfterEnteringSubagent } from "@/components/subagents/subagentFocus";
 import { SubagentContextBar } from "./SubagentContextBar";
 
 vi.mock("react-i18next", async (importOriginal) => ({
@@ -111,6 +112,17 @@ describe("SubagentContextBar", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Back to Release v2 of the API" }));
     expect(navigateBackToParent).toHaveBeenCalledTimes(1);
+  });
+
+  it("offers its Back button as the focus target after entering a subagent", () => {
+    inside(b);
+    render(<SubagentContextBar />);
+    // The opening control unmounts with the parent conversation.
+    (document.activeElement as HTMLElement | null)?.blur();
+
+    restoreFocusAfterEnteringSubagent();
+
+    expect(screen.getByRole("button", { name: "Back to Release v2 of the API" })).toHaveFocus();
   });
 
   it("uses the parent's custom name when it has one", () => {

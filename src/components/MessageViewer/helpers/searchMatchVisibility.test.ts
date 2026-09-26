@@ -60,6 +60,26 @@ describe("filterSearchMatches", () => {
     expect(hiddenCount).toBe(1);
   });
 
+  it("hides matches inside a mixed record's tool call when tool calls are hidden", () => {
+    const matches = search("retry");
+    expect(matches.filter((m) => m.messageUuid === "call").length).toBeGreaterThan(1);
+    const { visible, hiddenCount } = filterSearchMatches(
+      matches,
+      messages,
+      filter({ toolCalls: false }),
+      "retry",
+      "content",
+    );
+
+    // "call" keeps only its prose match; its tool_use input and the tool
+    // result are hidden.
+    expect(visible.filter((m) => m.messageUuid === "call")).toEqual([
+      expect.objectContaining({ messageIndex: 1, matchIndex: 0, matchCount: 1 }),
+    ]);
+    expect(visible.some((m) => m.messageUuid === "result")).toBe(false);
+    expect(hiddenCount).toBe(matches.length - visible.length);
+  });
+
   it("in the dialogue view, keeps only matches in the displayed prose", () => {
     const matches = search("retry");
     const { visible, hiddenCount } = filterSearchMatches(matches, messages, filter({ dialogue: true }), "retry", "content");

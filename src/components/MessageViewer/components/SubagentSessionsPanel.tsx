@@ -2,6 +2,7 @@ import { memo, useCallback, useId } from "react";
 import { Bot, ChevronDown, ChevronRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { SubagentList } from "@/components/subagents/SubagentList";
+import { openSubagentKeepingFocus } from "@/components/subagents/subagentFocus";
 import type { SubagentSession } from "@/types";
 
 interface SubagentSessionsPanelProps {
@@ -29,7 +30,8 @@ export const SubagentSessionsPanel = memo(function SubagentSessionsPanel({
 
   const handleSelect = useCallback(
     (subagent: SubagentSession) => {
-      void navigateToSubagent(subagent);
+      // The panel unmounts inside a subagent, taking the activated row with it.
+      void openSubagentKeepingFocus(navigateToSubagent, subagent);
     },
     [navigateToSubagent],
   );

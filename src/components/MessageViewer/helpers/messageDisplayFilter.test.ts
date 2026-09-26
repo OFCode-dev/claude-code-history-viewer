@@ -82,7 +82,54 @@ describe("applyMessageDisplayFilter", () => {
     expect(result).not.toContain(toolOnly);
     // Everything else a person or the harness sent stays visible.
     expect(result).toEqual(expect.arrayContaining([prompt, command, commandOutput, notification, interrupt]));
-    expect(result).toContain(proseAndTool);
+    // A mixed record stays, without its hidden tool call.
+    const shownMixed = result.find((m) => m.uuid === proseAndTool.uuid);
+    expect(shownMixed?.content).toEqual([{ type: "text", text: "Checking the logs." }]);
+    // Records with nothing hidden are passed through untouched.
+    expect(result).toContain(prose);
+  });
+
+  describe("content toggles trim what they hide from kept assistant records", () => {
+    const mixed = assistant([
+      { type: "thinking", thinking: "The flaky test needs a seed." },
+      { type: "text", text: "Pinning the seed." },
+      { type: "tool_use", id: "t4", name: "edit", input: { filePath: "a.test.ts" } },
+      { type: "command", command: "/model" },
+    ]);
+    const shown = (contentTypes: Partial<MessageFilter["contentTypes"]>) =>
+      applyMessageDisplayFilter([mixed], filter({ contentTypes }))[0] as ClaudeMessage & {
+        content: Array<{ type: string }>;
+      };
+
+    it("drops thinking blocks while thinking is hidden", () => {
+      expect(shown({ thinking: false }).content.map((b) => b.type)).toEqual(["text", "tool_use", "command"]);
+    });
+
+    it("drops tool blocks while tool calls are hidden", () => {
+      expect(shown({ toolCalls: false }).content.map((b) => b.type)).toEqual(["thinking", "text", "command"]);
+    });
+
+    it("drops command and text blocks while those are hidden", () => {
+      expect(shown({ commands: false, text: false }).content.map((b) => b.type)).toEqual(["thinking", "tool_use"]);
+    });
+
+    it("leaves the original record unchanged", () => {
+      shown({ thinking: false, toolCalls: false });
+      expect((mixed as unknown as { content: unknown[] }).content).toHaveLength(4);
+    });
+
+    it("drops legacy tool fields while tool calls are hidden", () => {
+      const legacy = record("assistant", {
+        role: "assistant",
+        content: "Running the tests now.",
+        toolUse: { name: "Bash", input: { command: "pnpm test" } },
+        toolUseResult: { stdout: "ok" },
+      });
+      const result = applyMessageDisplayFilter([legacy], filter({ contentTypes: { toolCalls: false } }))[0];
+      expect(result).toMatchObject({ uuid: legacy.uuid, content: "Running the tests now." });
+      expect(result).not.toHaveProperty("toolUse", expect.anything());
+      expect(result).not.toHaveProperty("toolUseResult", expect.anything());
+    });
   });
 
   it("keeps tool-result user records while tool calls are shown", () => {

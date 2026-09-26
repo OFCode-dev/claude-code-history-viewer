@@ -85,3 +85,36 @@ describe("estimateMessageHeight — sidechain rows in subagent sessions (#334)",
     expect(estimateMessageHeight(assistant, true)).toBeGreaterThan(0);
   });
 });
+
+describe("estimateMessageHeight — user records follow how they render", () => {
+  const userRecord = (text: string) =>
+    makeItem(makeMessage({ type: "user", isSidechain: false, content: text }));
+  const longText = (lines: number) =>
+    Array.from({ length: lines }, (_, i) => `line ${i + 1} of pasted context`).join("\n");
+
+  it("estimates records shown as a one-line system row at row height", () => {
+    const compaction = userRecord(
+      `This session is being continued from a previous conversation.\n${longText(400)}`,
+    );
+    const context = userRecord(`<system-reminder>\n${longText(300)}\n</system-reminder>`);
+    const output = userRecord(`<local-command-stdout>${longText(200)}</local-command-stdout>`);
+
+    for (const item of [compaction, context, output]) {
+      expect(estimateMessageHeight(item)).toBeLessThanOrEqual(40);
+    }
+  });
+
+  it("estimates a long prompt at its folded size, not its full length", () => {
+    const folded = estimateMessageHeight(userRecord(longText(400)));
+    const twelveLines = estimateMessageHeight(userRecord(longText(12)));
+
+    expect(folded).toBeLessThan(400);
+    expect(folded).toBeGreaterThanOrEqual(twelveLines);
+  });
+
+  it("still grows a short prompt with its text", () => {
+    expect(estimateMessageHeight(userRecord(longText(10)))).toBeGreaterThan(
+      estimateMessageHeight(userRecord("Why does CI fail?")),
+    );
+  });
+});

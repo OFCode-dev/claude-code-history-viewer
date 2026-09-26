@@ -106,6 +106,32 @@ describe("PromptCard", () => {
     expect(screen.getByRole("article")).toHaveTextContent("pasted log line 30");
   });
 
+  it("keeps keyboard focus on the header toggle when the inline rows unmount", () => {
+    renderCard({ text: longPrompt });
+    const headerToggle = screen.getByRole("button", { name: "promptCard.expand" });
+
+    const expander = screen.getByRole("button", { name: "promptCard.hiddenLines(24)" });
+    expander.focus();
+    fireEvent.click(expander); // keyboard activation: detail 0
+    expect(expander).not.toBeInTheDocument();
+    expect(headerToggle).toHaveFocus();
+    expect(headerToggle).toHaveAttribute("aria-expanded", "true");
+
+    const collapseRow = screen.getByText("promptCard.collapse", { selector: "span" }).closest("button")!;
+    collapseRow.focus();
+    fireEvent.click(collapseRow);
+    expect(collapseRow).not.toBeInTheDocument();
+    expect(headerToggle).toHaveFocus();
+    expect(headerToggle).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("does not move focus for a pointer click on the inline expander", () => {
+    renderCard({ text: longPrompt });
+    fireEvent.click(screen.getByRole("button", { name: "promptCard.hiddenLines(24)" }), { detail: 1 });
+    expect(screen.getByRole("article")).toHaveTextContent("pasted log line 30");
+    expect(screen.getAllByRole("button", { name: "promptCard.collapse" })[0]).not.toHaveFocus();
+  });
+
   it("shows the whole prompt while searching", () => {
     renderCard({ text: longPrompt, searchQuery: "line 17" });
     expect(screen.getByRole("article")).toHaveTextContent("pasted log line 17");

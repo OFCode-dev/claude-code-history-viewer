@@ -29,23 +29,58 @@ const TOOL_BLOCK_TYPES = new Set([
   "tool_search_tool_result",
 ]);
 
+/** Whether an assistant content block is shown under these content types. */
+function isAssistantBlockShown(
+  block: object,
+  contentTypes: MessageFilterContentTypes,
+): boolean {
+  const t = (block as Record<string, unknown>).type as string;
+  if (t === "text") return contentTypes.text;
+  if (t === "thinking" || t === "redacted_thinking") return contentTypes.thinking;
+  if (TOOL_BLOCK_TYPES.has(t)) return contentTypes.toolCalls;
+  if (t === "command") return contentTypes.commands;
+  return true; // image, document, search_result — always show
+}
+
 /** Whether an assistant record keeps any visible content under these content types. */
 function hasVisibleAssistantContent(
   msg: ClaudeAssistantMessage,
   contentTypes: MessageFilterContentTypes,
 ): boolean {
   const hasText = contentTypes.text && !!extractClaudeMessageContent(msg);
-  const hasContentArray = Array.isArray(msg.content) && msg.content.some((item: unknown) => {
-    if (!item || typeof item !== "object") return false;
-    const t = (item as Record<string, unknown>).type as string;
-    if (t === "text") return contentTypes.text;
-    if (t === "thinking" || t === "redacted_thinking") return contentTypes.thinking;
-    if (TOOL_BLOCK_TYPES.has(t)) return contentTypes.toolCalls;
-    if (t === "command") return contentTypes.commands;
-    return true; // image, document, search_result — always show
-  });
+  const hasContentArray = Array.isArray(msg.content) && msg.content.some((item: unknown) =>
+    !!item && typeof item === "object" && isAssistantBlockShown(item, contentTypes),
+  );
   const hasLegacyTool = contentTypes.toolCalls && !!(msg.toolUse || msg.toolUseResult);
   return hasText || hasContentArray || hasLegacyTool;
+}
+
+/**
+ * A kept assistant record as displayed: without the blocks (and legacy tool
+ * fields) of the content types turned off, so session search, the groupers
+ * and export see only what the renderer shows. Providers that pack several
+ * block types into one record (e.g. OpenCode) need this; Claude Code writes
+ * one block per record. Returns the record itself when nothing is removed.
+ */
+function toDisplayedAssistantRecord(
+  msg: ClaudeAssistantMessage,
+  contentTypes: MessageFilterContentTypes,
+): ClaudeAssistantMessage {
+  let { content } = msg;
+  if (Array.isArray(content)) {
+    const shown = content.filter((item: unknown) =>
+      !item || typeof item !== "object" || isAssistantBlockShown(item, contentTypes),
+    );
+    if (shown.length !== content.length) content = shown;
+  } else if (typeof content === "string" && content && !contentTypes.text) {
+    content = "";
+  }
+  const dropLegacyTool =
+    !contentTypes.toolCalls && (msg.toolUse != null || msg.toolUseResult != null);
+  if (content === msg.content && !dropLegacyTool) return msg;
+  return dropLegacyTool
+    ? { ...msg, content, toolUse: undefined, toolUseResult: undefined }
+    : { ...msg, content };
 }
 
 /** Whether a content block is a `text` block that actually carries prose. */
@@ -110,18 +145,24 @@ export function applyMessageDisplayFilter(
   );
   if (allRoles && allContent) return parallelTaskFilteredMessages;
 
-  return parallelTaskFilteredMessages.filter((msg) => {
+  const result: ClaudeMessage[] = [];
+  for (const msg of parallelTaskFilteredMessages) {
     if (msg.type === "user") {
-      if (!roles.user) return false;
+      if (!roles.user) continue;
       // Tool results arrive as user records; they follow the Tool Calls toggle
       // so hiding tool calls does not leave their orphaned results behind.
-      if (!contentTypes.toolCalls && getUserMessageKind(msg) === "toolResult") return false;
-      return true;
+      if (!contentTypes.toolCalls && getUserMessageKind(msg) === "toolResult") continue;
+      result.push(msg);
+    } else if (msg.type === "assistant") {
+      if (!roles.assistant) continue;
+      if (allContent) {
+        result.push(msg);
+      } else if (hasVisibleAssistantContent(msg, contentTypes)) {
+        result.push(toDisplayedAssistantRecord(msg, contentTypes));
+      }
+    } else {
+      result.push(msg); // system/summary/other
     }
-    if (msg.type === "assistant") {
-      if (!roles.assistant) return false;
-      return allContent || hasVisibleAssistantContent(msg, contentTypes);
-    }
-    return true; // system/summary/other
-  });
+  }
+  return result;
 }

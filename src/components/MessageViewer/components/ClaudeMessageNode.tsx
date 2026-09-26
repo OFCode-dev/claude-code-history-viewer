@@ -28,12 +28,11 @@ import {
 import { PromptCard } from "../../messageRenderer/PromptCard";
 import { SystemRecordRow } from "../../messageRenderer/SystemRecordRow";
 import {
+  getUserRecordPresentation,
   hasNonTextContent,
-  toSystemRecordKind,
 } from "../../messageRenderer/systemRecordSummary";
 import { getEffectiveContentTypes } from "../../../store/slices/filterSlice";
 import { extractClaudeMessageContent } from "../../../utils/messageUtils";
-import { getUserMessageKind, getUserMessageText } from "../../../utils/userMessageKind";
 import { isEmptyMessage } from "../helpers/messageHelpers";
 import {
   isToolUseContent,
@@ -386,11 +385,11 @@ export const ClaudeMessageNode = React.memo(
     // User records: a person's prompt renders as a prompt card; records nobody
     // typed (command output, notifications, harness context, interrupts…) as a
     // compact muted row. Tool results and slash commands keep the default path.
-    const userKind = message.type === "user" ? getUserMessageKind(message) : null;
-    const userText = userKind != null ? getUserMessageText(message) : "";
-    const systemRecordKind = toSystemRecordKind(userKind, userText, {
-      hasOtherContent: hasNonTextContent(message),
-    });
+    const {
+      kind: userKind,
+      text: userText,
+      systemRecordKind,
+    } = getUserRecordPresentation(message);
 
     if (userKind === "prompt" || systemRecordKind) {
       // The card presents every text block (the same text the classifier and
