@@ -3,18 +3,17 @@ import { Bot, ChevronRight, MoreHorizontal } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/useAppStore";
+import { usePlatform } from "@/contexts/platform";
+import { restoreFocusAfterBack } from "@/components/subagents/focusRestore";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  detectHomeDir,
-  getProjectDisplayName,
-  isAbsolutePath,
-} from "@/utils/pathUtils";
-import type { ClaudeProject } from "@/types";
+import { getProjectDisplayName, isAbsolutePath } from "@/utils/pathUtils";
+import { homeDirOf, pickHomeDir } from "@/utils/directoryTree";
+import type { ClaudeProject, ClaudeSession } from "@/types";
 import {
   buildPathCrumbs,
   buildSessionCrumbs,
@@ -40,14 +39,19 @@ function isRevealablePath(path: string): boolean {
   return isAbsolutePath(path) || /^[\\/]{2}[^\\/]/.test(path);
 }
 
-/** Path crumbs for a project; the last one is labelled like the explorer row. */
-function projectPathCrumbs(project: ClaudeProject): PathCrumb[] {
+const crumbTextClass = "min-w-0 max-w-[14rem] truncate px-1 py-0.5 text-muted-foreground";
+
+/**
+ * Path crumbs for a project; the last one is labelled like the explorer row.
+ * `homeDir` is the home the explorer tree shows as `~`.
+ */
+function projectPathCrumbs(project: ClaudeProject, homeDir: string | null): PathCrumb[] {
   const displayName = getProjectDisplayName(project);
   const actualPath = project.actual_path || project.path;
   if (!isRevealablePath(actualPath)) {
     return [{ label: displayName, path: actualPath }];
   }
-  const crumbs = buildPathCrumbs(actualPath, detectHomeDir([actualPath]));
+  const crumbs = buildPathCrumbs(actualPath, homeDir ?? homeDirOf(actualPath));
   const last = crumbs[crumbs.length - 1];
   if (last && last.label !== "~") {
     crumbs[crumbs.length - 1] = { ...last, label: displayName };
@@ -72,14 +76,26 @@ function Separator() {
  */
 export function HeaderBreadcrumb({ project, onShowTranscript }: HeaderBreadcrumbProps) {
   const { t } = useTranslation();
+  // Below md the explorer lives in a closed drawer, so a reveal would have
+  // nothing to land in (and would fire later, when the drawer next opens).
+  const { isMobile } = usePlatform();
+  const canReveal = !isMobile;
+  const projects = useAppStore((s) => s.projects);
   const selectedSession = useAppStore((s) => s.selectedSession);
   const parentSessionStack = useAppStore((s) => s.parentSessionStack);
   const subagentSessions = useAppStore((s) => s.subagentSessions);
   const requestExplorerReveal = useAppStore((s) => s.requestExplorerReveal);
   const setExplorerCollapsed = useAppStore((s) => s.setExplorerCollapsed);
   const navigateBackToParent = useAppStore((s) => s.navigateBackToParent);
+  // Subscribed so a rename re-labels the session crumb.
+  const sessionMetadata = useAppStore((s) => s.userMetadata.sessions);
 
-  const pathCrumbs = useMemo(() => projectPathCrumbs(project), [project]);
+  // The explorer shows as `~` the home most projects share; use the same one.
+  const homeDir = useMemo(
+    () => pickHomeDir(Array.from(new Set(projects.map((p) => p.actual_path || p.path)))),
+    [projects]
+  );
+  const pathCrumbs = useMemo(() => projectPathCrumbs(project, homeDir), [project, homeDir]);
   const sessionCrumbs = useMemo(
     () =>
       buildSessionCrumbs({
@@ -87,8 +103,9 @@ export function HeaderBreadcrumb({ project, onShowTranscript }: HeaderBreadcrumb
         parentSessionStack,
         subagentSessions,
         untitledSession: (id) => t("header.breadcrumb.untitledSession", { id }),
+        sessionName: (session: ClaudeSession) => sessionMetadata[session.session_id]?.customName,
       }),
-    [selectedSession, parentSessionStack, subagentSessions, t]
+    [selectedSession, parentSessionStack, subagentSessions, sessionMetadata, t]
   );
 
   // Fold middle directories until the trail fits. Start over whenever the
@@ -160,15 +177,19 @@ export function HeaderBreadcrumb({ project, onShowTranscript }: HeaderBreadcrumb
   const projectPath = pathCrumbs[pathCrumbs.length - 1]?.path;
 
   const reveal = (path: string) => {
+    if (!canReveal) return;
     // A reveal into a folded explorer would be invisible, so unfold it first.
     setExplorerCollapsed(false);
     requestExplorerReveal(path);
   };
 
   const goUp = async (levels: number) => {
-    for (let i = 0; i < levels; i++) {
-      await navigateBackToParent();
-    }
+    // The crumb pressed turns into the current page (or goes away), so
+    // focus moves to the row of the session just left, or the transcript.
+    const chain = selectedSession ? [...parentSessionStack, selectedSession] : parentSessionStack;
+    const leaving = chain[chain.length - levels]?.file_path;
+    await navigateBackToParent(levels);
+    restoreFocusAfterBack(leaving);
     onShowTranscript?.();
   };
 
@@ -177,14 +198,23 @@ export function HeaderBreadcrumb({ project, onShowTranscript }: HeaderBreadcrumb
     return (
       <li key={crumb.path} className="flex items-center shrink-0">
         {!isFirst && <Separator />}
-        <button
-          type="button"
-          onClick={() => reveal(crumb.path)}
-          className={cn(crumbButtonClass, isProject && "text-foreground font-medium")}
-          title={t("header.breadcrumb.reveal", { path: crumb.path })}
-        >
-          {crumb.label}
-        </button>
+        {canReveal ? (
+          <button
+            type="button"
+            onClick={() => reveal(crumb.path)}
+            className={cn(crumbButtonClass, isProject && "text-foreground font-medium")}
+            title={t("header.breadcrumb.reveal", { path: crumb.path })}
+          >
+            {crumb.label}
+          </button>
+        ) : (
+          <span
+            className={cn(crumbTextClass, isProject && "text-foreground font-medium")}
+            title={crumb.path}
+          >
+            {crumb.label}
+          </span>
+        )}
       </li>
     );
   };
@@ -248,7 +278,18 @@ export function HeaderBreadcrumb({ project, onShowTranscript }: HeaderBreadcrumb
     >
       <ol className="flex items-center min-w-0 text-xs whitespace-nowrap">
         {leading.map((crumb) => renderPathCrumb(crumb, true))}
-        {hidden.length > 0 && (
+        {hidden.length > 0 && !canReveal && (
+          <li className="flex items-center shrink-0">
+            <Separator />
+            <span
+              className={cn(crumbTextClass, "px-1.5")}
+              title={hidden.map((crumb) => crumb.path).join("\n")}
+            >
+              …
+            </span>
+          </li>
+        )}
+        {hidden.length > 0 && canReveal && (
           <li className="flex items-center shrink-0">
             <Separator />
             <DropdownMenu>
@@ -262,7 +303,15 @@ export function HeaderBreadcrumb({ project, onShowTranscript }: HeaderBreadcrumb
                   <MoreHorizontal className="w-3.5 h-3.5" aria-hidden="true" />
                 </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start">
+              <DropdownMenuContent
+                align="start"
+                // A chosen directory takes focus in the explorer; do not pull
+                // it back to "…" when the menu finishes closing.
+                onCloseAutoFocus={(event) => {
+                  const explorer = document.getElementById("project-explorer");
+                  if (explorer?.contains(document.activeElement)) event.preventDefault();
+                }}
+              >
                 {hidden.map((crumb) => (
                   <DropdownMenuItem
                     key={crumb.path}

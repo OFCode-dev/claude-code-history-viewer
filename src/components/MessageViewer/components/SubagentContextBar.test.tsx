@@ -124,6 +124,17 @@ describe("SubagentContextBar", () => {
     expect(screen.getByRole("button", { name: "Back to My release session" })).toBeInTheDocument();
   });
 
+  it("names an untitled parent like the header breadcrumb does", () => {
+    setState({
+      parentSessionStack: [session("/p/untitled.jsonl")],
+      subagentNavStack: [{ subagent: a, siblings: [a, b] }],
+      selectedSession: session(a.file_path),
+    });
+    render(<SubagentContextBar />);
+    // The last 8 characters of the id, as in "Session xxxxxxxx" in the header.
+    expect(screen.getByRole("button", { name: "Back to Session 00000000" })).toBeInTheDocument();
+  });
+
   it("shows i of n and navigates to the previous and next sibling", () => {
     inside(b);
     render(<SubagentContextBar />);

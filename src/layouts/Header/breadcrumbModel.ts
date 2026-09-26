@@ -120,6 +120,8 @@ interface BuildSessionCrumbsInput {
   subagentSessions: SubagentSession[];
   /** Label for a session without a summary, given the end of its id. */
   untitledSession: (shortId: string) => string;
+  /** The user's name for a session (a rename), preferred over its summary. */
+  sessionName?: (session: ClaudeSession) => string | undefined;
 }
 
 function oneLine(text: string): string {
@@ -129,7 +131,10 @@ function oneLine(text: string): string {
 function sessionLabel(
   session: ClaudeSession,
   untitledSession: (shortId: string) => string,
+  sessionName?: (session: ClaudeSession) => string | undefined,
 ): string {
+  const name = oneLine(sessionName?.(session) ?? "");
+  if (name) return name;
   const summary = session.summary ? oneLine(session.summary) : "";
   if (summary) return summary;
   const id = session.actual_session_id || session.session_id;
@@ -160,13 +165,14 @@ export function buildSessionCrumbs({
   parentSessionStack,
   subagentSessions,
   untitledSession,
+  sessionName,
 }: BuildSessionCrumbsInput): SessionCrumb[] {
   if (selectedSession == null) return [];
   const chain = [...parentSessionStack, selectedSession];
   return chain.map((session, index) => {
     const isRoot = index === 0;
     const label = isRoot
-      ? sessionLabel(session, untitledSession)
+      ? sessionLabel(session, untitledSession, sessionName)
       : subagentLabel(session, subagentSessions);
     return {
       kind: isRoot ? "session" : "subagent",

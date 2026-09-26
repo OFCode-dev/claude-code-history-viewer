@@ -3,15 +3,23 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ClaudeProject, ClaudeSession, SubagentSession } from "@/types";
 import { HeaderBreadcrumb } from "./HeaderBreadcrumb";
 
-const { store } = vi.hoisted(() => ({
+const { store, platform, menu } = vi.hoisted(() => ({
   store: {
+    projects: [] as ClaudeProject[],
     selectedSession: null as ClaudeSession | null,
     parentSessionStack: [] as ClaudeSession[],
     subagentSessions: [] as SubagentSession[],
+    userMetadata: { sessions: {} as Record<string, { customName?: string }> },
     requestExplorerReveal: vi.fn(),
     setExplorerCollapsed: vi.fn(),
-    navigateBackToParent: vi.fn(async () => {}),
+    navigateBackToParent: vi.fn<(levels?: number) => Promise<void>>(async () => {}),
   },
+  platform: { isMobile: false },
+  menu: { onCloseAutoFocus: undefined as undefined | ((event: Event) => void) },
+}));
+
+vi.mock("@/contexts/platform", () => ({
+  usePlatform: () => platform,
 }));
 
 vi.mock("@/store/useAppStore", () => ({
@@ -28,9 +36,13 @@ vi.mock("react-i18next", () => ({
 vi.mock("@/components/ui/dropdown-menu", () => ({
   DropdownMenu: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
   DropdownMenuTrigger: ({ children }: React.PropsWithChildren) => <>{children}</>,
-  DropdownMenuContent: ({ children }: React.PropsWithChildren) => (
-    <div data-testid="hidden-crumbs">{children}</div>
-  ),
+  DropdownMenuContent: ({
+    children,
+    onCloseAutoFocus,
+  }: React.PropsWithChildren<{ onCloseAutoFocus?: (event: Event) => void }>) => {
+    menu.onCloseAutoFocus = onCloseAutoFocus;
+    return <div data-testid="hidden-crumbs">{children}</div>;
+  },
   DropdownMenuItem: ({
     children,
     onSelect,
@@ -95,9 +107,13 @@ function crumbButtons() {
 
 describe("HeaderBreadcrumb", () => {
   beforeEach(() => {
+    store.projects = [project];
     store.selectedSession = rootSession;
     store.parentSessionStack = [];
     store.subagentSessions = [];
+    store.userMetadata = { sessions: {} };
+    platform.isMobile = false;
+    menu.onCloseAutoFocus = undefined;
     store.requestExplorerReveal.mockClear();
     store.setExplorerCollapsed.mockClear();
     store.navigateBackToParent.mockClear();
@@ -157,6 +173,7 @@ describe("HeaderBreadcrumb", () => {
 
     await waitFor(() => expect(onShowTranscript).toHaveBeenCalledTimes(1));
     expect(store.navigateBackToParent).toHaveBeenCalledTimes(1);
+    expect(store.navigateBackToParent).toHaveBeenCalledWith(1);
   });
 
   it("walks back up as many levels as the clicked crumb is above", async () => {
@@ -170,7 +187,99 @@ describe("HeaderBreadcrumb", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Fix the login flow" }));
 
-    await waitFor(() => expect(store.navigateBackToParent).toHaveBeenCalledTimes(2));
+    // One navigation straight to the target, not one per level in between.
+    await waitFor(() => expect(store.navigateBackToParent).toHaveBeenCalledTimes(1));
+    expect(store.navigateBackToParent).toHaveBeenCalledWith(2);
+  });
+
+  it("keeps keyboard focus in the transcript when the pressed crumb becomes the current page", async () => {
+    store.selectedSession = subagentSession;
+    store.parentSessionStack = [rootSession];
+    store.subagentSessions = [subagent];
+    const main = document.createElement("main");
+    main.id = "main-content";
+    main.tabIndex = -1;
+    document.body.appendChild(main);
+    try {
+      const { rerender } = render(<HeaderBreadcrumb project={project} />);
+      // Back at the root the parent crumb turns into the current page.
+      store.navigateBackToParent.mockImplementationOnce(async () => {
+        store.selectedSession = rootSession;
+        store.parentSessionStack = [];
+        rerender(<HeaderBreadcrumb project={project} />);
+      });
+      const parent = screen.getByRole("button", { name: "Fix the login flow" });
+      parent.focus();
+
+      fireEvent.click(parent);
+
+      await waitFor(() => expect(document.activeElement).toBe(main));
+      expect(screen.queryByRole("button", { name: "Fix the login flow" })).toBeNull();
+    } finally {
+      main.remove();
+    }
+  });
+
+  it("labels a renamed session with the user's name", () => {
+    store.userMetadata = { sessions: { [rootSession.session_id]: { customName: "Login rework" } } };
+    render(<HeaderBreadcrumb project={project} />);
+
+    const current = screen.getByText("Login rework").closest("[aria-current]");
+    expect(current).toHaveAttribute("aria-current", "page");
+    expect(screen.queryByText("Fix the login flow")).toBeNull();
+  });
+
+  it("starts the path from the same home as the explorer, including /root", () => {
+    const rootProject = { ...project, actual_path: "/root/work/api" };
+    store.projects = [rootProject, { ...project, actual_path: "/root/other" }];
+    render(<HeaderBreadcrumb project={rootProject} />);
+
+    expect(crumbButtons().map((b) => b.textContent)).toEqual(["~", "work", "api"]);
+    fireEvent.click(screen.getByRole("button", { name: "~" }));
+    expect(store.requestExplorerReveal).toHaveBeenCalledWith("/root");
+  });
+
+  it("shows the path as plain text on mobile, where the explorer is in a closed drawer", () => {
+    platform.isMobile = true;
+    render(<HeaderBreadcrumb project={project} />);
+
+    const nav = screen.getByRole("navigation", { name: "header.breadcrumb.label" });
+    expect(within(nav).queryAllByRole("button")).toHaveLength(0);
+    fireEvent.click(within(nav).getByText("acme"));
+    expect(store.requestExplorerReveal).not.toHaveBeenCalled();
+    expect(store.setExplorerCollapsed).not.toHaveBeenCalled();
+  });
+
+  it("leaves focus in the explorer when a folded directory is chosen from the menu", async () => {
+    vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(450);
+    vi.spyOn(HTMLElement.prototype, "scrollWidth", "get").mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      return this.querySelectorAll("li").length * 100;
+    });
+    const explorer = document.createElement("aside");
+    explorer.id = "project-explorer";
+    const row = document.createElement("button");
+    explorer.appendChild(row);
+    document.body.appendChild(explorer);
+    try {
+      render(<HeaderBreadcrumb project={{ ...project, actual_path: "/home/me/a/b/c/d/api" }} />);
+      await waitFor(() => expect(menu.onCloseAutoFocus).toBeDefined());
+
+      // The reveal focused the explorer row: keep it there.
+      row.focus();
+      const kept = new Event("focusout", { cancelable: true });
+      menu.onCloseAutoFocus?.(kept);
+      expect(kept.defaultPrevented).toBe(true);
+
+      // Otherwise the menu hands focus back to its trigger as usual.
+      row.blur();
+      const returned = new Event("focusout", { cancelable: true });
+      menu.onCloseAutoFocus?.(returned);
+      expect(returned.defaultPrevented).toBe(false);
+    } finally {
+      explorer.remove();
+    }
   });
 
   it("folds middle directories into a menu when the trail does not fit", async () => {
