@@ -21,7 +21,8 @@ export function SessionBoardButton({ onClick }: SessionBoardButtonProps) {
       className={cn(
         "shrink-0 p-2 rounded-lg transition-all duration-200",
         "bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground",
-        "border border-border/60 hover:border-border"
+        "border border-border/60 hover:border-border",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       )}
       content={label}
       aria-label={label}

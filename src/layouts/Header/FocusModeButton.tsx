@@ -25,6 +25,7 @@ export function FocusModeButton({ className }: { className?: string }) {
       aria-keyshortcuts={isMacOS() ? "Meta+Shift+F" : "Control+Shift+F"}
       className={cn(
         "p-2 rounded-md transition-colors",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         isFocusMode
           ? "bg-accent/15 text-accent hover:bg-accent/25"
           : "text-muted-foreground hover:text-foreground hover:bg-muted",

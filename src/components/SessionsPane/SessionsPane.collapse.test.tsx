@@ -186,6 +186,14 @@ describe("SessionsPane collapse", () => {
     expect(document.activeElement).toBe(screen.getByRole("button", { name: "session.pane.collapse" }));
   });
 
+  it("draws a focus ring on the collapse and expand buttons", () => {
+    const { rerender } = renderPane({ onToggleCollapse: vi.fn() });
+    expect(screen.getByRole("button", { name: "session.pane.collapse" })).toHaveClass("focus-visible:ring-2");
+
+    rerender(paneElement({ isCollapsed: true, onToggleCollapse: vi.fn() }));
+    expect(screen.getByRole("button", { name: "session.pane.expand" })).toHaveClass("focus-visible:ring-2");
+  });
+
   it("does not take focus on mount or away from an element outside the pane", () => {
     const { rerender } = render(
       <>
