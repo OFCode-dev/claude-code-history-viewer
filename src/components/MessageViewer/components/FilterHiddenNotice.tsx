@@ -12,6 +12,7 @@ import { EyeOff } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "../../../store/useAppStore";
+import { focusMainContentIfLost } from "@/components/subagents/focusRestore";
 
 type FilterHiddenNoticeProps =
   | { variant: "emptyWindow"; className?: string }
@@ -21,6 +22,13 @@ export const FilterHiddenNotice: React.FC<FilterHiddenNoticeProps> = (props) => 
   const { t } = useTranslation();
   const isDialogue = useAppStore((s) => s.messageFilter.dialogue);
   const resetMessageFilter = useAppStore((s) => s.resetMessageFilter);
+
+  // Showing everything removes this notice together with its button; keep
+  // keyboard focus in the transcript instead of dropping it on <body>.
+  const showAll = () => {
+    resetMessageFilter();
+    requestAnimationFrame(focusMainContentIfLost);
+  };
 
   const message =
     props.variant === "searchMatches"
@@ -41,7 +49,7 @@ export const FilterHiddenNotice: React.FC<FilterHiddenNoticeProps> = (props) => 
       <span>{message}</span>
       <button
         type="button"
-        onClick={resetMessageFilter}
+        onClick={showAll}
         className={cn(
           "shrink-0 rounded px-1.5 py-0.5 font-medium text-foreground/80 underline-offset-2",
           "hover:text-foreground hover:underline",
