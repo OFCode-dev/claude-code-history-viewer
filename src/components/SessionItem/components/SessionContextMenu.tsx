@@ -9,6 +9,7 @@ import {
   FolderOpen,
   Play,
   Trash2,
+  Star,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
@@ -16,6 +17,10 @@ import { computeMenuPosition, type Boundary } from "@/utils/contextMenu";
 
 interface SessionContextMenuProps {
   position: { x: number; y: number; boundary?: Boundary | null };
+  /** Whether the session is starred; labels the favourite item */
+  isFavorite?: boolean;
+  /** Stars or unstars the session; the item is left out when absent */
+  onToggleFavorite?: () => void;
   hasCustomName: boolean;
   readOnly: boolean;
   supportsNativeRename: boolean;
@@ -36,6 +41,8 @@ interface SessionContextMenuProps {
 
 export const SessionContextMenu: React.FC<SessionContextMenuProps> = ({
   position,
+  isFavorite = false,
+  onToggleFavorite,
   hasCustomName,
   readOnly,
   supportsNativeRename,
@@ -141,6 +148,17 @@ export const SessionContextMenu: React.FC<SessionContextMenuProps> = ({
       style={{ left: adjustedPosition.x, top: adjustedPosition.y }}
     >
       <div className="p-1">
+        {onToggleFavorite && (
+          <button type="button" role="menuitem" onClick={handleAction(onToggleFavorite)} className={menuItemClass}>
+            <Star className={cn("w-3.5 h-3.5", isFavorite && "fill-current text-warning")} />
+            <span>
+              {isFavorite
+                ? t("session.favorites.remove", "Remove from favorites")
+                : t("session.favorites.add", "Add to favorites")}
+            </span>
+          </button>
+        )}
+
         {!readOnly && (
           <button type="button" role="menuitem" onClick={handleAction(onRenameClick)} className={menuItemClass}>
             <Pencil className="w-3.5 h-3.5" />
