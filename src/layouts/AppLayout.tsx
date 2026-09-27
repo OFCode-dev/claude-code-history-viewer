@@ -250,6 +250,10 @@ export const AppLayout: React.FC<AppLayoutProps> = (props) => {
     selectedProject != null &&
     !computed.isSettingsView &&
     !computed.isArchiveView;
+  // Subagents show in exactly one place: the sessions pane's own docked
+  // "Subagents" section when it is on screen, otherwise the collapsible
+  // panel MessageViewer renders above the conversation.
+  const isSubagentListDocked = showSessionsPane && !isSessionsPaneCollapsed;
   const {
     width: sessionsPaneWidth,
     isResizing: isSessionsPaneResizing,
@@ -825,6 +829,7 @@ export const AppLayout: React.FC<AppLayoutProps> = (props) => {
                           ? () => analyticsActions.switchToBoard()
                           : undefined
                       }
+                      showSubagentPanel={!isSubagentListDocked}
                     />
                   </div>
                   <div className="hidden md:block">

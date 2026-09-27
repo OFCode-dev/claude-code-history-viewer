@@ -48,56 +48,12 @@ describe("SubagentList", () => {
     expect(rows[1]).toHaveTextContent("Audit the webhook retries");
   });
 
-  it("shows agent type and model badges and the message count", () => {
-    render(<SubagentList subagents={[described, summaryOnly]} onSelect={vi.fn()} />);
-
-    const row = screen.getByRole("button", { name: /Map the API error codes/ });
-    expect(within(row).getByTitle("Agent type: Explore")).toHaveTextContent("Explore");
-    expect(within(row).getByTitle("Model: sonnet")).toHaveTextContent("sonnet");
-    expect(row).toHaveTextContent("12 messages");
-
-    // No meta.json → no badges, but the row still lists.
-    const plain = screen.getByRole("button", { name: /Audit the webhook retries/ });
-    expect(within(plain).queryByTitle(/Agent type/)).toBeNull();
-    expect(within(plain).queryByTitle(/Model/)).toBeNull();
-    expect(plain).toHaveTextContent("3 messages");
-  });
-
   it("uses the singular form for a single message", () => {
     render(<SubagentList subagents={[sub("c4", { message_count: 1 })]} onSelect={vi.fn()} />);
 
     const row = screen.getByRole("button");
     expect(row).toHaveTextContent("1 message");
     expect(row).not.toHaveTextContent("1 messages");
-  });
-
-  describe("last activity tooltip", () => {
-    afterEach(async () => {
-      await i18n.changeLanguage("en");
-    });
-
-    it("formats the date in the app language, not the browser locale", async () => {
-      await i18n.changeLanguage("ko");
-      render(<SubagentList subagents={[described]} onSelect={vi.fn()} />);
-
-      const time = screen.getByRole("button").querySelector("time");
-      expect(time).toHaveAttribute("title", expect.stringMatching(/^Last activity 2026년 9월 20일/));
-    });
-  });
-
-  it("groups workflow agents under their run after the flat subagents", () => {
-    render(
-      <SubagentList subagents={[workflowAgent, described, summaryOnly]} onSelect={vi.fn()} />,
-    );
-
-    const lists = screen.getAllByRole("list");
-    expect(lists).toHaveLength(2);
-    expect(within(lists[0]!).getAllByRole("button").map((b) => b.getAttribute("title"))).toEqual([
-      "Map the API error codes",
-      "Audit the webhook retries",
-    ]);
-    expect(screen.getByRole("list", { name: "Workflow wf_24f7" })).toBe(lists[1]);
-    expect(within(lists[1]!).getByRole("button")).toHaveTextContent("Run release workflow");
   });
 
   it("marks the active subagent with aria-current", () => {
@@ -119,6 +75,21 @@ describe("SubagentList", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /Audit/ }));
     expect(onSelect).toHaveBeenCalledWith(summaryOnly);
+  });
+
+  it("groups workflow agents under their run after the flat subagents", () => {
+    render(
+      <SubagentList subagents={[workflowAgent, described, summaryOnly]} onSelect={vi.fn()} />,
+    );
+
+    const lists = screen.getAllByRole("list");
+    expect(lists).toHaveLength(2);
+    expect(within(lists[0]!).getAllByRole("button").map((b) => b.textContent)).toEqual([
+      expect.stringContaining("Map the API error codes"),
+      expect.stringContaining("Audit the webhook retries"),
+    ]);
+    expect(screen.getByRole("list", { name: "Workflow wf_24f7" })).toBe(lists[1]);
+    expect(within(lists[1]!).getByRole("button")).toHaveTextContent("Run release workflow");
   });
 
   it("moves focus with the arrow, Home and End keys across groups", () => {
@@ -152,5 +123,74 @@ describe("SubagentList", () => {
       expect(fireEvent.keyDown(first!, { key: "ArrowDown", [modifier]: true })).toBe(true);
       expect(first).toHaveFocus();
     }
+  });
+
+  describe("list layout (docked sessions-pane section)", () => {
+    it("renders a single compact line: label, agent type and count, with model and time in the title", () => {
+      render(<SubagentList subagents={[described, summaryOnly]} onSelect={vi.fn()} />);
+
+      const row = screen.getByRole("button", { name: /Map the API error codes/ });
+      expect(row.className).toMatch(/\bh-7\b/);
+      expect(row).toHaveTextContent("Map the API error codes");
+      expect(row).toHaveTextContent("Explore");
+      expect(row).toHaveTextContent("12 messages");
+      // Model and last-activity time are dropped from the visible row...
+      expect(row).not.toHaveTextContent("sonnet");
+      // ...and carried in the title instead, alongside the label and type.
+      expect(row.title).toContain("Map the API error codes");
+      expect(row.title).toContain("Explore");
+      expect(row.title).toContain("sonnet");
+      expect(row.title).toContain("Last activity");
+
+      // No agent_type/model on this one — no type text, but it still lists.
+      const plain = screen.getByRole("button", { name: /Audit the webhook retries/ });
+      expect(plain).toHaveTextContent("3 messages");
+      expect(plain.title).toContain("Audit the webhook retries");
+      expect(plain.title).toContain("Last activity");
+      expect(plain.title).not.toContain("undefined");
+    });
+
+    it("formats the title's last-activity time in the app language, not the browser locale", async () => {
+      await i18n.changeLanguage("ko");
+      try {
+        render(<SubagentList subagents={[described]} onSelect={vi.fn()} />);
+        const row = screen.getByRole("button");
+        expect(row.title).toMatch(/Last activity 2026년 9월 20일/);
+      } finally {
+        await i18n.changeLanguage("en");
+      }
+    });
+  });
+
+  describe("grid layout (in-conversation panel)", () => {
+    it("keeps the multi-line card with agent type and model badges", () => {
+      render(
+        <SubagentList subagents={[described, summaryOnly]} onSelect={vi.fn()} layout="grid" />,
+      );
+
+      const row = screen.getByRole("button", { name: /Map the API error codes/ });
+      expect(row.className).not.toMatch(/\bh-7\b/);
+      expect(within(row).getByTitle("Agent type: Explore")).toHaveTextContent("Explore");
+      expect(within(row).getByTitle("Model: sonnet")).toHaveTextContent("sonnet");
+      expect(row).toHaveTextContent("12 messages");
+
+      // No meta.json → no badges, but the row still lists.
+      const plain = screen.getByRole("button", { name: /Audit the webhook retries/ });
+      expect(within(plain).queryByTitle(/Agent type/)).toBeNull();
+      expect(within(plain).queryByTitle(/Model/)).toBeNull();
+      expect(plain).toHaveTextContent("3 messages");
+    });
+
+    afterEach(async () => {
+      await i18n.changeLanguage("en");
+    });
+
+    it("shows the last-activity time in a <time> element, formatted in the app language", async () => {
+      await i18n.changeLanguage("ko");
+      render(<SubagentList subagents={[described]} onSelect={vi.fn()} layout="grid" />);
+
+      const time = screen.getByRole("button").querySelector("time");
+      expect(time).toHaveAttribute("title", expect.stringMatching(/^Last activity 2026년 9월 20일/));
+    });
   });
 });

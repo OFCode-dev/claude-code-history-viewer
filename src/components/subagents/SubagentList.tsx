@@ -88,6 +88,7 @@ export const SubagentList = memo(function SubagentList({
                     subagent={subagent}
                     isActive={subagent.file_path === activeFilePath}
                     onSelect={onSelect}
+                    layout={layout}
                   />
                 </li>
               ))}
@@ -103,19 +104,76 @@ interface SubagentListItemProps {
   subagent: SubagentSession;
   isActive: boolean;
   onSelect: (subagent: SubagentSession) => void;
+  layout: "grid" | "list";
 }
 
 const SubagentListItem = memo(function SubagentListItem({
   subagent,
   isActive,
   onSelect,
+  layout,
 }: SubagentListItemProps) {
   const { t } = useTranslation();
   const label = getSubagentLabel(subagent);
   const lastTime = subagent.last_message_time ?? subagent.first_message_time;
-  const hasMeta = Boolean(subagent.agent_type?.trim() || subagent.model?.trim());
-  const typeStyle = subagent.agent_type?.trim() ? getSubagentStyle(subagent.agent_type) : null;
+  const agentType = subagent.agent_type?.trim();
+  const model = subagent.model?.trim();
+  const hasMeta = Boolean(agentType || model);
+  const typeStyle = agentType ? getSubagentStyle(agentType) : null;
   const RowIcon = typeStyle?.icon ?? Bot;
+
+  if (layout === "list") {
+    // Compact single-line row for the docked sessions-pane list: only the
+    // label and agent type are shown; model and timestamps move to the
+    // title so the row never grows past one line (h-7).
+    const metaTitle = [agentType, model].filter(Boolean).join(" · ");
+    const timeTitle = lastTime ? t("subagent.lastActivity", { time: formatTime(lastTime) }) : null;
+    const rowTitle = [label, metaTitle || null, timeTitle].filter(Boolean).join(" · ");
+
+    return (
+      <button
+        type="button"
+        data-subagent-item=""
+        {...{ [SUBAGENT_PATH_ATTR]: subagent.file_path }}
+        onClick={() => onSelect(subagent)}
+        aria-current={isActive ? "true" : undefined}
+        title={rowTitle}
+        className={cn(
+          "group w-full min-w-0 h-7 flex items-center gap-1.5 px-2 rounded-md transition-colors",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          isActive ? "bg-accent/10" : "hover:bg-muted/50",
+        )}
+      >
+        <RowIcon
+          className={cn(
+            "w-3.5 h-3.5 shrink-0",
+            typeStyle?.text ?? (isActive ? "text-accent" : "text-muted-foreground"),
+          )}
+          aria-hidden="true"
+        />
+        <span
+          className={cn(
+            // `grow` (not `flex-1`): a 0% flex-basis would give this span no
+            // claim on its own natural width, so once the row is tight the
+            // agent type — sized from its own content — would win the space
+            // instead of truncating first as intended.
+            "grow min-w-[3rem] truncate text-left text-xs leading-4",
+            isActive ? "font-semibold text-foreground" : "font-medium text-foreground/90",
+          )}
+        >
+          {label}
+        </span>
+        {agentType && (
+          <span className="min-w-0 max-w-[40%] shrink-[3] truncate text-[11px] text-muted-foreground/70">
+            {agentType}
+          </span>
+        )}
+        <span className="shrink-0 tabular-nums text-[11px] text-muted-foreground">
+          {t("renderers.agentTool.messages", { count: subagent.message_count })}
+        </span>
+      </button>
+    );
+  }
 
   return (
     <button
