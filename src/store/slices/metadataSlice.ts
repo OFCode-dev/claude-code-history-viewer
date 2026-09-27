@@ -165,6 +165,12 @@ export const createMetadataSlice: StateCreator<
   // Only the latest `openFavoriteSession` may select anything.
   let openFavoriteRequest = 0;
 
+  /** An opened favourite shows its transcript, as picking a session in the list does. */
+  const showTranscript = () => {
+    get().setViewingGlobalStats(false);
+    get().setAnalyticsCurrentView("messages");
+  };
+
   const notifyFavoriteUnavailable = (sessionId: string) => {
     const message = i18n.t("session.favorites.unavailable");
     if (get().isServerReadOnly) {
@@ -468,6 +474,7 @@ export const createMetadataSlice: StateCreator<
       parentSessionStack.length === 0 &&
       isSameProject(selectedProject, project)
     ) {
+      showTranscript();
       return;
     }
 
@@ -492,6 +499,7 @@ export const createMetadataSlice: StateCreator<
         notifyFavoriteUnavailable(entry.sessionId);
         return;
       }
+      showTranscript();
       await get().selectSession(session);
     } catch (error) {
       console.error("Failed to open favorite session:", error);

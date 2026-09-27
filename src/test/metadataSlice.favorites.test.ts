@@ -126,6 +126,8 @@ type TestStore = MetadataSlice &
     | "isServerReadOnly"
     | "selectProject"
     | "selectSession"
+    | "setViewingGlobalStats"
+    | "setAnalyticsCurrentView"
   >;
 
 /** First page each project shows after `selectProject`. */
@@ -159,6 +161,8 @@ function createTestStore(initial: Partial<TestStore> = {}) {
     selectSession: vi.fn(async (session: ClaudeSession) => {
       set({ selectedSession: session, parentSessionStack: [] });
     }),
+    setViewingGlobalStats: vi.fn(),
+    setAnalyticsCurrentView: vi.fn(),
   }));
   store.setState({ userMetadata: structuredClone(backend), ...initial });
   return store;
@@ -375,6 +379,16 @@ describe("openFavoriteSession", () => {
     expect(mockApi).not.toHaveBeenCalled();
   });
 
+  it("shows the transcript, as picking a session in the list does", async () => {
+    backend.sessions = { [recent.session_id]: starredMetadata(recent, claudeProject) };
+    const store = createTestStore({ selectedProject: claudeProject, sessions: [recent] });
+
+    await store.getState().openFavoriteSession(favoriteEntry(store, recent.session_id));
+
+    expect(store.getState().setViewingGlobalStats).toHaveBeenCalledWith(false);
+    expect(store.getState().setAnalyticsCurrentView).toHaveBeenCalledWith("messages");
+  });
+
   it("switches to the favourite's project first", async () => {
     backend.sessions = { [recent.session_id]: starredMetadata(recent, claudeProject) };
     const store = createTestStore({ selectedProject: codexProject, sessions: [codexSession] });
@@ -446,7 +460,7 @@ describe("openFavoriteSession", () => {
     expect(sessionWrites()).toHaveLength(0);
   });
 
-  it("does nothing when the favourite is already open", async () => {
+  it("only brings the transcript back when the favourite is already open", async () => {
     backend.sessions = { [recent.session_id]: starredMetadata(recent, claudeProject) };
     const store = createTestStore({
       selectedProject: claudeProject,
@@ -458,6 +472,7 @@ describe("openFavoriteSession", () => {
 
     expect(store.getState().selectSession).not.toHaveBeenCalled();
     expect(mockApi).not.toHaveBeenCalled();
+    expect(store.getState().setAnalyticsCurrentView).toHaveBeenCalledWith("messages");
   });
 
   it("reopens the favourite from one of its subagent transcripts", async () => {
@@ -512,6 +527,8 @@ describe("openFavoriteSession", () => {
       "session.favorites.unavailable",
       expect.objectContaining({ action: expect.anything() })
     );
+    // What is on screen stays as it was.
+    expect(store.getState().setAnalyticsCurrentView).not.toHaveBeenCalled();
   });
 
   it("offers no remove action on a read-only server", async () => {
