@@ -1,17 +1,16 @@
 // src/components/ProjectTree/hooks/useProjectTreeState.ts
 import { useState, useCallback, useRef, useEffect } from "react";
 import type { ClaudeProject } from "../../../types";
-import type { GroupingMode } from "../../../types/metadata.types";
 import type { ContextMenuState } from "../types";
 
-/** Folder / bucket / worktree-group expansion, persisted across launches. */
+/** Folder and group expansion, persisted across launches. */
 export const EXPANDED_GROUPS_STORAGE_KEY = "projectTree.expandedGroups";
 
 interface StoredExpansion {
   keys: string[];
   /**
-   * Directory roots already expanded once by default; the user owns their
-   * state since. A root seen for the first time (a new drive) starts open.
+   * Rows already expanded once by default ("Other locations"); the user owns
+   * their state since.
    */
   seenRoots: string[];
 }
@@ -23,7 +22,7 @@ const MAX_STORED_ROOTS = 50;
 const onlyStrings = (value: unknown): string[] =>
   Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
 
-/** Group rows (`dir:` folders, `group:` buckets and worktree groups), not projects. */
+/** Rows with children (`dir:`) and groups (`group:`), not a project's inline sessions. */
 export function isGroupExpansionKey(key: string): boolean {
   return key.startsWith("dir:") || key.startsWith("group:");
 }
@@ -60,26 +59,17 @@ export interface TransientGroupKeys {
   opened: readonly string[];
 }
 
-export function useProjectTreeState(
-  groupingMode: GroupingMode,
-  transientGroupsRef?: { readonly current: TransientGroupKeys }
-) {
+/**
+ * Expansion state of the explorer: persisted `dir:` / `group:` keys, plus the
+ * store path of a project whose inline sessions are open (never persisted).
+ */
+export function useProjectTreeState(transientGroupsRef?: { readonly current: TransientGroupKeys }) {
   const [initialExpansion] = useState(loadStoredExpansion);
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(
     () => new Set(initialExpansion?.keys ?? [])
   );
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const seenRootsRef = useRef<string[]>(initialExpansion?.seenRoots ?? []);
-
-  // Grouping mode change: project rows belong to the old layout, group keys
-  // are namespaced and persisted, so only project expansion is reset.
-  const prevGroupingMode = useRef(groupingMode);
-  useEffect(() => {
-    if (prevGroupingMode.current !== groupingMode) {
-      setExpandedProjects((prev) => groupKeysOf(prev));
-      prevGroupingMode.current = groupingMode;
-    }
-  }, [groupingMode]);
 
   useEffect(() => {
     // Folders a search opened are closed again when it clears, but the tree can
@@ -94,13 +84,14 @@ export function useProjectTreeState(
     });
   }, [expandedProjects, transientGroupsRef]);
 
-  const toggleProject = useCallback((projectPath: string) => {
+  /** Open or close one key: a row's children, a group, or inline sessions. */
+  const toggleExpansion = useCallback((key: string) => {
     setExpandedProjects((prev) => {
       const next = new Set(prev);
-      if (next.has(projectPath)) {
-        next.delete(projectPath);
+      if (next.has(key)) {
+        next.delete(key);
       } else {
-        next.add(projectPath);
+        next.add(key);
       }
       return next;
     });
@@ -144,7 +135,7 @@ export function useProjectTreeState(
     [collapseGroups]
   );
 
-  /** Open each directory root the first time it appears; after that the user owns it. */
+  /** Open each of these rows the first time it appears; after that the user owns it. */
   const expandDefaultRoots = useCallback((rootKeys: string[]) => {
     const unseen = rootKeys.filter((key) => !seenRootsRef.current.includes(key));
     if (unseen.length === 0) return;
@@ -160,13 +151,6 @@ export function useProjectTreeState(
       return next.size === prev.size ? prev : next;
     });
   }, []);
-
-  const isProjectExpanded = useCallback(
-    (projectPath: string) => {
-      return expandedProjects.has(projectPath);
-    },
-    [expandedProjects]
-  );
 
   const handleContextMenu = useCallback(
     (e: React.MouseEvent, project: ClaudeProject, providerSiblings?: ClaudeProject[]) => {
@@ -195,14 +179,13 @@ export function useProjectTreeState(
   return {
     expandedProjects,
     setExpandedProjects,
-    toggleProject,
+    toggleExpansion,
     ensureProjectExpanded,
     expandGroups,
     collapseGroup,
     collapseGroups,
     expandDefaultRoots,
     collapseAllGroups,
-    isProjectExpanded,
     contextMenu,
     handleContextMenu,
     closeContextMenu,

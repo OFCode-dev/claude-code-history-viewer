@@ -1,231 +1,207 @@
 import React from "react";
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { ClaudeProject } from "../../../../types";
-import type { DirectoryGroup } from "../../../../utils/worktreeUtils";
-import { ProjectItem } from "../ProjectItem";
-import { GroupHeader } from "../GroupHeader";
-import { GroupedProjectList } from "../GroupedProjectList";
+import { englishT } from "../../../../test/utils/englishTranslator";
+import {
+  buildExplorerModel,
+  type ExplorerGroup,
+  type ExplorerRow as ExplorerRowModel,
+} from "../../../../utils/explorerModel";
+import { ExplorerGroupRow } from "../ExplorerGroupRow";
+import { ExplorerRow, type ExplorerRowProps } from "../ExplorerRow";
+import { ProviderChip } from "../ProviderChip";
 
-vi.mock("react-i18next", () => ({
-  useTranslation: () => ({
-    t: (
-      key: string,
-      options?: string | { defaultValue?: string; [name: string]: unknown }
-    ) => {
-      if (typeof options === "string") {
-        return options;
-      }
-      return options?.defaultValue ?? key;
-    },
-  }),
+vi.mock("react-i18next", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("react-i18next")>()),
+  useTranslation: () => ({ t: englishT }),
 }));
 
-vi.mock("../SessionList", () => ({
-  SessionList: () => <div data-testid="session-list" />,
-}));
-
-function createProject(path: string, name: string): ClaudeProject {
+function project(actualPath: string, overrides: Partial<ClaudeProject> = {}): ClaudeProject {
+  const provider = overrides.provider ?? "claude";
   return {
-    name,
-    path,
-    actual_path: path,
-    session_count: 1,
+    name: actualPath.split("/").pop() ?? actualPath,
+    path: `/store/${provider}${actualPath}`,
+    actual_path: actualPath,
+    session_count: 2,
     message_count: 1,
-    last_modified: "2026-02-21T00:00:00Z",
-    provider: "claude",
+    last_modified: "2026-09-25T00:00:00Z",
+    provider,
+    ...overrides,
   };
 }
 
-describe("ProjectTree tree semantics", () => {
-  it("renders project item as treeitem with aria-level", () => {
-    const project = createProject("/work/project-a", "project-a");
+const model = buildExplorerModel([
+  project("/home/jack/projects/app"),
+  project("/home/jack/projects/app", { provider: "codex", session_count: 1 }),
+  project("/home/jack/projects/lab"),
+  project("/home/jack/projects/lab/tools/cli"),
+  project("/home/jack/projects/lab/relay"),
+  project("/home/jack/projects/research/a"),
+  project("/home/jack/projects/research/b"),
+  project("/home/jack/projects/gone", { path_status: "unavailable" }),
+]);
+function findRow(label: string, rows: ExplorerRowModel[]): ExplorerRowModel | undefined {
+  for (const candidate of rows) {
+    if (candidate.label === label) return candidate;
+    const nested = findRow(label, candidate.children);
+    if (nested) return nested;
+  }
+  return undefined;
+}
+const rowOf = (label: string): ExplorerRowModel => {
+  const found = findRow(label, model.main);
+  if (!found) throw new Error(`no row ${label}`);
+  return found;
+};
 
-    render(
-      <ProjectItem
-        project={project}
-        isExpanded={false}
-        isSelected={false}
-        ariaLevel={2}
-        onToggle={vi.fn()}
-        onClick={vi.fn()}
-        onContextMenu={vi.fn()}
-      />
-    );
+function renderRow(props: Partial<ExplorerRowProps> & { row: ExplorerRowModel }) {
+  const handlers = {
+    onToggle: vi.fn(),
+    onActivate: vi.fn(),
+    onSelectProject: vi.fn(),
+    onContextMenu: vi.fn(),
+  };
+  render(
+    <ExplorerRow
+      level={0}
+      isExpanded={false}
+      selectedProject={null}
+      showProviderBadge
+      {...handlers}
+      {...props}
+    />
+  );
+  return { item: screen.getByRole("treeitem"), ...handlers };
+}
 
-    const treeItem = screen.getByRole("treeitem", { name: /project-a/i });
-    expect(treeItem).toHaveAttribute("aria-level", "2");
+describe("ExplorerRow", () => {
+  it("is a single-line treeitem with its level, count and provider chips", () => {
+    const { item } = renderRow({ row: rowOf("app"), level: 1 });
+
+    expect(item).toHaveAttribute("aria-level", "2");
+    expect(item).toHaveAttribute("aria-selected", "false");
+    expect(item).not.toHaveAttribute("aria-expanded");
+    expect(item).toHaveClass("h-7");
+    expect(item.style.paddingLeft).toBe("22px");
+    expect(within(item).getByText("3")).toHaveClass("tabular-nums");
+    expect(within(item).getByText("CC")).toHaveAttribute("title", "Claude Code · 2 sessions");
+    // One indent guide per ancestor level.
+    expect(item.querySelectorAll("span.bg-border\\/60")).toHaveLength(1);
   });
 
-  it("puts the provider badge under the name in nested tree rows", () => {
-    const project = createProject("/work/project-a", "project-a");
-    const { rerender } = render(
-      <ProjectItem
-        project={project}
-        isExpanded={false}
-        isSelected={false}
-        ariaLevel={3}
-        nested
-        onToggle={vi.fn()}
-        onClick={vi.fn()}
-        onContextMenu={vi.fn()}
-      />
-    );
-    const nameColumn = screen.getByText("project-a").parentElement!;
-    expect(nameColumn).toHaveTextContent(/Claude Code/);
+  it("exposes children expansion and claims its group only while open", () => {
+    const lab = rowOf("lab");
+    const { item, onToggle } = renderRow({ row: lab, isExpanded: true, ownsId: "g1" });
 
-    // Top-level rows keep the badge inline on the right, outside the name column.
-    rerender(
-      <ProjectItem
-        project={project}
-        isExpanded={false}
-        isSelected={false}
-        ariaLevel={1}
-        onToggle={vi.fn()}
-        onClick={vi.fn()}
-        onContextMenu={vi.fn()}
-      />
-    );
-    expect(screen.getByText("project-a").parentElement!).not.toHaveTextContent(/Claude Code/);
-    expect(screen.getByRole("treeitem")).toHaveTextContent(/Claude Code/);
+    expect(item).toHaveAttribute("aria-expanded", "true");
+    expect(item).toHaveAttribute("aria-owns", "g1");
+    expect(item).toHaveAttribute("data-tree-expandable", "true");
+    fireEvent.click(within(item).getByTestId("tree-chevron"));
+    expect(onToggle).toHaveBeenCalledWith(lab);
   });
 
-  it("keeps an unavailable project selectable and exposes its location status", () => {
-    const project = {
-      ...createProject("/work/deleted-worktree", "deleted-worktree"),
-      path_status: "unavailable" as const,
-    };
+  it("shows a pure folder without chips, count or selection state", () => {
+    const { item, onToggle, onActivate } = renderRow({ row: rowOf("research") });
 
-    render(
-      <ProjectItem
-        project={project}
-        isExpanded={false}
-        isSelected={false}
-        onToggle={vi.fn()}
-        onClick={vi.fn()}
-        onContextMenu={vi.fn()}
-      />
-    );
+    expect(item).not.toHaveAttribute("aria-selected");
+    expect(item).toHaveAttribute("data-tree-node", "folder");
+    expect(within(item).queryByText("CC")).toBeNull();
+    expect(item.textContent).toBe("research");
+    fireEvent.click(item);
+    expect(onToggle).toHaveBeenCalledTimes(1);
+    expect(onActivate).not.toHaveBeenCalled();
+  });
 
-    expect(screen.getByRole("treeitem", { name: /deleted-worktree/i })).toBeInTheDocument();
-    expect(screen.getByTestId("project-path-unavailable")).toHaveAttribute(
+  it("dims the compacted prefix and highlights filter matches", () => {
+    const { item } = renderRow({
+      row: rowOf("cli"),
+      level: 1,
+      match: { prefix: [{ start: 0, end: 5 }], label: [], hint: [] },
+    });
+
+    const prefix = within(item).getByText("tools", { selector: "mark" });
+    // The prefix truncates first, from its start; the name keeps its width.
+    expect(prefix.closest('span[dir="rtl"]')).toHaveClass("text-muted-foreground/60", "truncate");
+    expect(within(item).getByText("cli")).toHaveClass("shrink-0", "max-w-full", "truncate");
+  });
+
+  it("marks the selected row and emphasises the selected provider chip", () => {
+    const app = rowOf("app");
+    const codex = app.location!.projects[1]!;
+    const { item, onSelectProject } = renderRow({ row: app, selectedProject: codex });
+
+    expect(item).toHaveAttribute("aria-selected", "true");
+    expect(item).toHaveClass("bg-accent/10");
+    expect(within(item).getByText("CX")).toHaveClass("ring-1");
+    fireEvent.click(within(item).getByText("CC"));
+    expect(onSelectProject).toHaveBeenCalledWith(app.location!.projects[0]);
+  });
+
+  it("opens the row menu from the keyboard", () => {
+    const app = rowOf("app");
+    const { item, onContextMenu } = renderRow({ row: app });
+
+    fireEvent.keyDown(item, { key: "F10", shiftKey: true });
+    fireEvent.keyDown(item, { key: "ContextMenu" });
+
+    expect(onContextMenu).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps the unavailable warning hook", () => {
+    const unavailable = model.groups.find((group) => group.id === "unavailable")!;
+    const { item } = renderRow({ row: unavailable.rows[0]!, level: 1 });
+
+    expect(within(item).getByTestId("project-path-unavailable")).toHaveAttribute(
       "aria-label",
       "Location unavailable"
     );
+    expect(within(item).getByText("~/projects")).toHaveClass("shrink-[3]");
+    // The row's accessible name replaces its content, so it carries the status.
+    expect(item).toHaveAttribute("aria-label", "gone, ~/projects, Location unavailable, Claude Code, 2 sessions");
   });
 
-  it("renders group header as expandable treeitem", () => {
-    render(
-      <GroupHeader
-        groupKey="client-group"
-        label="client"
-        icon={<span>icon</span>}
-        count={3}
-        isExpanded={true}
-        ariaLevel={1}
-        onToggle={vi.fn()}
-        variant="directory"
-      />
-    );
-
-    const groupItem = screen.getByRole("treeitem", { name: /collapse client group/i });
-    expect(groupItem).toHaveAttribute("aria-level", "1");
-    expect(groupItem).toHaveAttribute("aria-expanded", "true");
-  });
-
-  it("marks a focused group header, including programmatic (reveal) focus", () => {
-    render(
-      <GroupHeader
-        groupKey="dir:/work"
-        label="work"
-        icon={<span>icon</span>}
-        count={2}
-        isExpanded={false}
-        onToggle={vi.fn()}
-        variant="directory"
-      />
-    );
-
-    // The base layer removes the outline from :focus-visible; `focus:` (not
-    // `focus-visible:`) also covers row.focus() after a breadcrumb click.
-    const groupItem = screen.getByRole("treeitem", { name: /expand work group/i });
-    expect(groupItem).toHaveClass("focus:ring-2", "focus:ring-inset", "focus:ring-accent");
-  });
-
-  it("renders nested group container for expanded directory groups", () => {
-    const project = createProject("/work/project-a", "project-a");
-    const directoryGroup: DirectoryGroup = {
-      name: "work",
-      path: "/work",
-      displayPath: "/work",
-      projects: [project],
-    };
-
-    render(
-      <GroupedProjectList
-        groupingMode="directory"
-        projects={[]}
-        directoryGroups={[directoryGroup]}
-        worktreeGroups={[]}
-        sessions={[]}
-        selectedProject={null}
-        selectedSession={null}
-        isLoading={false}
-        expandedProjects={new Set(["dir:/"])}
-        setExpandedProjects={vi.fn()}
-        isProjectExpanded={() => false}
-        handleProjectClick={vi.fn()}
-        handleContextMenu={vi.fn()}
-        onSessionSelect={vi.fn()}
-        formatTimeAgo={(date) => date}
-      />
-    );
-
-    const treeItems = screen.getAllByRole("treeitem");
-    expect(treeItems[0]).toHaveAttribute("aria-level", "1");
-    expect(treeItems[1]).toHaveAttribute("aria-level", "2");
-    expect(screen.getByRole("group")).toBeInTheDocument();
-  });
-
-  it("renders a folder's own project first, lifted subtitles and provider chips", () => {
-    const repo = createProject("/home/jack/repo", "repo");
-    const repoCodex = { ...createProject("/home/jack/repo", "repo"), path: "/codex/repo", provider: "codex" };
-    const tool = createProject("/home/jack/repo/tools/deep/cli", "cli");
-    const directoryGroups: DirectoryGroup[] = [
-      { name: "jack", path: "/home/jack", displayPath: "~", projects: [repo, repoCodex] },
-      { name: "deep", path: "/home/jack/repo/tools/deep", displayPath: "~/repo/tools/deep", projects: [tool] },
-    ];
-
-    render(
-      <GroupedProjectList
-        groupingMode="directory"
-        projects={[]}
-        directoryGroups={directoryGroups}
-        worktreeGroups={[]}
-        sessions={[]}
-        selectedProject={null}
-        selectedSession={null}
-        isLoading={false}
-        expandedProjects={new Set(["dir:/home/jack"])}
-        setExpandedProjects={vi.fn()}
-        isProjectExpanded={() => false}
-        handleProjectClick={vi.fn()}
-        handleContextMenu={vi.fn()}
-        onSessionSelect={vi.fn()}
-        formatTimeAgo={(date) => date}
-      />
-    );
-
-    // Root compacts into `~/repo`, which is itself a project.
-    const items = screen.getAllByRole("treeitem");
-    expect(items.map((item) => item.getAttribute("data-tree-key"))).toEqual([
-      "dir:/home/jack",
-      "loc:/home/jack/repo",
-      "loc:/home/jack/repo/tools/deep/cli",
+  it("names what the icon means for home, worktree and path-less rows", () => {
+    const homeModel = buildExplorerModel([
+      project("/home/jack"),
+      project("/home/jack/projects/a"),
+      project("/home/jack/projects/b"),
+      project("/home/jack/projects/c"),
     ]);
-    expect(items[0]).toHaveTextContent("~/repo");
-    expect(items[0]).toHaveTextContent("2");
-    expect(items[1]).toHaveTextContent("Codex");
-    expect(items[2]).toHaveTextContent("tools/deep");
+    const home = homeModel.groups[0]!.rows[0]!;
+    const { item } = renderRow({ row: home, level: 1 });
+
+    expect(home.variant).toBe("home");
+    expect(item).toHaveAttribute("aria-label", "~, Home folder, Claude Code, 2 sessions");
+  });
+});
+
+describe("ExplorerGroupRow", () => {
+  const group: ExplorerGroup = { id: "unavailable", key: "group:unavailable-projects", rows: [], locationCount: 4 };
+
+  it("is an expandable level-1 treeitem with a count and a warning tint", () => {
+    const onToggle = vi.fn();
+    render(<ExplorerGroupRow group={group} isExpanded={false} ownsId="g" onToggle={onToggle} />);
+
+    const item = screen.getByRole("treeitem", { name: "Unavailable, 4 projects" });
+    expect(item).toHaveAttribute("aria-level", "1");
+    expect(item).toHaveAttribute("aria-expanded", "false");
+    expect(item).not.toHaveAttribute("aria-owns");
+    expect(item).toHaveClass("text-warning");
+    fireEvent.click(item);
+    expect(onToggle).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("ProviderChip", () => {
+  it("is a plain label unless it switches provider", () => {
+    const onSelect = vi.fn();
+    const { rerender } = render(<ProviderChip providerId="codex" title="Codex CLI · 1 session" />);
+    expect(screen.queryByRole("button")).toBeNull();
+    expect(screen.getByText("CX")).toHaveAttribute("title", "Codex CLI · 1 session");
+
+    rerender(<ProviderChip providerId="codex" title="Codex CLI · 1 session" onSelect={onSelect} />);
+    fireEvent.click(screen.getByRole("button", { name: "Codex CLI · 1 session" }));
+    expect(onSelect).toHaveBeenCalledTimes(1);
   });
 });

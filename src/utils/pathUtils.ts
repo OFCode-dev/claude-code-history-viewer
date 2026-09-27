@@ -34,6 +34,9 @@ const TEMP_PATH_PATTERNS: RegExp[] = [
   /^\/home\/[^/]+\/\.cache(?:\/|$)/,
   /^\/?[A-Za-z]:[\\/]Users[\\/][^\\/]+[\\/]AppData[\\/]Local[\\/]Temp(?:[\\/]|$)/i,
   /^\/?[A-Za-z]:[\\/]Windows[\\/]Temp(?:[\\/]|$)/i,
+  // Claude Code background-job folders (`~/.claude/jobs/<id>/…`).
+  /^\/(?:(?:home|Users)\/[^/]+|root)\/\.claude\/jobs\//,
+  /^\/?[A-Za-z]:[\\/]Users[\\/][^\\/]+[\\/]\.claude[\\/]jobs[\\/]/i,
 ];
 
 /** Whether `path` lives under an OS temporary/cache directory. */
@@ -91,6 +94,88 @@ export function detectHomeDir(paths: string[]): string | null {
   return null;
 }
 
+/** `C:\…`, `/C:/…` or any path with a backslash: compared case-insensitively. */
+export function looksLikeWindowsPath(path: string): boolean {
+  return /^[\\/]?[A-Za-z]:(?:[\\/]|$)/.test(path) || path.includes("\\");
+}
+
+/** Comparable form of a path: `/`-joined parts, lower-cased for Windows paths. */
+export function getPathIdentity(path: string): string {
+  const joined = splitPathParts(path).join("/");
+  return looksLikeWindowsPath(path) ? joined.toLowerCase() : joined;
+}
+
+/** Whether `childIdentity` is `parentIdentity` or inside it (both from `getPathIdentity`). */
+export function isSameOrInsideIdentity(childIdentity: string, parentIdentity: string): boolean {
+  return (
+    parentIdentity === "" ||
+    childIdentity === parentIdentity ||
+    childIdentity.startsWith(`${parentIdentity}/`)
+  );
+}
+
+/** `detectHomeDir` plus the POSIX superuser's home, which is not under `/home`. */
+export function homeDirOf(path: string): string | null {
+  if (/^\/root(?:\/|$)/.test(path)) return "/root";
+  return detectHomeDir([path]);
+}
+
+const withoutTrailingSeparators = (path: string) => path.replace(/[\\/]+$/, "");
+
+/** The home directory shared by most paths; other users' homes are not `~`. */
+export function pickHomeDir(paths: string[]): string | null {
+  const counts = new Map<string, { home: string; count: number }>();
+  for (const path of paths) {
+    const home = homeDirOf(path);
+    if (!home) continue;
+    const id = getPathIdentity(home);
+    const entry = counts.get(id);
+    if (entry) entry.count += 1;
+    else counts.set(id, { home, count: 1 });
+  }
+  let best: { home: string; count: number } | null = null;
+  for (const entry of counts.values()) {
+    if (!best || entry.count > best.count) best = entry;
+  }
+  return best ? withoutTrailingSeparators(best.home.replace(/^\/(?=[A-Za-z]:)/, "")) : null;
+}
+
+/**
+ * The folder holding the Claude data folder (`<home>/.claude`), i.e. the
+ * backend's home, or null for a custom data folder with another name.
+ */
+export function getClaudeFolderHome(claudePath: string | null | undefined): string | null {
+  if (!claudePath) return null;
+  const trimmed = withoutTrailingSeparators(claudePath);
+  const match = /^(.+)[\\/]\.claude$/.exec(trimmed);
+  return match?.[1] ?? null;
+}
+
+/**
+ * Home directory shown as `~`. `hint` is the backend's home (see
+ * `getClaudeFolderHome`): it wins when it holds every path the home detected
+ * from the paths holds, so a HOME outside `/home/<user>` (a fixture, a
+ * container) still shows as `~`, while a custom data folder elsewhere does not.
+ */
+export function resolveHomeDir(paths: string[], hint?: string | null): string | null {
+  const detected = pickHomeDir(paths);
+  const hintId = hint ? getPathIdentity(hint) : "";
+  if (!hint || hintId === "") return detected;
+  // A data folder at `C:\.claude` or `/home/.claude` is not a home: a hint
+  // above the detected home would turn a whole drive into `~`.
+  if (detected) {
+    const detectedId = getPathIdentity(detected);
+    if (hintId !== detectedId && isSameOrInsideIdentity(detectedId, hintId)) return detected;
+  }
+
+  const countInside = (baseId: string) =>
+    paths.filter((path) => isSameOrInsideIdentity(getPathIdentity(path), baseId)).length;
+  const hintCount = countInside(hintId);
+  if (hintCount === 0) return detected;
+  if (detected && countInside(getPathIdentity(detected)) > hintCount) return detected;
+  return withoutTrailingSeparators(hint);
+}
+
 /**
  * Format path for display (replace home dir with ~/)
  */
@@ -136,7 +221,7 @@ function stripExtendedLengthPrefix(path: string): string {
 }
 
 /** A UNC path (`\\server\share`) has a different root kind from `C:\` or `/`. */
-function isUncPath(path: string): boolean {
+export function isUncPath(path: string): boolean {
   return /^[\\/]{2}[^\\/]/.test(path);
 }
 
