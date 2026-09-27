@@ -11,6 +11,7 @@
  */
 
 import { matchGlobPattern } from "../utils/globUtils";
+import type { FavoriteSessionRef } from "./core/project";
 
 /** Current schema version for migration support */
 export const METADATA_SCHEMA_VERSION = 1;
@@ -21,6 +22,10 @@ export interface SessionMetadata {
   customName?: string;
   /** Whether the session is starred/favorited */
   starred?: boolean;
+  /** When the session was starred (ISO 8601); orders the favourites list */
+  starredAt?: string;
+  /** Where the starred session lives, captured when it was starred */
+  favorite?: FavoriteSessionRef;
   /** User-defined tags for organization */
   tags?: string[];
   /** User notes about the session */
@@ -88,6 +93,8 @@ export const isSessionMetadataEmpty = (metadata: SessionMetadata): boolean => {
   return (
     !metadata.customName &&
     !metadata.starred &&
+    !metadata.starredAt &&
+    !metadata.favorite &&
     (!metadata.tags || metadata.tags.length === 0) &&
     !metadata.notes &&
     !metadata.hasClaudeCodeName

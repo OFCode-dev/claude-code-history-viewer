@@ -151,6 +151,14 @@ pub struct SessionMetadata {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub starred: Option<bool>,
 
+    /// When the session was starred (ISO 8601); orders the favourites list
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub starred_at: Option<String>,
+
+    /// Where the starred session lives, captured when it was starred
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub favorite: Option<FavoriteSessionRef>,
+
     /// User-defined tags for organization
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub tags: Vec<String>,
@@ -165,9 +173,38 @@ impl SessionMetadata {
     pub fn is_empty(&self) -> bool {
         self.custom_name.is_none()
             && self.starred.is_none()
+            && self.starred_at.is_none()
+            && self.favorite.is_none()
             && self.tags.is_empty()
             && self.notes.is_none()
     }
+}
+
+/// Snapshot of a favourite session: enough to list it and to open it without
+/// loading every project's sessions first.
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct FavoriteSessionRef {
+    /// Path of the owning project (`ClaudeProject.path`). Defaults to empty so
+    /// a malformed entry cannot make the whole file unreadable.
+    #[serde(default)]
+    pub project_path: String,
+
+    /// Provider of the owning project (e.g. "claude", "codex")
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub provider: Option<String>,
+
+    /// Session title when it was starred (custom name, else summary)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+
+    /// Session id from the messages (`ClaudeSession.actual_session_id`)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub actual_session_id: Option<String>,
+
+    /// Time of the session's last message when it was last seen (ISO 8601)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_message_time: Option<String>,
 }
 
 /// Metadata for individual projects
@@ -336,6 +373,112 @@ mod tests {
         let deserialized: UserMetadata = serde_json::from_str(&json).unwrap();
 
         assert_eq!(metadata, deserialized);
+    }
+
+    fn starred_session() -> SessionMetadata {
+        SessionMetadata {
+            custom_name: Some("Login fix".to_string()),
+            starred: Some(true),
+            starred_at: Some("2026-09-27T10:00:00.000Z".to_string()),
+            favorite: Some(FavoriteSessionRef {
+                project_path: "/home/me/.claude/projects/-home-me-work-api".to_string(),
+                provider: Some("claude".to_string()),
+                title: Some("Login fix".to_string()),
+                actual_session_id: Some("11111111-2222-3333-4444-555566667777".to_string()),
+                last_message_time: Some("2026-09-26T08:30:00Z".to_string()),
+            }),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn test_favorite_fields_roundtrip() {
+        let mut metadata = UserMetadata::new();
+        metadata
+            .sessions
+            .insert("/tmp/session.jsonl".to_string(), starred_session());
+
+        let json = serde_json::to_string(&metadata).unwrap();
+        for key in [
+            "\"starredAt\"",
+            "\"favorite\"",
+            "\"projectPath\"",
+            "\"actualSessionId\"",
+            "\"lastMessageTime\"",
+        ] {
+            assert!(json.contains(key), "{key} missing from {json}");
+        }
+
+        let deserialized: UserMetadata = serde_json::from_str(&json).unwrap();
+        assert_eq!(metadata, deserialized);
+    }
+
+    #[test]
+    fn test_session_without_favorite_fields_still_loads() {
+        // A file written before favourites existed.
+        let json = r#"{
+            "version": 1,
+            "sessions": { "s1": { "customName": "Old", "starred": true } },
+            "projects": {},
+            "settings": {}
+        }"#;
+        let metadata: UserMetadata = serde_json::from_str(json).unwrap();
+        let session = metadata.get_session("s1").unwrap();
+        assert_eq!(session.custom_name.as_deref(), Some("Old"));
+        assert_eq!(session.starred, Some(true));
+        assert!(session.starred_at.is_none());
+        assert!(session.favorite.is_none());
+
+        // Absent fields stay absent when the file is written back.
+        let written = serde_json::to_string(&metadata).unwrap();
+        assert!(!written.contains("starredAt"));
+        assert!(!written.contains("favorite"));
+    }
+
+    #[test]
+    fn test_favorite_ref_optional_fields_are_skipped() {
+        let reference = FavoriteSessionRef {
+            project_path: "codex:///home/me/work".to_string(),
+            ..Default::default()
+        };
+        let json = serde_json::to_string(&reference).unwrap();
+        assert_eq!(json, r#"{"projectPath":"codex:///home/me/work"}"#);
+    }
+
+    #[test]
+    fn test_favorite_without_project_path_still_loads() {
+        // A malformed or hand-edited entry must not make the whole file unreadable.
+        let json = r#"{ "starred": true, "favorite": { "title": "Orphan" } }"#;
+        let session: SessionMetadata = serde_json::from_str(json).unwrap();
+        let favorite = session.favorite.unwrap();
+        assert_eq!(favorite.project_path, "");
+        assert_eq!(favorite.title.as_deref(), Some("Orphan"));
+    }
+
+    #[test]
+    fn test_session_metadata_is_empty_counts_favorite_fields() {
+        assert!(!starred_session().is_empty());
+
+        let only_starred_at = SessionMetadata {
+            starred_at: Some("2026-09-27T10:00:00.000Z".to_string()),
+            ..Default::default()
+        };
+        assert!(!only_starred_at.is_empty());
+
+        let only_favorite = SessionMetadata {
+            favorite: Some(FavoriteSessionRef::default()),
+            ..Default::default()
+        };
+        assert!(!only_favorite.is_empty());
+
+        // Unstarring removes all three fields; nothing else set means empty.
+        let unstarred = SessionMetadata {
+            starred: None,
+            starred_at: None,
+            favorite: None,
+            ..Default::default()
+        };
+        assert!(unstarred.is_empty());
     }
 
     #[test]

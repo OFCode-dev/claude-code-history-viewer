@@ -119,6 +119,8 @@ export type {
   CustomClaudePath,
   WslDistro,
   WslSettings,
+  FavoriteSessionRef,
+  FavoriteSessionEntry,
   SessionMetadata,
   ProjectMetadata,
   GroupingMode,

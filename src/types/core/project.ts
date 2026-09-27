@@ -14,12 +14,42 @@ export const METADATA_SCHEMA_VERSION = 1;
 // Session Metadata
 // ============================================================================
 
+/**
+ * Snapshot of a favourite session, captured when it is starred: enough to
+ * list it and to open it without loading every project's sessions first.
+ */
+export interface FavoriteSessionRef {
+  /** Path of the owning project (`ClaudeProject.path`) */
+  projectPath: string;
+  /** Provider of the owning project (e.g. "claude", "codex") */
+  provider?: string;
+  /** Session title when it was starred: custom name, else summary */
+  title?: string;
+  /** Session id from the messages (`ClaudeSession.actual_session_id`) */
+  actualSessionId?: string;
+  /** Time of the session's last message when it was last seen (ISO 8601) */
+  lastMessageTime?: string;
+}
+
+/** A favourite as listed: the metadata key plus when and where it was starred. */
+export interface FavoriteSessionEntry {
+  /** Metadata key of the session (`ClaudeSession.session_id`) */
+  sessionId: string;
+  /** When it was starred (ISO 8601) */
+  starredAt: string;
+  favorite: FavoriteSessionRef;
+}
+
 /** Metadata for individual sessions */
 export interface SessionMetadata {
   /** Custom name for the session (overrides auto-generated summary) */
   customName?: string;
   /** Whether the session is starred/favorited */
   starred?: boolean;
+  /** When the session was starred (ISO 8601); orders the favourites list */
+  starredAt?: string;
+  /** Where the starred session lives, captured when it was starred */
+  favorite?: FavoriteSessionRef;
   /** User-defined tags for organization */
   tags?: string[];
   /** User notes about the session */
@@ -124,6 +154,8 @@ export const isSessionMetadataEmpty = (metadata: SessionMetadata): boolean => {
   return (
     !metadata.customName &&
     !metadata.starred &&
+    !metadata.starredAt &&
+    !metadata.favorite &&
     (!metadata.tags || metadata.tags.length === 0) &&
     !metadata.notes &&
     !metadata.hasClaudeCodeName
