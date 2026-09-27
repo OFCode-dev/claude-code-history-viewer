@@ -2,7 +2,7 @@
  * @fileoverview Favourite star on a session row and in its context menu.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { SessionItem } from "../components/SessionItem";
 import { useAppStore } from "../store/useAppStore";
 import type { ClaudeProject, ClaudeSession } from "../types";
@@ -127,6 +127,31 @@ describe("SessionItem favourite star", () => {
     fireEvent.click(remove);
     expect(toggleSessionFavorite).toHaveBeenCalledWith(session, project);
     expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it("keeps keyboard focus on the star as it moves before the title and back", async () => {
+    toggleSessionFavorite.mockImplementationOnce(async () => setFavorite(true));
+    renderRow();
+
+    const add = screen.getByRole("button", { name: "Add to favorites" });
+    add.focus();
+    await act(async () => {
+      fireEvent.click(add);
+    });
+    const remove = screen.getByRole("button", { name: "Remove from favorites" });
+    expect(remove).toHaveFocus();
+
+    toggleSessionFavorite.mockImplementationOnce(async () => setFavorite(false));
+    await act(async () => {
+      fireEvent.click(remove);
+    });
+    expect(screen.getByRole("button", { name: "Add to favorites" })).toHaveFocus();
+  });
+
+  it("does not take focus when the star changes from elsewhere", async () => {
+    renderRow();
+    await act(async () => setFavorite(true));
+    expect(document.body).toHaveFocus();
   });
 
   it("shows a favourite but offers no toggle on a read-only server", () => {

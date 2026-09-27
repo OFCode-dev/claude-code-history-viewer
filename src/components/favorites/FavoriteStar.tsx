@@ -11,6 +11,7 @@ interface FavoriteStarButtonProps {
   onToggle: () => void;
   className?: string;
   iconClassName?: string;
+  ref?: React.Ref<HTMLButtonElement>;
 }
 
 /**
@@ -22,6 +23,7 @@ export function FavoriteStarButton({
   onToggle,
   className,
   iconClassName = "w-3.5 h-3.5",
+  ref,
 }: FavoriteStarButtonProps) {
   const { t } = useTranslation();
   const label = isFavorite
@@ -35,6 +37,7 @@ export function FavoriteStarButton({
 
   return (
     <button
+      ref={ref}
       type="button"
       aria-pressed={isFavorite}
       aria-label={label}
