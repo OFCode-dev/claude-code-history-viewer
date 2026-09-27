@@ -1,12 +1,17 @@
 import { describe, expect, it } from "vitest";
 import {
   elideProjectRoot,
+  getClaudeFolderHome,
   getCompactParentPath,
   getDisplayPathParts,
+  getPathIdentity,
   getPathLeaf,
+  homeDirOf,
   isProjectPathUnavailable,
   isProjectTemporary,
   isTemporaryPath,
+  pickHomeDir,
+  resolveHomeDir,
 } from "../utils/pathUtils";
 
 describe("temporary path detection", () => {
@@ -18,6 +23,10 @@ describe("temporary path detection", () => {
     "/Users/jack/Library/Caches/foo",
     "/home/jack/.cache/agent",
     "C:\\Users\\jack\\AppData\\Local\\Temp\\job",
+    "/home/jack/.claude/jobs/ab12cd34/tmp",
+    "/Users/jack/.claude/jobs/ab12cd34",
+    "/root/.claude/jobs/ab12cd34/tmp",
+    "C:\\Users\\jack\\.claude\\jobs\\ab12cd34\\tmp",
   ])("flags %s as temporary", (path) => {
     expect(isTemporaryPath(path)).toBe(true);
   });
@@ -27,6 +36,8 @@ describe("temporary path detection", () => {
     "/home/jack/tmp-notes",
     "/work/tmp",
     "/var/www/site",
+    "/home/jack/.claude/automation",
+    "/home/jack/projects/jobs/.claude/jobs-board",
     "",
   ])("keeps %s as a regular project", (path) => {
     expect(isTemporaryPath(path)).toBe(false);
@@ -37,6 +48,54 @@ describe("temporary path detection", () => {
       isProjectTemporary({ actual_path: "/tmp/gone", path_status: "unavailable" })
     ).toBe(false);
     expect(isProjectTemporary({ actual_path: "/tmp/here" })).toBe(true);
+  });
+});
+
+describe("path identity and home detection", () => {
+  it("compares paths by their parts, ignoring separators, trailing slashes and Windows case", () => {
+    expect(getPathIdentity("/home/jack/app/")).toBe(getPathIdentity("/home/jack/app"));
+    expect(getPathIdentity("C:\\Users\\Jack\\App")).toBe(getPathIdentity("c:/users/jack/app"));
+    // POSIX paths stay case-sensitive.
+    expect(getPathIdentity("/home/jack/App")).not.toBe(getPathIdentity("/home/jack/app"));
+  });
+
+  it("finds the home of a path, the superuser's included", () => {
+    expect(homeDirOf("/home/jack/projects/app")).toBe("/home/jack");
+    expect(homeDirOf("/Users/jack/app")).toBe("/Users/jack");
+    expect(homeDirOf("/root/app")).toBe("/root");
+    expect(homeDirOf("/srv/app")).toBeNull();
+  });
+
+  it("picks the home most paths share", () => {
+    expect(pickHomeDir(["/home/other/x", "/home/jack/a", "/home/jack/b"])).toBe("/home/jack");
+    expect(pickHomeDir(["C:\\Users\\Jack\\src\\app\\"])).toBe("C:\\Users\\Jack");
+    expect(pickHomeDir(["/srv/app"])).toBeNull();
+  });
+
+  it("derives the home from the default Claude data folder only", () => {
+    expect(getClaudeFolderHome("/home/fx/.claude")).toBe("/home/fx");
+    expect(getClaudeFolderHome("C:\\Users\\Jack\\.claude\\")).toBe("C:\\Users\\Jack");
+    expect(getClaudeFolderHome("/Volumes/backup/claude-data")).toBeNull();
+    expect(getClaudeFolderHome("")).toBeNull();
+    expect(getClaudeFolderHome(undefined)).toBeNull();
+  });
+
+  it("prefers the backend's home when it holds every path the detected home holds", () => {
+    const paths = [
+      "/home/warden/fixture-home/projects/app",
+      "/home/warden/fixture-home/notes",
+      "/tmp/scratch",
+    ];
+    // Detected from the paths: /home/warden. The backend's HOME is deeper.
+    expect(resolveHomeDir(paths, "/home/warden/fixture-home")).toBe("/home/warden/fixture-home");
+    expect(resolveHomeDir(paths, null)).toBe("/home/warden");
+  });
+
+  it("keeps the detected home when the hint is a custom data folder elsewhere", () => {
+    const paths = ["/Users/jack/app", "/Users/jack/api", "/Volumes/backup/one-off"];
+    expect(resolveHomeDir(paths, "/Volumes/backup")).toBe("/Users/jack");
+    expect(resolveHomeDir(paths, "/nowhere")).toBe("/Users/jack");
+    expect(resolveHomeDir(["/srv/a", "/srv/b"], "/srv")).toBe("/srv");
   });
 });
 
