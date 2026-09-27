@@ -25,6 +25,13 @@ export interface MessageViewerProps {
   onPrevMatch?: () => void;
   /** Opens the Session Board (toolbar button left of the search field). */
   onOpenBoard?: () => void;
+  /**
+   * Renders the collapsible subagent list above the conversation. Defaults
+   * to `true`. The caller sets this to `false` when the sessions pane's own
+   * docked "Subagents" section already lists them, so subagents show in
+   * exactly one place at a time.
+   */
+  showSubagentPanel?: boolean;
 }
 
 export interface MessageNodeProps {

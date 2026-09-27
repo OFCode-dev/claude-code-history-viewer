@@ -65,6 +65,7 @@ export const MessageViewer: React.FC<MessageViewerProps> = ({
   onNextMatch,
   onPrevMatch,
   onOpenBoard,
+  showSubagentPanel = true,
 }) => {
   const { t } = useTranslation();
   const scrollContainerRef = useRef<OverlayScrollbarsComponentRef>(null);
@@ -1003,8 +1004,11 @@ export const MessageViewer: React.FC<MessageViewerProps> = ({
       {/* SubAgent: context bar (back, label, previous/next sibling) */}
       <SubagentContextBar />
 
-      {/* SubAgent sessions panel — collapsible (접힘 상태는 MessageViewer에 lift됨) */}
-      {subagentSessions.length > 0 && parentSessionStack.length === 0 && (
+      {/* SubAgent sessions panel — collapsible (접힘 상태는 MessageViewer에 lift됨).
+          Hidden when the sessions pane's docked section already lists these
+          subagents (showSubagentPanel=false from AppLayout), so they never
+          show in two places at once. */}
+      {showSubagentPanel && subagentSessions.length > 0 && parentSessionStack.length === 0 && (
         <SubagentSessionsPanel
           subagentSessions={subagentSessions}
           navigateToSubagent={navigateToSubagent}
