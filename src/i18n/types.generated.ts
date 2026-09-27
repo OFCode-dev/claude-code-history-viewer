@@ -5,8 +5,8 @@
  * 직접 수정하지 마세요.
  *
  * 생성 명령: pnpm run generate:i18n-types
- * 생성 시간: 2026-09-26T00:38:51.898Z
- * 총 키 개수: 2053
+ * 생성 시간: 2026-09-27T10:38:26.770Z
+ * 총 키 개수: 2063
  * Namespace 수: 11
  */
 
@@ -452,7 +452,7 @@ export type AnalyticsKeys =
   | 'analytics.weeklyActivity';
 
 /**
- * session namespace의 번역 키 (284개)
+ * session namespace의 번역 키 (294개)
  * 파일: locales/{lang}/session.json
  */
 export type SessionKeys =
@@ -584,6 +584,16 @@ export type SessionKeys =
   | 'session.export.json'
   | 'session.export.markdown'
   | 'session.export.success'
+  | 'session.favorites.add'
+  | 'session.favorites.lastMessage'
+  | 'session.favorites.openError'
+  | 'session.favorites.projectsLoading'
+  | 'session.favorites.remove'
+  | 'session.favorites.removeAction'
+  | 'session.favorites.saveError'
+  | 'session.favorites.starred'
+  | 'session.favorites.title'
+  | 'session.favorites.unavailable'
   | 'session.filter.clearSearch'
   | 'session.filter.noResults'
   | 'session.filter.searchPlaceholder'
@@ -3279,6 +3289,16 @@ export type TranslationKey =
   | 'session.export.json'
   | 'session.export.markdown'
   | 'session.export.success'
+  | 'session.favorites.add'
+  | 'session.favorites.lastMessage'
+  | 'session.favorites.openError'
+  | 'session.favorites.projectsLoading'
+  | 'session.favorites.remove'
+  | 'session.favorites.removeAction'
+  | 'session.favorites.saveError'
+  | 'session.favorites.starred'
+  | 'session.favorites.title'
+  | 'session.favorites.unavailable'
   | 'session.filter.clearSearch'
   | 'session.filter.noResults'
   | 'session.filter.searchPlaceholder'

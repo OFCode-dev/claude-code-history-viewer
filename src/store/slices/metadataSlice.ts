@@ -4,7 +4,9 @@
  * Manages user metadata stored in ~/.claude-history-viewer/user-data.json
  */
 
+import { toast } from "sonner";
 import { api } from "@/services/api";
+import { loadAllProjectSessions } from "@/services/projectSessionsApi";
 import type { StateCreator } from "zustand";
 import type {
   UserMetadata,
@@ -13,9 +15,21 @@ import type {
   UserSettings,
   CustomClaudePath,
   WslSettings,
+  ClaudeProject,
+  ClaudeSession,
+  FavoriteSessionEntry,
 } from "../../types";
 import { DEFAULT_USER_METADATA } from "../../types";
+import i18n from "../../i18n";
 import { matchGlobPattern } from "../../utils/globUtils";
+import {
+  buildFavoriteRef,
+  findFavoriteProject,
+  isSameFavoriteRef,
+  isSameProject,
+  listFavoriteSessions,
+  withoutFavorite,
+} from "../../utils/favoriteSessions";
 import type { FullAppStore } from "./types";
 
 // ============================================================================
@@ -81,6 +95,22 @@ export interface MetadataSliceActions {
   toggleWslDistro: (distroName: string) => Promise<void>;
   /** Clear metadata error */
   clearMetadataError: () => void;
+  /** Whether a session is starred */
+  isSessionFavorite: (sessionId: string) => boolean;
+  /** Star a session (with a snapshot of where it lives), or unstar it */
+  toggleSessionFavorite: (
+    session: ClaudeSession,
+    project: ClaudeProject
+  ) => Promise<void>;
+  /** Unstar a session by its metadata key */
+  removeSessionFavorite: (sessionId: string) => Promise<void>;
+  /** Favourites that can be opened, most recently starred first */
+  getFavoriteSessions: () => FavoriteSessionEntry[];
+  /**
+   * Open a favourite: select its project if needed, find the session (loading
+   * the project's whole list when it is past the loaded page) and select it.
+   */
+  openFavoriteSession: (entry: FavoriteSessionEntry) => Promise<void>;
 }
 
 export type MetadataSlice = MetadataSliceState & MetadataSliceActions;
@@ -105,8 +135,73 @@ export const createMetadataSlice: StateCreator<
   [],
   [],
   MetadataSlice
-> = (set, get) => ({
-  ...initialMetadataState,
+> = (set, get) => {
+  // Session entries are written one at a time, each computed from the result
+  // of the write before it. The backend replaces the entry and then saves the
+  // whole file outside its lock, through a single temp file, so two writes in
+  // flight can land on disk in either order or interleave; and an update
+  // merged from the state at call time would undo one still in flight (two
+  // quick clicks on a star).
+  let sessionWriteChain: Promise<void> = Promise.resolve();
+
+  const writeSessionEntry = (
+    sessionId: string,
+    next: (current: SessionMetadata | undefined) => SessionMetadata | null
+  ): Promise<void> => {
+    const run = async () => {
+      const entry = next(get().userMetadata.sessions[sessionId]);
+      if (entry === null) return;
+      const updatedMetadata = await api<UserMetadata>("update_session_metadata", {
+        sessionId,
+        update: entry,
+      });
+      set({ userMetadata: updatedMetadata });
+    };
+    const result = sessionWriteChain.then(run);
+    sessionWriteChain = result.catch(() => undefined);
+    return result;
+  };
+
+  // Only the latest `openFavoriteSession` may select anything.
+  let openFavoriteRequest = 0;
+
+  const notifyFavoriteUnavailable = (sessionId: string) => {
+    const message = i18n.t("session.favorites.unavailable");
+    if (get().isServerReadOnly) {
+      toast.error(message);
+      return;
+    }
+    toast.error(message, {
+      duration: 8000,
+      action: {
+        label: i18n.t("session.favorites.removeAction"),
+        onClick: () => void get().removeSessionFavorite(sessionId),
+      },
+    });
+  };
+
+  /** Keep the favourite's title and last-message time in step with the session. */
+  const refreshFavoriteSnapshot = async (
+    sessionId: string,
+    session: ClaudeSession,
+    project: ClaudeProject
+  ) => {
+    try {
+      await writeSessionEntry(sessionId, (current) => {
+        if (current?.starred !== true) return null;
+        const fresh = buildFavoriteRef(session, project, current.customName);
+        return isSameFavoriteRef(current.favorite, fresh)
+          ? null
+          : { ...current, favorite: fresh };
+      });
+    } catch (error) {
+      console.error("Failed to refresh favorite session:", error);
+      toast.error(i18n.t("session.favorites.saveError"));
+    }
+  };
+
+  return {
+    ...initialMetadataState,
 
   loadMetadata: async () => {
     set({ isMetadataLoading: true, metadataError: null });
@@ -144,19 +239,8 @@ export const createMetadataSlice: StateCreator<
     sessionId: string,
     update: Partial<SessionMetadata>
   ) => {
-    const { userMetadata } = get();
-    const existingSession = userMetadata.sessions[sessionId] || {};
-    const mergedSession: SessionMetadata = { ...existingSession, ...update };
-
     try {
-      const updatedMetadata = await api<UserMetadata>(
-        "update_session_metadata",
-        {
-          sessionId,
-          update: mergedSession,
-        }
-      );
-      set({ userMetadata: updatedMetadata });
+      await writeSessionEntry(sessionId, (current) => ({ ...current, ...update }));
     } catch (error) {
       console.error("Failed to update session metadata:", error);
       set({ metadataError: String(error) });
@@ -326,4 +410,96 @@ export const createMetadataSlice: StateCreator<
   clearMetadataError: () => {
     set({ metadataError: null });
   },
-});
+
+  isSessionFavorite: (sessionId: string): boolean =>
+    get().userMetadata.sessions[sessionId]?.starred === true,
+
+  toggleSessionFavorite: async (session: ClaudeSession, project: ClaudeProject) => {
+    try {
+      await writeSessionEntry(session.session_id, (current = {}) =>
+        current.starred === true
+          ? withoutFavorite(current)
+          : {
+              ...current,
+              starred: true,
+              starredAt: new Date().toISOString(),
+              favorite: buildFavoriteRef(session, project, current.customName),
+            }
+      );
+    } catch (error) {
+      console.error("Failed to update favorite session:", error);
+      toast.error(i18n.t("session.favorites.saveError"));
+    }
+  },
+
+  removeSessionFavorite: async (sessionId: string) => {
+    try {
+      await writeSessionEntry(sessionId, (current) =>
+        current != null &&
+        (current.starred != null || current.starredAt != null || current.favorite != null)
+          ? withoutFavorite(current)
+          : null
+      );
+    } catch (error) {
+      console.error("Failed to remove favorite session:", error);
+      toast.error(i18n.t("session.favorites.saveError"));
+    }
+  },
+
+  getFavoriteSessions: (): FavoriteSessionEntry[] =>
+    listFavoriteSessions(get().userMetadata.sessions),
+
+  openFavoriteSession: async (entry: FavoriteSessionEntry) => {
+    const request = ++openFavoriteRequest;
+    const project = findFavoriteProject(get().projects, entry.favorite);
+    if (!project) {
+      // During a scan the list is still filling in, so absence proves nothing.
+      if (get().isLoadingProjects) {
+        toast.info(i18n.t("session.favorites.projectsLoading"));
+      } else {
+        notifyFavoriteUnavailable(entry.sessionId);
+      }
+      return;
+    }
+
+    const { selectedSession, parentSessionStack, selectedProject } = get();
+    if (
+      selectedSession?.session_id === entry.sessionId &&
+      parentSessionStack.length === 0 &&
+      isSameProject(selectedProject, project)
+    ) {
+      return;
+    }
+
+    // Abandon the open when a newer one started or the user moved elsewhere.
+    const isStale = () =>
+      request !== openFavoriteRequest || !isSameProject(get().selectedProject, project);
+
+    let session: ClaudeSession | undefined;
+    try {
+      if (!isSameProject(selectedProject, project)) {
+        await get().selectProject(project);
+        if (isStale()) return;
+      }
+      session = get().sessions.find((s) => s.session_id === entry.sessionId);
+      if (!session) {
+        // The loaded list is one page; an older favourite can be past it.
+        const allSessions = await loadAllProjectSessions(project, get().excludeSidechain);
+        if (isStale()) return;
+        session = allSessions.find((s) => s.session_id === entry.sessionId);
+      }
+      if (!session) {
+        notifyFavoriteUnavailable(entry.sessionId);
+        return;
+      }
+      await get().selectSession(session);
+    } catch (error) {
+      console.error("Failed to open favorite session:", error);
+      toast.error(i18n.t("session.favorites.openError"));
+      return;
+    }
+
+    await refreshFavoriteSnapshot(entry.sessionId, session, project);
+  },
+  };
+};
