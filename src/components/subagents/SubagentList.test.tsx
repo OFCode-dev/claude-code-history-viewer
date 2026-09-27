@@ -126,15 +126,17 @@ describe("SubagentList", () => {
   });
 
   describe("list layout (docked sessions-pane section)", () => {
-    it("renders a single compact line: label, agent type and count, with model and time in the title", () => {
+    it("renders a single compact line: label and count, with type, model and time in the title", () => {
       render(<SubagentList subagents={[described, summaryOnly]} onSelect={vi.fn()} />);
 
       const row = screen.getByRole("button", { name: /Map the API error codes/ });
       expect(row.className).toMatch(/\bh-7\b/);
       expect(row).toHaveTextContent("Map the API error codes");
-      expect(row).toHaveTextContent("Explore");
+      // The count is a bare number on screen, spelled out for screen readers.
       expect(row).toHaveTextContent("12 messages");
-      // Model and last-activity time are dropped from the visible row...
+      expect(within(row).getByText("12")).toHaveAttribute("aria-hidden", "true");
+      // Type, model and last-activity time are dropped from the visible row...
+      expect(row).not.toHaveTextContent("Explore");
       expect(row).not.toHaveTextContent("sonnet");
       // ...and carried in the title instead, alongside the label and type.
       expect(row.title).toContain("Map the API error codes");

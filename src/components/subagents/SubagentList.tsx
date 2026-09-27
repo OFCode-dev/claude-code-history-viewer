@@ -123,9 +123,9 @@ const SubagentListItem = memo(function SubagentListItem({
   const RowIcon = typeStyle?.icon ?? Bot;
 
   if (layout === "list") {
-    // Compact single-line row for the docked sessions-pane list: only the
-    // label and agent type are shown; model and timestamps move to the
-    // title so the row never grows past one line (h-7).
+    // Compact single-line row for the docked sessions-pane list: the label
+    // and the message count. The icon already tells the agent type; type,
+    // model and time are in the title so the row never grows past one line.
     const metaTitle = [agentType, model].filter(Boolean).join(" · ");
     const timeTitle = lastTime ? t("subagent.lastActivity", { time: formatTime(lastTime) }) : null;
     const rowTitle = [label, metaTitle || null, timeTitle].filter(Boolean).join(" · ");
@@ -153,22 +153,16 @@ const SubagentListItem = memo(function SubagentListItem({
         />
         <span
           className={cn(
-            // `grow` (not `flex-1`): a 0% flex-basis would give this span no
-            // claim on its own natural width, so once the row is tight the
-            // agent type — sized from its own content — would win the space
-            // instead of truncating first as intended.
-            "grow min-w-[3rem] truncate text-left text-xs leading-4",
+            "flex-1 min-w-0 truncate text-left text-xs leading-4",
             isActive ? "font-semibold text-foreground" : "font-medium text-foreground/90",
           )}
         >
           {label}
         </span>
-        {agentType && (
-          <span className="min-w-0 max-w-[40%] shrink-[3] truncate text-[11px] text-muted-foreground/70">
-            {agentType}
-          </span>
-        )}
-        <span className="shrink-0 tabular-nums text-[11px] text-muted-foreground">
+        <span aria-hidden="true" className="shrink-0 tabular-nums text-[11px] text-muted-foreground">
+          {subagent.message_count}
+        </span>
+        <span className="sr-only">
           {t("renderers.agentTool.messages", { count: subagent.message_count })}
         </span>
       </button>
