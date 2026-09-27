@@ -1039,17 +1039,20 @@ pub async fn save_user_metadata(
     Json(p): Json<SaveUserMetadataParams>,
 ) -> Result<Json<Value>, ApiError> {
     let metadata = p.metadata;
-    let meta_clone = metadata.clone();
-    tokio::task::spawn_blocking(move || commands::metadata::save_metadata_to_disk(&meta_clone))
-        .await
-        .map_err(|e| ApiError(format!("Task join error: {e}")))??;
-
-    let mut cached = state
-        .metadata
-        .metadata
-        .lock()
-        .map_err(|e| ApiError(format!("Lock error: {e}")))?;
-    *cached = Some(metadata);
+    let generation = {
+        let mut cached = state
+            .metadata
+            .metadata
+            .lock()
+            .map_err(|e| ApiError(format!("Lock error: {e}")))?;
+        *cached = Some(metadata.clone());
+        commands::metadata::next_snapshot_generation()
+    };
+    tokio::task::spawn_blocking(move || {
+        commands::metadata::save_metadata_snapshot(&metadata, generation)
+    })
+    .await
+    .map_err(|e| ApiError(format!("Task join error: {e}")))??;
     Ok(Json(Value::Null))
 }
 
@@ -1057,7 +1060,7 @@ pub async fn update_session_metadata(
     State(state): State<Arc<AppState>>,
     Json(p): Json<UpdateSessionMetadataParams>,
 ) -> Result<Json<Value>, ApiError> {
-    let metadata_to_save = {
+    let (metadata_to_save, generation) = {
         let mut cached = state
             .metadata
             .metadata
@@ -1069,13 +1072,18 @@ pub async fn update_session_metadata(
         } else {
             metadata.sessions.insert(p.session_id, p.update);
         }
-        metadata.clone()
+        (
+            metadata.clone(),
+            commands::metadata::next_snapshot_generation(),
+        )
     };
 
     let meta_clone = metadata_to_save.clone();
-    tokio::task::spawn_blocking(move || commands::metadata::save_metadata_to_disk(&meta_clone))
-        .await
-        .map_err(|e| ApiError(format!("Task join error: {e}")))??;
+    tokio::task::spawn_blocking(move || {
+        commands::metadata::save_metadata_snapshot(&meta_clone, generation)
+    })
+    .await
+    .map_err(|e| ApiError(format!("Task join error: {e}")))??;
 
     Ok(Json(serde_json::to_value(metadata_to_save).map_err(
         |e| ApiError(format!("Serialization error: {e}")),
@@ -1088,7 +1096,7 @@ pub async fn update_project_metadata(
 ) -> Result<Json<Value>, ApiError> {
     commands::metadata::validate_project_metadata_key(&p.project_path).map_err(ApiError::from)?;
 
-    let metadata_to_save = {
+    let (metadata_to_save, generation) = {
         let mut cached = state
             .metadata
             .metadata
@@ -1100,13 +1108,18 @@ pub async fn update_project_metadata(
         } else {
             metadata.projects.insert(p.project_path, p.update);
         }
-        metadata.clone()
+        (
+            metadata.clone(),
+            commands::metadata::next_snapshot_generation(),
+        )
     };
 
     let meta_clone = metadata_to_save.clone();
-    tokio::task::spawn_blocking(move || commands::metadata::save_metadata_to_disk(&meta_clone))
-        .await
-        .map_err(|e| ApiError(format!("Task join error: {e}")))??;
+    tokio::task::spawn_blocking(move || {
+        commands::metadata::save_metadata_snapshot(&meta_clone, generation)
+    })
+    .await
+    .map_err(|e| ApiError(format!("Task join error: {e}")))??;
 
     Ok(Json(serde_json::to_value(metadata_to_save).map_err(
         |e| ApiError(format!("Serialization error: {e}")),
@@ -1123,7 +1136,7 @@ pub async fn update_user_settings(
     Json(p): Json<UpdateUserSettingsParams>,
 ) -> Result<Json<Value>, ApiError> {
     let settings = p.settings;
-    let metadata_to_save = {
+    let (metadata_to_save, generation) = {
         let mut cached = state
             .metadata
             .metadata
@@ -1131,13 +1144,18 @@ pub async fn update_user_settings(
             .map_err(|e| ApiError(format!("Lock error: {e}")))?;
         let metadata = cached.get_or_insert_with(crate::models::UserMetadata::new);
         metadata.settings = settings;
-        metadata.clone()
+        (
+            metadata.clone(),
+            commands::metadata::next_snapshot_generation(),
+        )
     };
 
     let meta_clone = metadata_to_save.clone();
-    tokio::task::spawn_blocking(move || commands::metadata::save_metadata_to_disk(&meta_clone))
-        .await
-        .map_err(|e| ApiError(format!("Task join error: {e}")))??;
+    tokio::task::spawn_blocking(move || {
+        commands::metadata::save_metadata_snapshot(&meta_clone, generation)
+    })
+    .await
+    .map_err(|e| ApiError(format!("Task join error: {e}")))??;
 
     Ok(Json(serde_json::to_value(metadata_to_save).map_err(
         |e| ApiError(format!("Serialization error: {e}")),
