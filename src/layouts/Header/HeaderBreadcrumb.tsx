@@ -11,8 +11,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { getProjectDisplayName, isAbsolutePath } from "@/utils/pathUtils";
-import { homeDirOf, pickHomeDir } from "@/utils/directoryTree";
+import {
+  getClaudeFolderHome,
+  getProjectDisplayName,
+  homeDirOf,
+  isAbsolutePath,
+  resolveHomeDir,
+} from "@/utils/pathUtils";
 import type { ClaudeProject, ClaudeSession } from "@/types";
 import {
   buildPathCrumbs,
@@ -81,6 +86,7 @@ export function HeaderBreadcrumb({ project, onShowTranscript }: HeaderBreadcrumb
   const { isMobile } = usePlatform();
   const canReveal = !isMobile;
   const projects = useAppStore((s) => s.projects);
+  const claudePath = useAppStore((s) => s.claudePath);
   const selectedSession = useAppStore((s) => s.selectedSession);
   const parentSessionStack = useAppStore((s) => s.parentSessionStack);
   const subagentSessions = useAppStore((s) => s.subagentSessions);
@@ -90,10 +96,14 @@ export function HeaderBreadcrumb({ project, onShowTranscript }: HeaderBreadcrumb
   // Subscribed so a rename re-labels the session crumb.
   const sessionMetadata = useAppStore((s) => s.userMetadata.sessions);
 
-  // The explorer shows as `~` the home most projects share; use the same one.
+  // The same home the explorer shows as `~` (see buildExplorerModel).
   const homeDir = useMemo(
-    () => pickHomeDir(Array.from(new Set(projects.map((p) => p.actual_path || p.path)))),
-    [projects]
+    () =>
+      resolveHomeDir(
+        Array.from(new Set(projects.map((p) => p.actual_path || p.path))),
+        getClaudeFolderHome(claudePath)
+      ),
+    [projects, claudePath]
   );
   const pathCrumbs = useMemo(() => projectPathCrumbs(project, homeDir), [project, homeDir]);
   const sessionCrumbs = useMemo(
