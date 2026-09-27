@@ -4,6 +4,7 @@ import { FavoriteStarButton, FavoriteStarIcon } from "./FavoriteStar";
 import type { FavoriteSessionItem, UseFavoriteSessionsResult } from "./useFavoriteSessions";
 
 export interface FavoritesListProps extends UseFavoriteSessionsResult {
+  id?: string;
   className?: string;
 }
 
@@ -13,12 +14,12 @@ export interface FavoritesListProps extends UseFavoriteSessionsResult {
  * Renders nothing when there are no favourites. Data comes from
  * `useFavoriteSessions`, whose result is exactly these props.
  */
-export function FavoritesList({ items, onOpen, onRemove, canRemove, className }: FavoritesListProps) {
+export function FavoritesList({ id, items, onOpen, onRemove, canRemove, className }: FavoritesListProps) {
   const { t } = useTranslation();
   if (items.length === 0) return null;
 
   return (
-    <ul aria-label={t("session.favorites.title", "Favorites")} className={cn("flex flex-col", className)}>
+    <ul id={id} aria-label={t("session.favorites.title", "Favorites")} className={cn("flex flex-col", className)}>
       {items.map((item) => (
         <FavoriteRow
           key={item.entry.sessionId}

@@ -46,6 +46,9 @@ vi.mock("overlayscrollbars-react", () => ({
   OverlayScrollbarsComponent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 
+// Favourites read user metadata this store mock does not carry; covered in
+// ExplorerFavorites.test.tsx.
+vi.mock("../components/ExplorerFavorites", () => ({ ExplorerFavorites: () => null }));
 vi.mock("../components/SessionList", () => ({
   SessionList: () => <div data-testid="session-list" />,
 }));

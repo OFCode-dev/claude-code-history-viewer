@@ -19,6 +19,7 @@ import { ProjectContextMenu } from "../ProjectContextMenu";
 import { ActiveFilterChips } from "./components/ActiveFilterChips";
 import { CollapsedExplorerRail } from "./components/CollapsedExplorerRail";
 import { ExplorerHeader } from "./components/ExplorerHeader";
+import { ExplorerFavorites } from "./components/ExplorerFavorites";
 import { ExplorerSearch } from "./components/ExplorerSearch";
 import { ExplorerTreeView } from "./components/ExplorerTreeView";
 import { GlobalStatsRow } from "./components/GlobalStatsRow";
@@ -331,6 +332,7 @@ export const ProjectTree: React.FC<ProjectTreeProps> = ({
             overflow: { x: "hidden" },
           }}
         >
+          <ExplorerFavorites />
           {isEmpty ? (
             <p className="px-4 py-6 text-center text-xs text-muted-foreground">
               {normalizedSearchTerm ? t("project.noMatches") : t("project.notFound")}
