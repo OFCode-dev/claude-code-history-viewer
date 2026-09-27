@@ -192,6 +192,8 @@ export const createMetadataSlice: StateCreator<
     session: ClaudeSession,
     project: ClaudeProject
   ) => {
+    // A read-only server rejects metadata writes; the stale snapshot is harmless.
+    if (get().isServerReadOnly) return;
     try {
       await writeSessionEntry(sessionId, (current) => {
         if (current?.starred !== true) return null;
@@ -478,19 +480,30 @@ export const createMetadataSlice: StateCreator<
       return;
     }
 
-    // Abandon the open when a newer one started or the user moved elsewhere.
-    const isStale = () =>
-      request !== openFavoriteRequest || !isSameProject(get().selectedProject, project);
+    // Abandon the open when a newer one started or the user moved on while it
+    // was loading: to another project, or to another session.
+    let expectedProject: ClaudeProject | null = selectedProject;
+    let expectedSessionPath = selectedSession?.file_path;
+    const isStale = () => {
+      const state = get();
+      return (
+        request !== openFavoriteRequest ||
+        state.selectedSession?.file_path !== expectedSessionPath ||
+        (expectedProject == null
+          ? state.selectedProject != null
+          : !isSameProject(state.selectedProject, expectedProject))
+      );
+    };
 
+    const inSelectedProject = isSameProject(selectedProject, project);
     let session: ClaudeSession | undefined;
     try {
-      if (!isSameProject(selectedProject, project)) {
-        await get().selectProject(project);
-        if (isStale()) return;
+      if (inSelectedProject) {
+        session = get().sessions.find((s) => s.session_id === entry.sessionId);
       }
-      session = get().sessions.find((s) => s.session_id === entry.sessionId);
       if (!session) {
-        // The loaded list is one page; an older favourite can be past it.
+        // The loaded list is one page (and another project's is not loaded at
+        // all), so look in the whole list before changing what is on screen.
         const allSessions = await loadAllProjectSessions(project, get().excludeSidechain);
         if (isStale()) return;
         session = allSessions.find((s) => s.session_id === entry.sessionId);
@@ -498,6 +511,13 @@ export const createMetadataSlice: StateCreator<
       if (!session) {
         notifyFavoriteUnavailable(entry.sessionId);
         return;
+      }
+      if (!inSelectedProject) {
+        await get().selectProject(project);
+        // Switching projects clears the selection.
+        expectedProject = project;
+        expectedSessionPath = undefined;
+        if (isStale()) return;
       }
       showTranscript();
       await get().selectSession(session);

@@ -389,14 +389,65 @@ describe("openFavoriteSession", () => {
     expect(store.getState().setAnalyticsCurrentView).toHaveBeenCalledWith("messages");
   });
 
-  it("switches to the favourite's project first", async () => {
+  it("switches to the favourite's project once the session is found there", async () => {
     backend.sessions = { [recent.session_id]: starredMetadata(recent, claudeProject) };
+    installBackend({ [claudeProject.path]: [recent, older] });
     const store = createTestStore({ selectedProject: codexProject, sessions: [codexSession] });
 
     await store.getState().openFavoriteSession(favoriteEntry(store, recent.session_id));
 
     expect(store.getState().selectProject).toHaveBeenCalledWith(claudeProject);
     expect(store.getState().selectSession).toHaveBeenCalledWith(recent);
+    // One lookup, before the switch; no second load after it.
+    expect(mockApi.mock.calls.filter(([command]) => command === "load_project_sessions")).toHaveLength(1);
+  });
+
+  it("stays in the current project when the favourite is gone from its own", async () => {
+    backend.sessions = { [older.session_id]: starredMetadata(older, claudeProject) };
+    installBackend({ [claudeProject.path]: [recent] });
+    const store = createTestStore({ selectedProject: codexProject, selectedSession: codexSession, sessions: [codexSession] });
+
+    await store.getState().openFavoriteSession(favoriteEntry(store, older.session_id));
+
+    expect(store.getState().selectProject).not.toHaveBeenCalled();
+    expect(store.getState().selectedSession).toBe(codexSession);
+    expect(toast.error).toHaveBeenCalledWith("session.favorites.unavailable", expect.anything());
+  });
+
+  it("stops when the user opens another session while it loads", async () => {
+    backend.sessions = { [older.session_id]: starredMetadata(older, claudeProject) };
+    let releaseLoad: (sessions: ClaudeSession[]) => void = () => {};
+    mockApi.mockImplementationOnce(
+      () => new Promise<ClaudeSession[]>((resolve) => (releaseLoad = resolve))
+    );
+    const store = createTestStore({ selectedProject: claudeProject, selectedSession: null, sessions: [recent] });
+
+    const pending = store.getState().openFavoriteSession(favoriteEntry(store, older.session_id));
+    store.setState({ selectedSession: recent });
+    releaseLoad([recent, older]);
+    await pending;
+
+    expect(store.getState().selectSession).not.toHaveBeenCalled();
+    expect(store.getState().selectedSession).toBe(recent);
+  });
+
+  it("stops when the user opens another session while the project switches", async () => {
+    backend.sessions = { [recent.session_id]: starredMetadata(recent, claudeProject) };
+    installBackend({ [claudeProject.path]: [recent] });
+    const store = createTestStore({ selectedProject: codexProject, sessions: [codexSession] });
+    const other = makeSession("other");
+    store.setState({
+      selectProject: vi.fn(async (project: ClaudeProject) => {
+        store.setState({ selectedProject: project, selectedSession: null, sessions: [recent, other] });
+        // The user clicks a row before the favourite is selected.
+        store.setState({ selectedSession: other });
+      }),
+    });
+
+    await store.getState().openFavoriteSession(favoriteEntry(store, recent.session_id));
+
+    expect(store.getState().selectSession).not.toHaveBeenCalled();
+    expect(store.getState().selectedSession).toBe(other);
   });
 
   it("loads the whole session list when the favourite is past the loaded page", async () => {
@@ -449,6 +500,21 @@ describe("openFavoriteSession", () => {
       ...stale,
       favorite: { ...stale.favorite, title: recent.summary, lastMessageTime: recent.last_message_time },
     });
+  });
+
+  it("does not refresh the snapshot on a read-only server", async () => {
+    backend.sessions = {
+      [recent.session_id]: starredMetadata(recent, claudeProject, {
+        favorite: { projectPath: claudeProject.path, provider: "claude", title: "Old title" },
+      }),
+    };
+    const store = createTestStore({ selectedProject: claudeProject, sessions: [recent], isServerReadOnly: true });
+
+    await store.getState().openFavoriteSession(favoriteEntry(store, recent.session_id));
+
+    expect(store.getState().selectSession).toHaveBeenCalledWith(recent);
+    expect(sessionWrites()).toHaveLength(0);
+    expect(toast.error).not.toHaveBeenCalled();
   });
 
   it("does not write when the snapshot is current", async () => {
@@ -528,6 +594,7 @@ describe("openFavoriteSession", () => {
       expect.objectContaining({ action: expect.anything() })
     );
     // What is on screen stays as it was.
+    expect(store.getState().selectProject).not.toHaveBeenCalled();
     expect(store.getState().setAnalyticsCurrentView).not.toHaveBeenCalled();
   });
 
