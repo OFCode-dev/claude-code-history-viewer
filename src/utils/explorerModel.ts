@@ -96,7 +96,6 @@ export interface ExplorerModel {
 
 /** Label formats for bucket rows; the UI passes translated ones. */
 export interface ExplorerLabelText {
-  scratchpad: (owner: string) => string;
   job: (shortId: string) => string;
 }
 
@@ -108,7 +107,6 @@ export interface BuildExplorerOptions {
 }
 
 const DEFAULT_TEXT: ExplorerLabelText = {
-  scratchpad: (owner) => `${owner} scratchpad`,
   job: (shortId) => `job ${shortId}`,
 };
 
@@ -591,15 +589,15 @@ interface BucketContext {
 function bucketLabel(location: ExplorerLocation, ctx: BucketContext): { label: string; hint: string } {
   if (!location.path) return { label: location.primary.name || location.primary.path, hint: "" };
 
+  // A Claude Code scratchpad is named after the project that owns it. The
+  // session id prefix is the hint: several scratchpads of one project differ
+  // only by it. (The word "scratchpad" stays in the path the filter matches.)
   const scratchpad = SCRATCHPAD_PATTERN.exec(location.path);
   if (scratchpad) {
     const [, encoded = "", sessionId = "", rest] = scratchpad;
     const owner =
       ctx.scratchpadOwners.get(encoded) ?? encoded.split("-").filter(Boolean).at(-1) ?? encoded;
-    return {
-      label: `${ctx.text.scratchpad(owner)}${rest ? `/${rest}` : ""}`,
-      hint: sessionId.slice(0, 6),
-    };
+    return { label: rest ? `${owner}/${rest}` : owner, hint: sessionId.slice(0, 6) };
   }
 
   const job = CLAUDE_JOB_PATTERN.exec(location.path);
@@ -749,14 +747,6 @@ export function buildExplorerModel(
     groups,
     homeDir,
   };
-}
-
-/** Locations shown in the model, groups included. */
-export function getLocationCount(model: ExplorerModel): number {
-  return (
-    countLocations(model.main) +
-    model.groups.reduce((sum, group) => sum + group.locationCount, 0)
-  );
 }
 
 // ---------------------------------------------------------------------------

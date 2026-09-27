@@ -1624,14 +1624,24 @@
   .text-px9 {
     font-size: calc(0.5625rem * var(--app-font-scale));
   }
+  /* 9.5px, 10.5px, 12.5px: the explorer's chip, count and row name sizes. */
+  .text-px9-5 {
+    font-size: calc(0.59375rem * var(--app-font-scale));
+  }
   .text-px10 {
     font-size: calc(0.625rem * var(--app-font-scale));
+  }
+  .text-px10-5 {
+    font-size: calc(0.65625rem * var(--app-font-scale));
   }
   .text-px11 {
     font-size: calc(0.6875rem * var(--app-font-scale));
   }
   .text-px12 {
     font-size: calc(0.75rem * var(--app-font-scale));
+  }
+  .text-px12-5 {
+    font-size: calc(0.78125rem * var(--app-font-scale));
   }
   .text-px13 {
     font-size: calc(0.8125rem * var(--app-font-scale));

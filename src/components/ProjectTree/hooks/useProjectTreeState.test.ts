@@ -7,22 +7,19 @@ const stored = () => JSON.parse(localStorage.getItem(EXPANDED_GROUPS_STORAGE_KEY
 
 describe("useProjectTreeState", () => {
   it("ensures a selected project and its group are expanded", () => {
-    const { result } = renderHook(() => useProjectTreeState("worktree"));
+    const { result } = renderHook(() => useProjectTreeState());
 
     act(() => {
-      result.current.ensureProjectExpanded(
-        "/worktrees/feature",
-        "group:/repos/main",
-      );
+      result.current.ensureProjectExpanded("/store/feature", "group:other-locations");
     });
 
     expect(result.current.expandedProjects).toEqual(
-      new Set(["/worktrees/feature", "group:/repos/main"]),
+      new Set(["/store/feature", "group:other-locations"]),
     );
   });
 
   it("ensures every ancestor folder of a nested project", () => {
-    const { result } = renderHook(() => useProjectTreeState("directory"));
+    const { result } = renderHook(() => useProjectTreeState());
 
     act(() => {
       result.current.ensureProjectExpanded("/store/app", ["dir:/home/jack", "dir:/home/jack/work"]);
@@ -34,7 +31,7 @@ describe("useProjectTreeState", () => {
   });
 
   it("persists group keys but not project rows", () => {
-    const { result } = renderHook(() => useProjectTreeState("directory"));
+    const { result } = renderHook(() => useProjectTreeState());
 
     act(() => {
       result.current.ensureProjectExpanded("/store/app", "dir:/home/jack");
@@ -45,7 +42,7 @@ describe("useProjectTreeState", () => {
 
   it("leaves transient (search-opened) group keys out of storage", () => {
     const transient = { current: { opened: ["dir:/home/jack/work"] as string[] } };
-    const { result } = renderHook(() => useProjectTreeState("directory", transient));
+    const { result } = renderHook(() => useProjectTreeState(transient));
 
     act(() => result.current.expandGroups(["dir:/home/jack", "dir:/home/jack/work"]));
     expect(result.current.expandedProjects).toEqual(new Set(["dir:/home/jack", "dir:/home/jack/work"]));
@@ -62,7 +59,7 @@ describe("useProjectTreeState", () => {
       JSON.stringify({ keys: ["dir:/home/jack", "/not-a-group", 42], seenRoots: ["dir:/home/jack"] }),
     );
 
-    const { result } = renderHook(() => useProjectTreeState("directory"));
+    const { result } = renderHook(() => useProjectTreeState());
 
     expect(result.current.expandedProjects).toEqual(new Set(["dir:/home/jack"]));
   });
@@ -70,13 +67,13 @@ describe("useProjectTreeState", () => {
   it("ignores corrupt stored state", () => {
     localStorage.setItem(EXPANDED_GROUPS_STORAGE_KEY, "{not json");
 
-    const { result } = renderHook(() => useProjectTreeState("directory"));
+    const { result } = renderHook(() => useProjectTreeState());
 
     expect(result.current.expandedProjects).toEqual(new Set());
   });
 
   it("expands each default root only the first time it appears", () => {
-    const { result, unmount } = renderHook(() => useProjectTreeState("directory"));
+    const { result, unmount } = renderHook(() => useProjectTreeState());
 
     act(() => result.current.expandDefaultRoots(["dir:/home/jack"]));
     expect(result.current.expandedProjects).toEqual(new Set(["dir:/home/jack"]));
@@ -87,18 +84,18 @@ describe("useProjectTreeState", () => {
     expect(stored()).toEqual({ keys: [], seenRoots: ["dir:/home/jack"] });
 
     unmount();
-    const next = renderHook(() => useProjectTreeState("directory"));
+    const next = renderHook(() => useProjectTreeState());
     act(() => next.result.current.expandDefaultRoots(["dir:/home/jack"]));
     expect(next.result.current.expandedProjects).toEqual(new Set());
 
-    // A root that shows up later (a new drive, the first project outside home) opens.
-    act(() => next.result.current.expandDefaultRoots(["dir:/home/jack", "dir:D:\\"]));
-    expect(next.result.current.expandedProjects).toEqual(new Set(["dir:D:\\"]));
-    expect(stored().seenRoots).toEqual(["dir:/home/jack", "dir:D:\\"]);
+    // A row that shows up later opens the first time.
+    act(() => next.result.current.expandDefaultRoots(["dir:/home/jack", "group:other-locations"]));
+    expect(next.result.current.expandedProjects).toEqual(new Set(["group:other-locations"]));
+    expect(stored().seenRoots).toEqual(["dir:/home/jack", "group:other-locations"]);
   });
 
   it("caps the stored group keys, keeping the most recent", () => {
-    const { result } = renderHook(() => useProjectTreeState("directory"));
+    const { result } = renderHook(() => useProjectTreeState());
     const keys = Array.from({ length: 510 }, (_, index) => `dir:/f${index}`);
 
     act(() => result.current.expandGroups(keys));
@@ -110,7 +107,7 @@ describe("useProjectTreeState", () => {
   });
 
   it("collapses several groups at once", () => {
-    const { result } = renderHook(() => useProjectTreeState("directory"));
+    const { result } = renderHook(() => useProjectTreeState());
 
     act(() => result.current.expandGroups(["dir:/a", "dir:/b", "dir:/c"]));
     act(() => result.current.collapseGroups(["dir:/a", "dir:/c"]));
@@ -119,7 +116,7 @@ describe("useProjectTreeState", () => {
   });
 
   it("collapse all keeps expanded project rows", () => {
-    const { result } = renderHook(() => useProjectTreeState("directory"));
+    const { result } = renderHook(() => useProjectTreeState());
 
     act(() => {
       result.current.ensureProjectExpanded("/store/app", ["dir:/home/jack", "group:temporary-projects"]);
@@ -129,17 +126,14 @@ describe("useProjectTreeState", () => {
     expect(result.current.expandedProjects).toEqual(new Set(["/store/app"]));
   });
 
-  it("keeps group keys when the grouping mode changes", () => {
-    const { result, rerender } = renderHook(
-      ({ mode }: { mode: "directory" | "none" }) => useProjectTreeState(mode),
-      { initialProps: { mode: "directory" as "directory" | "none" } },
-    );
+  it("toggles one key without touching the others", () => {
+    const { result } = renderHook(() => useProjectTreeState());
 
-    act(() => {
-      result.current.ensureProjectExpanded("/store/app", "dir:/home/jack");
-    });
-    rerender({ mode: "none" });
+    act(() => result.current.expandGroups(["dir:/a", "group:other-locations"]));
+    act(() => result.current.toggleExpansion("dir:/a"));
+    act(() => result.current.toggleExpansion("/store/app"));
 
-    expect(result.current.expandedProjects).toEqual(new Set(["dir:/home/jack"]));
+    expect(result.current.expandedProjects).toEqual(new Set(["group:other-locations", "/store/app"]));
+    expect(stored().keys).toEqual(["group:other-locations"]);
   });
 });

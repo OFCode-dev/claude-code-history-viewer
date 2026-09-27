@@ -4,7 +4,6 @@ import {
   buildExplorerModel,
   filterExplorerModel,
   findRowForProject,
-  getLocationCount,
   locateInExplorer,
   OTHER_LOCATIONS_GROUP_KEY,
   TEMPORARY_BUCKET_KEY,
@@ -167,7 +166,9 @@ describe("buildExplorerModel — locations", () => {
       project("C:\\Users\\Jack\\deep\\er\\tool"),
     ]);
 
-    expect(getLocationCount(model)).toBe(3);
+    const countRows = (rows: ExplorerRow[]): number =>
+      rows.reduce((sum, row) => sum + (row.location ? 1 : 0) + countRows(row.children), 0);
+    expect(countRows(model.main)).toBe(3);
     expect(outline(model.main)).toBe("src/{api,app},[deep\\er\\]tool");
     expect(findRow(model.main, "api")!.location!.projects).toHaveLength(2);
   });
@@ -405,10 +406,11 @@ describe("buildExplorerModel — other locations and buckets", () => {
       UNAVAILABLE_BUCKET_KEY,
     ]);
     const temporary = group(model, "temporary")!;
+    // Scratchpads: the owning project, told apart by the session id.
     expect(temporary.rows.map((row) => [row.label, row.hint])).toEqual([
       ["job ab12cd34", "~/.claude/jobs"],
-      ["atlas-ai-ecosystem scratchpad/debate", "5d1e2f"],
-      ["crawl-atlas scratchpad", "0f3c9a"],
+      ["atlas-ai-ecosystem/debate", "5d1e2f"],
+      ["crawl-atlas", "0f3c9a"],
       ["cchv-fixture-tmp.AbCdEf12", "/tmp"],
     ]);
     const unavailable = group(model, "unavailable")!;
@@ -443,20 +445,17 @@ describe("buildExplorerModel — other locations and buckets", () => {
     ]);
 
     expect(group(model, "temporary")!.rows.map((row) => [row.label, row.hint])).toEqual([
-      ["tool scratchpad", "abcdef"],
+      ["tool", "abcdef"],
       ["/tmp", ""],
     ]);
   });
 
-  it("uses translated label formats when given", () => {
+  it("uses a translated job label format when given", () => {
     const model = buildExplorerModel(fixtureProjects(), {
-      text: { scratchpad: (owner) => `${owner} · notes`, job: (id) => `task ${id}` },
+      text: { job: (id) => `task ${id}` },
     });
 
     expect(group(model, "temporary")!.rows.map((row) => row.label)).toContain("task ab12cd34");
-    expect(group(model, "temporary")!.rows.map((row) => row.label)).toContain(
-      "crawl-atlas · notes"
-    );
   });
 
   it("sends projects without a usable path to Other locations, last, labelled by name", () => {
@@ -629,10 +628,15 @@ describe("filterExplorerModel", () => {
       label: [],
       hint: [],
     });
+    // Scratchpads match through their path: kept, nothing visible to highlight.
     const temporary = group(filtered, "temporary")!;
-    const crawl = temporary.rows.find((row) => row.label === "crawl-atlas scratchpad")!;
-    expect(matches.get(crawl.key)?.label).toEqual([{ start: 12, end: 19 }]);
+    const crawl = temporary.rows.find((row) => row.label === "crawl-atlas")!;
+    expect(matches.get(crawl.key)).toEqual({ prefix: [], label: [], hint: [] });
     expect(revealKeys).toContain(TEMPORARY_BUCKET_KEY);
+    const job = filterExplorerModel(model, "jobs").matches;
+    expect(Array.from(job.values()).map((match) => match.hint)).toContainEqual([
+      { start: 10, end: 14 },
+    ]);
     // Ancestors kept only for a descendant's match are not highlighted.
     expect(matches.has("dir:home/fx/projects/lab-management")).toBe(false);
   });

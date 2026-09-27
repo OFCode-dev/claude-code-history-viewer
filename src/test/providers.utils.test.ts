@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   DEFAULT_PROVIDER_ID,
   PROVIDER_IDS,
+  PROVIDER_SHORT_CODES,
   calculateConversationBreakdownCoverage,
   getProviderId,
   getProviderLabel,
@@ -43,6 +44,14 @@ describe("providers utils", () => {
       "claude",
       "copilot",
     ]);
+  });
+
+  it("gives every provider a unique two-letter chip code", () => {
+    const codes = PROVIDER_IDS.map((id) => PROVIDER_SHORT_CODES[id]);
+    expect(codes.every((code) => /^[A-Z]{2}$/.test(code))).toBe(true);
+    expect(new Set(codes).size).toBe(PROVIDER_IDS.length);
+    expect(PROVIDER_SHORT_CODES.claude).toBe("CC");
+    expect(PROVIDER_SHORT_CODES.codex).toBe("CX");
   });
 
   it("keeps provider id list stable for all known providers", () => {

@@ -508,6 +508,39 @@ export const PROVIDER_BADGE_STYLES: Record<ProviderId, string> = {
   antigravity: "bg-indigo-500/15 text-indigo-600 dark:text-indigo-400",
 };
 
+/** Unique two-letter codes for the explorer's compact provider chips. */
+export const PROVIDER_SHORT_CODES: Record<ProviderId, string> = {
+  aider: "AD",
+  amazonq: "AQ",
+  antigravity: "AG",
+  claude: "CC",
+  cline: "CL",
+  codebuddy: "CB",
+  codex: "CX",
+  continue: "CN",
+  copilot: "CP",
+  crush: "CR",
+  cursor: "CU",
+  "cursor-agent": "CA",
+  forgecode: "FC",
+  gemini: "GM",
+  goose: "GS",
+  grok: "GK",
+  kimi: "KM",
+  kiro: "KR",
+  llm: "LL",
+  ompi: "OM",
+  opencode: "OC",
+  openhands: "OH",
+  openinterpreter: "OI",
+  pearai: "PA",
+  pi: "PI",
+  qwen: "QW",
+  trae: "TR",
+  vibe: "VB",
+  zed: "ZD",
+};
+
 export function getProviderBadgeStyle(provider?: ProviderId | string): string {
   const id = getProviderId(provider);
   return PROVIDER_BADGE_STYLES[id] ?? "bg-gray-500/15 text-gray-500";

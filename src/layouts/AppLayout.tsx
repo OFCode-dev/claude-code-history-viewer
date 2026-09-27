@@ -45,7 +45,6 @@ import {
   type ClaudeMessage,
   type ClaudeProject,
   type ClaudeSession,
-  type GroupingMode,
   type SessionTokenStats,
   type DateFilter,
   type ProjectStatsSummary,
@@ -54,7 +53,6 @@ import {
 import type { UseAnalyticsReturn } from "@/types/analytics";
 import type { UseUpdaterReturn } from "@/hooks/useUpdater";
 import type { SearchState, SearchFilterType } from "@/store/slices/types";
-import type { WorktreeGroup, DirectoryGroup } from "@/utils/worktreeUtils";
 import type { ProjectTokenStatsPagination } from "@/store/slices/messageSlice";
 
 export interface AppLayoutProps {
@@ -120,12 +118,6 @@ export interface AppLayoutProps {
     e: React.MouseEvent<HTMLElement>
   ) => void;
 
-  // Grouping
-  groupingMode: GroupingMode;
-  worktreeGroups: WorktreeGroup[];
-  directoryGroups: DirectoryGroup[];
-  ungroupedProjects: ClaudeProject[];
-
   // Callbacks
   handleProjectSelect: (project: ClaudeProject) => void;
   loadMoreSessions: () => void;
@@ -133,7 +125,6 @@ export interface AppLayoutProps {
   handleSessionHover: (session: ClaudeSession) => void;
   handleGlobalStatsClick: () => void;
   handleToggleSidebar: () => void;
-  handleGroupingModeChange: (mode: GroupingMode) => void;
   handleTokenStatClick: (stats: SessionTokenStats) => void;
   hideProject: (projectPath: string) => Promise<void>;
   unhideProject: (projectPath: string) => Promise<void>;
@@ -209,17 +200,12 @@ export const AppLayout: React.FC<AppLayoutProps> = (props) => {
     recentEditsDockWidth,
     isRecentEditsDockResizing,
     handleRecentEditsDockResizeStart,
-    groupingMode,
-    worktreeGroups,
-    directoryGroups,
-    ungroupedProjects,
     handleProjectSelect,
     loadMoreSessions,
     handleSessionSelect,
     handleSessionHover,
     handleGlobalStatsClick,
     handleToggleSidebar,
-    handleGroupingModeChange,
     handleTokenStatClick,
     hideProject,
     unhideProject,
@@ -524,11 +510,6 @@ export const AppLayout: React.FC<AppLayoutProps> = (props) => {
                 isLoading={isLoadingProjects || isLoadingSessions}
                 isLoadingMoreSessions={isLoadingMoreSessions}
                 isViewingGlobalStats={isViewingGlobalStats}
-                groupingMode={groupingMode}
-                worktreeGroups={worktreeGroups}
-                directoryGroups={directoryGroups}
-                ungroupedProjects={ungroupedProjects}
-                onGroupingModeChange={handleGroupingModeChange}
                 onHideProject={hideProject}
                 onUnhideProject={unhideProject}
                 isProjectHidden={isProjectHidden}
@@ -563,11 +544,6 @@ export const AppLayout: React.FC<AppLayoutProps> = (props) => {
                 width={isSidebarCollapsed ? undefined : sidebarWidth}
                 isResizing={isSidebarResizing}
                 onResizeStart={handleSidebarResizeStart}
-                groupingMode={groupingMode}
-                worktreeGroups={worktreeGroups}
-                directoryGroups={directoryGroups}
-                ungroupedProjects={ungroupedProjects}
-                onGroupingModeChange={handleGroupingModeChange}
                 onHideProject={hideProject}
                 onUnhideProject={unhideProject}
                 isProjectHidden={isProjectHidden}

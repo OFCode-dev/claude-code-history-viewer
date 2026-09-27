@@ -1,7 +1,5 @@
 // src/components/ProjectTree/types.ts
 import type { ClaudeProject, ClaudeSession } from "../../types";
-import type { GroupingMode } from "../../types/metadata.types";
-import type { WorktreeGroup, DirectoryGroup } from "../../utils/worktreeUtils";
 import type { Boundary } from "../../utils/contextMenu";
 
 export interface ContextMenuState {
@@ -34,13 +32,7 @@ export interface ProjectTreeProps {
   width?: number;
   isResizing?: boolean;
   onResizeStart?: (e: React.MouseEvent<HTMLElement>) => void;
-  // Grouping props
-  groupingMode?: GroupingMode;
-  worktreeGroups?: WorktreeGroup[];
-  directoryGroups?: DirectoryGroup[];
-  ungroupedProjects?: ClaudeProject[];
-  onGroupingModeChange?: (mode: GroupingMode) => void;
-  // Project visibility props
+  // Project visibility: hidden projects are left out of the tree.
   onHideProject?: (projectPath: string) => void;
   onUnhideProject?: (projectPath: string) => void;
   isProjectHidden?: (projectPath: string) => boolean;
@@ -50,34 +42,6 @@ export interface ProjectTreeProps {
   asideId?: string;
   // Mobile drawer close callback
   onClose?: () => void;
-}
-
-export type GroupingStrategy = "none" | "directory" | "worktree";
-
-export interface ProjectItemProps {
-  project: ClaudeProject;
-  isExpanded: boolean;
-  isSelected: boolean;
-  ariaLevel?: number;
-  onToggle: () => void;
-  onClick: () => void;
-  onContextMenu: (e: React.MouseEvent) => void;
-  variant?: "default" | "main" | "worktree";
-  showProviderBadge?: boolean;
-  /**
-   * Same working directory recorded by other providers. Rendered as chips
-   * next to this row's own provider so one folder is one row.
-   */
-  providerSiblings?: ClaudeProject[];
-  onSelectSibling?: (project: ClaudeProject) => void;
-  /** False when sessions render in the SessionsPane rather than under the row. */
-  hasInlineChildren?: boolean;
-  /** Secondary line under the name; overrides the compact parent path (empty hides it). */
-  subtitle?: string;
-  /** Row identity for keyboard/reveal lookups (`data-tree-key`). */
-  treeKey?: string;
-  /** Row inside a nested directory folder: compact padding, no hover shift. */
-  nested?: boolean;
 }
 
 export interface SessionListProps {
@@ -95,21 +59,4 @@ export interface SessionListProps {
   variant?: "default" | "main" | "worktree" | "pane";
   /** Available height for the virtual list when `variant="pane"`. */
   listHeight?: number;
-}
-
-export interface GroupHeaderProps {
-  groupKey: string;
-  label: string;
-  icon: React.ReactNode;
-  count: number;
-  isExpanded: boolean;
-  ariaLevel?: number;
-  onToggle: () => void;
-  variant: "directory" | "worktree" | "unavailable" | "temporary";
-  /** Tooltip for the label (e.g. a folder's full path); defaults to the label. */
-  title?: string;
-  /** Row inside a nested directory folder: compact padding. */
-  nested?: boolean;
-  /** Id of the `role="group"` holding this row's children (`aria-owns`). */
-  ownsId?: string;
 }

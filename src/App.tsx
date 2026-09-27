@@ -15,7 +15,6 @@ import {
   type ClaudeSession,
   type ClaudeProject,
   type SessionTokenStats,
-  type GroupingMode,
 } from "./types";
 import { getProviderLabel, normalizeProviderIds } from "./utils/providers";
 import {
@@ -68,10 +67,6 @@ function App() {
     setAnalyticsCurrentView,
     loadMoreProjectTokenStats,
     loadMoreRecentEdits,
-    updateUserSettings,
-    getGroupedProjects,
-    getDirectoryGroupedProjects,
-    getEffectiveGroupingMode,
     hideProject,
     unhideProject,
     isProjectHidden,
@@ -366,23 +361,6 @@ function App() {
     void loadGlobalStats();
   }, [loadGlobalStats, setAnalyticsCurrentView, setIsViewingGlobalStats]);
 
-  // Project grouping
-  const groupingMode = getEffectiveGroupingMode();
-  const { groups: worktreeGroups, ungrouped: ungroupedProjects } =
-    getGroupedProjects();
-  const { groups: directoryGroups } = getDirectoryGroupedProjects();
-
-  const handleGroupingModeChange = useCallback(
-    (newMode: GroupingMode) => {
-      updateUserSettings({
-        groupingMode: newMode,
-        worktreeGrouping: newMode === "worktree",
-        worktreeGroupingUserSet: true,
-      });
-    },
-    [updateUserSettings]
-  );
-
   const handleSessionSelect = useCallback(
     async (session: ClaudeSession) => {
       try {
@@ -558,17 +536,12 @@ function App() {
       recentEditsDockWidth={recentEditsDockWidth}
       isRecentEditsDockResizing={isRecentEditsDockResizing}
       handleRecentEditsDockResizeStart={handleRecentEditsDockResizeStart}
-      groupingMode={groupingMode}
-      worktreeGroups={worktreeGroups}
-      directoryGroups={directoryGroups}
-      ungroupedProjects={ungroupedProjects}
       handleProjectSelect={handleProjectSelect}
       loadMoreSessions={loadMoreSessions}
       handleSessionSelect={handleSessionSelect}
       handleSessionHover={handleSessionHover}
       handleGlobalStatsClick={handleGlobalStatsClick}
       handleToggleSidebar={handleToggleSidebar}
-      handleGroupingModeChange={handleGroupingModeChange}
       handleTokenStatClick={handleTokenStatClick}
       hideProject={hideProject}
       unhideProject={unhideProject}
