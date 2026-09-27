@@ -43,6 +43,9 @@ struct CachedSessionMetadata {
     /// Rename name from /rename command
     #[serde(default)]
     rename_name: Option<String>,
+    /// Latest title Claude Code generated for the session (`ai-title`)
+    #[serde(default)]
+    ai_title: Option<String>,
 }
 
 /// Session metadata cache file structure
@@ -62,7 +65,9 @@ struct SessionMetadataCache {
 // Bumped 10 -> 11: a verifiable folder name now takes priority over the JSONL
 // `cwd` for the project name (handles sessions moved between project folders);
 // stale caches must be invalidated to recompute project_name.
-const CACHE_VERSION: u32 = 11;
+// Bumped 11 -> 12: Claude Code's generated `ai-title` now names sessions that
+// were never renamed, and title records no longer count as messages.
+const CACHE_VERSION: u32 = 12;
 const DEFAULT_SESSION_PAGE_LIMIT: usize = 250;
 const MAX_SESSION_PAGE_LIMIT: usize = 500;
 
@@ -160,6 +165,8 @@ struct IncrementalParseState {
     first_assistant_text: Option<String>,
     /// Rename name from /rename command (already known)
     rename_name: Option<String>,
+    /// Latest generated title (already known)
+    ai_title: Option<String>,
     /// Originating client entrypoint (already known)
     entrypoint: Option<String>,
     /// Project display name (already known)
@@ -202,6 +209,8 @@ struct SessionMetadataEntry {
     message: Option<SessionMetadataMessage>,
     #[serde(rename = "customTitle")]
     custom_title: Option<String>,
+    #[serde(rename = "aiTitle")]
+    ai_title: Option<String>,
 }
 
 #[derive(serde::Deserialize)]
@@ -224,6 +233,8 @@ struct QuickLineClassifier {
     entrypoint: Option<String>,
     #[serde(rename = "customTitle")]
     custom_title: Option<String>,
+    #[serde(rename = "aiTitle")]
+    ai_title: Option<String>,
 }
 
 /// Fast session metadata extraction result
@@ -244,6 +255,8 @@ struct SessionExtractionResult {
     first_assistant_text: Option<String>,
     /// Rename name from /rename command (for caching)
     rename_name: Option<String>,
+    /// Latest generated title (for caching)
+    ai_title: Option<String>,
 }
 
 /// Fast session metadata extraction with two-phase parsing:
@@ -296,6 +309,7 @@ fn extract_session_metadata_internal(
         mut last_user_content,
         mut first_assistant_text,
         mut rename_name,
+        mut ai_title,
         mut entrypoint,
         mut session_cwd,
         incremental_project_name,
@@ -314,6 +328,7 @@ fn extract_session_metadata_internal(
             state.last_user_content.clone(),
             state.first_assistant_text.clone(),
             state.rename_name.clone(),
+            state.ai_title.clone(),
             state.entrypoint.clone(),
             None,
             state.project_name.clone(),
@@ -321,7 +336,7 @@ fn extract_session_metadata_internal(
     } else {
         (
             0u64, 0usize, 0usize, None, None, None, None, false, false, None, None, None, None,
-            None, None, None,
+            None, None, None, None,
         )
     };
 
@@ -386,6 +401,16 @@ fn extract_session_metadata_internal(
                         try_extract_custom_title(&entry.message_type, entry.custom_title.as_deref())
                     {
                         rename_name = Some(name);
+                    }
+                    continue;
+                }
+
+                // Claude Code's generated title; each new record replaces the last
+                if entry.message_type == "ai-title" {
+                    if let Some(title) =
+                        try_extract_ai_title(&entry.message_type, entry.ai_title.as_deref())
+                    {
+                        ai_title = Some(title);
                     }
                     continue;
                 }
@@ -544,6 +569,15 @@ fn extract_session_metadata_internal(
                 continue;
             }
 
+            if classifier.message_type == "ai-title" {
+                if let Some(title) =
+                    try_extract_ai_title(&classifier.message_type, classifier.ai_title.as_deref())
+                {
+                    ai_title = Some(title);
+                }
+                continue;
+            }
+
             // Skip other system message types
             if is_system_message_type(&classifier.message_type) {
                 continue;
@@ -622,9 +656,11 @@ fn extract_session_metadata_internal(
         })
         .or(incremental_project_name)
         .unwrap_or_else(|| extract_project_name(&raw_project_name));
-    // Rename name takes highest priority, then existing summary fallback chain
+    // The user's name wins, then the title Claude Code generated, then the
+    // summary fallback chain.
     let final_summary = rename_name
         .clone()
+        .or_else(|| ai_title.clone())
         .or(session_summary)
         .or(first_user_content.clone())
         .or(first_assistant_text.clone())
@@ -658,11 +694,12 @@ fn extract_session_metadata_internal(
         last_user_content,
         first_assistant_text,
         rename_name,
+        ai_title,
     })
 }
 
 /// Message types that should always be excluded from the viewer
-const EXCLUDED_MESSAGE_TYPES: [&str; 6] = [
+const EXCLUDED_MESSAGE_TYPES: [&str; 8] = [
     "progress",
     "queue-operation",
     "file-history-snapshot",
@@ -671,6 +708,9 @@ const EXCLUDED_MESSAGE_TYPES: [&str; 6] = [
     // Emitted alongside "custom-title" by the `/branch` command; redundant with it
     // (same name), so it's excluded from the viewer rather than used as a rename source.
     "agent-name",
+    // Session titles: read by the session scan, never rendered as rows.
+    "custom-title",
+    "ai-title",
 ];
 
 /// System subtypes that are internal metadata (excluded from the viewer).
@@ -733,6 +773,19 @@ fn try_extract_custom_title(message_type: &str, custom_title: Option<&str>) -> O
         return None;
     }
     Some(name.to_string())
+}
+
+/// Title from an `ai-title` record (`{"type":"ai-title","aiTitle":…}`), which
+/// Claude Code 2.x writes to name sessions the user never renamed.
+fn try_extract_ai_title(message_type: &str, ai_title: Option<&str>) -> Option<String> {
+    if message_type != "ai-title" {
+        return None;
+    }
+    let title = ai_title?.trim();
+    if title.is_empty() {
+        return None;
+    }
+    Some(title.to_string())
 }
 
 /// Derive a project display name from a real working-directory path (its leaf).
@@ -1269,6 +1322,7 @@ fn load_project_sessions_page_blocking(
                         last_user_content,
                         first_assistant_text,
                         cached_rename_name,
+                        cached_ai_title,
                     ) = match &result_opt {
                         Some(result) => (
                             Some(result.session.clone()),
@@ -1280,8 +1334,9 @@ fn load_project_sessions_page_blocking(
                             result.last_user_content.clone(),
                             result.first_assistant_text.clone(),
                             result.rename_name.clone(),
+                            result.ai_title.clone(),
                         ),
-                        None => (None, 0, 0, false, false, None, None, None, None),
+                        None => (None, 0, 0, false, false, None, None, None, None, None),
                     };
 
                     cache.entries.insert(
@@ -1298,6 +1353,7 @@ fn load_project_sessions_page_blocking(
                             last_user_content,
                             first_assistant_text,
                             rename_name: cached_rename_name,
+                            ai_title: cached_ai_title,
                         },
                     );
                     cache_updated = true;
@@ -1457,6 +1513,7 @@ fn load_project_sessions_blocking(
                             last_user_content: cached.last_user_content.clone(),
                             first_assistant_text: cached.first_assistant_text.clone(),
                             rename_name: cached.rename_name.clone(),
+                            ai_title: cached.ai_title.clone(),
                             entrypoint: session.entrypoint.clone(),
                             project_name: Some(session.project_name.clone()),
                         },
@@ -1526,6 +1583,7 @@ fn load_project_sessions_blocking(
                     last_user_content,
                     first_assistant_text,
                     cached_rename_name,
+                    cached_ai_title,
                 ) = match &result_opt {
                     Some(result) => (
                         Some(result.session.clone()),
@@ -1537,8 +1595,9 @@ fn load_project_sessions_blocking(
                         result.last_user_content.clone(),
                         result.first_assistant_text.clone(),
                         result.rename_name.clone(),
+                        result.ai_title.clone(),
                     ),
-                    None => (None, 0, 0, false, false, None, None, None, None),
+                    None => (None, 0, 0, false, false, None, None, None, None, None),
                 };
 
                 cache.entries.insert(
@@ -1555,6 +1614,7 @@ fn load_project_sessions_blocking(
                         last_user_content,
                         first_assistant_text,
                         rename_name: cached_rename_name,
+                        ai_title: cached_ai_title,
                     },
                 );
                 cache_updated = true;
@@ -4129,6 +4189,203 @@ mod tests {
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].summary, Some("AppendedBranchTitle".to_string()));
         assert_eq!(result[0].message_count, 5);
+    }
+
+    /// Claude Code 2.x names sessions itself with `ai-title` records and
+    /// rewrites them as the conversation evolves.
+    fn create_sample_ai_title_message(title: &str) -> String {
+        format!(r#"{{"type":"ai-title","aiTitle":"{title}","sessionId":"session-1"}}"#)
+    }
+
+    #[tokio::test]
+    async fn test_should_use_ai_title_when_session_was_not_renamed() {
+        let temp_dir = TempDir::new().unwrap();
+
+        let content = format!(
+            "{}\n{}\n{}\n",
+            create_sample_user_message("uuid-1", "session-1", "Hello"),
+            create_sample_ai_title_message("Fix login redirect"),
+            create_sample_assistant_message("uuid-2", "session-1", "Hi there!")
+        );
+        std::fs::write(temp_dir.path().join("test.jsonl"), content).unwrap();
+
+        let result = load_project_sessions(temp_dir.path().to_string_lossy().to_string(), None)
+            .await
+            .unwrap();
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].summary, Some("Fix login redirect".to_string()));
+        // A generated title is not a rename by the user (no rename badge or reset).
+        assert!(!result[0].is_renamed);
+        // Title records are metadata, not messages.
+        assert_eq!(result[0].message_count, 2);
+    }
+
+    #[tokio::test]
+    async fn test_custom_title_beats_later_ai_title() {
+        let temp_dir = TempDir::new().unwrap();
+
+        // Claude Code keeps writing ai-title records after a /rename; the
+        // user's name must still win.
+        let content = format!(
+            "{}\n{}\n{}\n{}\n",
+            create_sample_user_message("uuid-1", "session-1", "Hello"),
+            create_sample_custom_title_message("release-prep"),
+            create_sample_ai_title_message("Prepare the release notes"),
+            create_sample_assistant_message("uuid-2", "session-1", "Hi there!")
+        );
+        std::fs::write(temp_dir.path().join("test.jsonl"), content).unwrap();
+
+        let result = load_project_sessions(temp_dir.path().to_string_lossy().to_string(), None)
+            .await
+            .unwrap();
+        assert_eq!(result[0].summary, Some("release-prep".to_string()));
+        assert!(result[0].is_renamed);
+        assert_eq!(result[0].message_count, 2);
+    }
+
+    #[tokio::test]
+    async fn test_latest_ai_title_wins() {
+        let temp_dir = TempDir::new().unwrap();
+
+        let content = format!(
+            "{}\n{}\n{}\n{}\n",
+            create_sample_user_message("uuid-1", "session-1", "Hello"),
+            create_sample_ai_title_message("First guess"),
+            create_sample_assistant_message("uuid-2", "session-1", "Hi there!"),
+            create_sample_ai_title_message("Refined title")
+        );
+        std::fs::write(temp_dir.path().join("test.jsonl"), content).unwrap();
+
+        let result = load_project_sessions(temp_dir.path().to_string_lossy().to_string(), None)
+            .await
+            .unwrap();
+        assert_eq!(result[0].summary, Some("Refined title".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_should_ignore_empty_ai_title() {
+        let temp_dir = TempDir::new().unwrap();
+
+        let content = format!(
+            "{}\n{}\n{}\n",
+            create_sample_user_message("uuid-1", "session-1", "Hello world"),
+            create_sample_assistant_message("uuid-2", "session-1", "Hi there!"),
+            create_sample_ai_title_message("   ")
+        );
+        std::fs::write(temp_dir.path().join("test.jsonl"), content).unwrap();
+
+        let result = load_project_sessions(temp_dir.path().to_string_lossy().to_string(), None)
+            .await
+            .unwrap();
+        assert_eq!(result[0].summary, Some("Hello world".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_phase2_ai_title_beyond_metadata_lines() {
+        let temp_dir = TempDir::new().unwrap();
+
+        // More than METADATA_PHASE_LINES (100) lines, so the title is read by Phase 2.
+        let mut content = String::new();
+        for i in 1..=60 {
+            content.push_str(&format!(
+                "{}\n",
+                create_sample_user_message(
+                    &format!("uuid-u{i}"),
+                    "session-1",
+                    &format!("User message {i}")
+                )
+            ));
+            content.push_str(&format!(
+                "{}\n",
+                create_sample_assistant_message(
+                    &format!("uuid-a{i}"),
+                    "session-1",
+                    &format!("Assistant reply {i}")
+                )
+            ));
+        }
+        content.push_str(&format!(
+            "{}\n",
+            create_sample_ai_title_message("Late generated title")
+        ));
+        std::fs::write(temp_dir.path().join("test.jsonl"), content).unwrap();
+
+        let result = load_project_sessions(temp_dir.path().to_string_lossy().to_string(), None)
+            .await
+            .unwrap();
+        assert_eq!(result[0].summary, Some("Late generated title".to_string()));
+        assert_eq!(result[0].message_count, 120);
+    }
+
+    #[tokio::test]
+    async fn test_incremental_append_keeps_ai_title_and_lets_rename_win() {
+        use std::io::Write;
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("test.jsonl");
+
+        let content = format!(
+            "{}\n{}\n",
+            create_sample_user_message("uuid-1", "session-1", "Message 1"),
+            create_sample_ai_title_message("Generated title")
+        );
+        std::fs::write(&file_path, &content).unwrap();
+        let project = temp_dir.path().to_string_lossy().to_string();
+
+        let result = load_project_sessions(project.clone(), None).await.unwrap();
+        assert_eq!(result[0].summary, Some("Generated title".to_string()));
+
+        // Appending a message re-parses incrementally from the cached state:
+        // the title read by the first pass must survive.
+        let mut file = std::fs::OpenOptions::new()
+            .append(true)
+            .open(&file_path)
+            .unwrap();
+        writeln!(
+            file,
+            "{}",
+            create_sample_assistant_message("uuid-2", "session-1", "Reply")
+        )
+        .unwrap();
+        let result = load_project_sessions(project.clone(), None).await.unwrap();
+        assert_eq!(result[0].summary, Some("Generated title".to_string()));
+        assert_eq!(result[0].message_count, 2);
+
+        writeln!(file, "{}", create_sample_custom_title_message("my-name")).unwrap();
+        let result = load_project_sessions(project, None).await.unwrap();
+        assert_eq!(result[0].summary, Some("my-name".to_string()));
+        assert!(result[0].is_renamed);
+    }
+
+    #[tokio::test]
+    async fn test_title_records_are_not_loaded_as_messages() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("test.jsonl");
+
+        let content = format!(
+            "{}\n{}\n{}\n{}\n",
+            create_sample_user_message("uuid-1", "session-1", "Hello"),
+            create_sample_ai_title_message("Generated title"),
+            create_sample_custom_title_message("my-name"),
+            create_sample_assistant_message("uuid-2", "session-1", "Hi there!")
+        );
+        std::fs::write(&file_path, content).unwrap();
+
+        let messages = load_session_messages(file_path.to_string_lossy().to_string())
+            .await
+            .unwrap();
+        let types: Vec<&str> = messages.iter().map(|m| m.message_type.as_str()).collect();
+        assert_eq!(types, vec!["user", "assistant"]);
+    }
+
+    #[test]
+    fn test_try_extract_ai_title() {
+        assert_eq!(
+            try_extract_ai_title("ai-title", Some("  Tidy the parser  ")),
+            Some("Tidy the parser".to_string())
+        );
+        assert_eq!(try_extract_ai_title("custom-title", Some("x")), None);
+        assert_eq!(try_extract_ai_title("ai-title", None), None);
+        assert_eq!(try_extract_ai_title("ai-title", Some("  ")), None);
     }
 
     #[test]
