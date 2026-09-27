@@ -419,6 +419,23 @@ describe("ProjectTree filter", () => {
     expect(row(KEYS.app)).not.toBeNull();
   });
 
+  it("opens the rows above matches that appear while the filter is active", async () => {
+    const { rerenderWith } = renderTree();
+    typeFilter("review");
+    await waitFor(() => expect(row(KEYS.review)).not.toBeNull());
+    // Closing a row mid-search sticks…
+    fireEvent.click(within(row(KEYS.lab)!).getByTestId("tree-chevron"));
+    expect(row(KEYS.lab)).toHaveAttribute("aria-expanded", "false");
+
+    // …while a new match (projects reloaded) gets its rows opened.
+    const notes = project("/home/jack/projects/research/review-notes");
+    rerenderWith({ projects: [...projects, notes] });
+
+    await waitFor(() => expect(row(KEYS.research)).toHaveAttribute("aria-expanded", "true"));
+    expect(row("loc:home/jack/projects/research/review-notes")).not.toBeNull();
+    expect(row(KEYS.lab)).toHaveAttribute("aria-expanded", "false");
+  });
+
   it("clears on Escape", () => {
     renderTree();
     typeFilter("app");
@@ -633,6 +650,32 @@ describe("ProjectTree reveal requests", () => {
 
     await waitFor(() => expect(document.activeElement).toBe(row(KEYS.review)));
     expect(filterInput()).toHaveValue("review");
+  });
+
+  it("keeps the filter when a folder crumb without a row resolves to a row it shows", async () => {
+    const { rerenderWith } = renderTree();
+    typeFilter("app");
+    await waitFor(() => expect(row(KEYS.lab)).toBeNull());
+
+    store.explorerRevealRequest = { path: "/home/jack/projects", nonce: 8 };
+    rerenderWith({});
+
+    await waitFor(() => expect(document.activeElement).toBe(row(KEYS.app)));
+    expect(filterInput()).toHaveValue("app");
+  });
+
+  it("keeps the filter for a path the tree does not hold at all", async () => {
+    const clear = vi.spyOn(store, "clearExplorerRevealRequest");
+    const { rerenderWith } = renderTree();
+    typeFilter("app");
+    await waitFor(() => expect(row(KEYS.lab)).toBeNull());
+
+    store.explorerRevealRequest = { path: "/srv/elsewhere", nonce: 9 };
+    rerenderWith({});
+
+    await waitFor(() => expect(clear).toHaveBeenCalled());
+    expect(filterInput()).toHaveValue("app");
+    clear.mockRestore();
   });
 
   it("clears the filter when it hides the requested row", async () => {

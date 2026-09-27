@@ -71,8 +71,12 @@ export interface ExplorerRow {
   children: ExplorerRow[];
   /** Latest activity in the row's subtree, its own location included. */
   lastActivity: number;
-  /** `path` with home as `~`; matched by the filter. */
-  displayPath: string;
+  /**
+   * What the filter matches besides the label: the path below the section's
+   * root (the workspace root, or home in Other locations), else the path with
+   * home as `~`. So typing `projects` does not match every row under `~/projects`.
+   */
+  matchPath: string;
 }
 
 export type ExplorerGroupId = "other" | "temporary" | "unavailable";
@@ -302,10 +306,13 @@ function detectWorkspaceRoot(locations: ExplorerLocation[], homeDir: string | nu
 /**
  * Linked git worktrees whose main repository is another listed location:
  * main location identity → its worktree locations. A worktree of a worktree
- * stays where it is.
+ * stays where it is, and so does one with other projects inside it (moving
+ * it alone would leave its folder behind as a second row).
  */
 function findWorktrees(locations: ExplorerLocation[]): Map<string, ExplorerLocation[]> {
   const listed = new Set(locations.map((location) => location.identity));
+  const holdsOthers = (location: ExplorerLocation) =>
+    locations.some((other) => other.identity.startsWith(`${location.identity}/`));
   const parentOf = new Map<ExplorerLocation, string>();
   for (const location of locations) {
     const candidates = [location.primary, ...location.projects.filter((p) => p !== location.primary)];
@@ -314,7 +321,7 @@ function findWorktrees(locations: ExplorerLocation[]): Map<string, ExplorerLocat
       if (info?.worktree_type !== "linked" || !info.main_project_path) continue;
       const parentIdentity = getPathIdentity(withoutTrailingSeparator(info.main_project_path));
       if (parentIdentity !== location.identity && listed.has(parentIdentity)) {
-        parentOf.set(location, parentIdentity);
+        if (!holdsOthers(location)) parentOf.set(location, parentIdentity);
         break;
       }
     }
@@ -338,6 +345,13 @@ function findWorktrees(locations: ExplorerLocation[]): Map<string, ExplorerLocat
 interface RowContext {
   homeDir: string | null;
   worktrees: Map<string, ExplorerLocation[]>;
+  /** The folder the section's rows are relative to (for `matchPath`); null outside home. */
+  sectionBase: string | null;
+}
+
+function matchPathOf(path: string, ctx: RowContext): string {
+  const rel = ctx.sectionBase ? relativeParts(path, ctx.sectionBase) : null;
+  return rel && rel.length > 0 ? rel.join("/") : toDisplayPath(path, ctx.homeDir);
 }
 
 interface TrieNode {
@@ -409,7 +423,7 @@ function worktreeRow(
     variant: "worktree",
     location: worktree,
     children: [],
-    displayPath: toDisplayPath(worktree.path, ctx.homeDir),
+    matchPath: matchPathOf(worktree.path, ctx),
   });
 }
 
@@ -431,7 +445,7 @@ function locationRow(
     variant: parts.variant ?? "default",
     location,
     children,
-    displayPath: toDisplayPath(location.path, ctx.homeDir),
+    matchPath: matchPathOf(location.path, ctx),
   });
 }
 
@@ -480,7 +494,7 @@ function folderRow(node: TrieNode, path: string, ctx: RowContext): ExplorerRow {
     variant: "default",
     location: null,
     children,
-    displayPath: toDisplayPath(currentPath, ctx.homeDir),
+    matchPath: matchPathOf(currentPath, ctx),
   });
 }
 
@@ -516,7 +530,7 @@ function unknownRow(location: ExplorerLocation): ExplorerRow {
     variant: "unknown",
     location,
     children: [],
-    displayPath: "",
+    matchPath: "",
   });
 }
 
@@ -538,7 +552,11 @@ function otherRows(
 
   for (const location of locations) {
     if (location.identity === homeIdentity) {
-      homeRow = locationRow(location, { label: "~", prefix: "", children: [], variant: "home" }, ctx);
+      homeRow = locationRow(
+        location,
+        { label: "~", prefix: "", children: [], variant: "home" },
+        { ...ctx, sectionBase: homeDir }
+      );
       continue;
     }
     const rel = homeDir ? relativeParts(location.path, homeDir) : null;
@@ -555,13 +573,17 @@ function otherRows(
     insertLocation(entry.trie, base.rest, location);
   }
 
-  const rows = homeDir ? buildRows(homeTrie, homeDir, ctx) : [];
+  const homeCtx: RowContext = { ...ctx, sectionBase: homeDir };
+  const outsideCtx: RowContext = { ...ctx, sectionBase: null };
+  const rows = homeDir ? buildRows(homeTrie, homeDir, homeCtx) : [];
   for (const { base, trie } of bases.values()) {
-    for (const row of buildRows(trie, base.path, ctx)) {
+    for (const row of buildRows(trie, base.path, outsideCtx)) {
       rows.push({ ...row, prefix: `${base.label}${row.prefix}` });
     }
     if (trie.location) {
-      rows.push(locationRow(trie.location, { label: base.label, prefix: "", children: [] }, ctx));
+      rows.push(
+        locationRow(trie.location, { label: base.label, prefix: "", children: [] }, outsideCtx)
+      );
     }
   }
 
@@ -628,7 +650,7 @@ function bucketRows(locations: ExplorerLocation[], ctx: BucketContext): Explorer
       variant: "default",
       location,
       children: [],
-      displayPath: location.path ? toDisplayPath(location.path, ctx.homeDir) : "",
+      matchPath: location.path ? toDisplayPath(location.path, ctx.homeDir) : "",
     });
   });
   return sortTree(rows, compareRecent);
@@ -700,21 +722,23 @@ export function buildExplorerModel(
   const moved = new Set(
     Array.from(worktrees.values()).flatMap((list) => list.map((location) => location.identity))
   );
-  const ctx: RowContext = { homeDir, worktrees };
+  const ctx: RowContext = { homeDir, worktrees, sectionBase: homeDir };
   const placed = normal.filter((location) => !moved.has(location.identity));
 
   const rootPath = detectWorkspaceRoot(normal, homeDir);
   let main: ExplorerRow[];
   let other: ExplorerRow[] = [];
   if (rootPath) {
-    const rootIdentity = getPathIdentity(rootPath);
+    // The same comparison places the row, so a spelling that hides the
+    // containment (`//home/…`) lands in Other locations instead of nowhere.
+    const partsBelowRoot = (location: ExplorerLocation) => relativeParts(location.path, rootPath);
     const isInsideRoot = (location: ExplorerLocation) =>
-      location.identity !== rootIdentity && isSameOrInsideIdentity(location.identity, rootIdentity);
+      (partsBelowRoot(location)?.length ?? 0) > 0;
     const rootTrie = createNode("");
     for (const location of placed.filter(isInsideRoot)) {
-      insertLocation(rootTrie, relativeParts(location.path, rootPath) ?? [], location);
+      insertLocation(rootTrie, partsBelowRoot(location)!, location);
     }
-    main = sortTree(buildRows(rootTrie, rootPath, ctx), compare);
+    main = sortTree(buildRows(rootTrie, rootPath, { ...ctx, sectionBase: rootPath }), compare);
     other = otherRows(
       placed.filter((location) => !isInsideRoot(location)),
       unknown,
@@ -773,22 +797,48 @@ export interface ExplorerFilterResult {
   matches: Map<string, ExplorerRowMatch>;
 }
 
+/**
+ * `text` lower-cased, with the index in `text` of every lower-cased code unit
+ * (plus the end): lower-casing can change the length (`İ` → `i̇`), and the
+ * ranges must fall on the original text.
+ */
+function lowerCaseWithOrigins(text: string): { lower: string; origins: number[] } {
+  let lower = "";
+  const origins: number[] = [];
+  for (let index = 0; index < text.length; ) {
+    const char = String.fromCodePoint(text.codePointAt(index)!);
+    const lowered = char.toLowerCase();
+    for (let unit = 0; unit < lowered.length; unit += 1) origins.push(index);
+    lower += lowered;
+    index += char.length;
+  }
+  origins.push(text.length);
+  return { lower, origins };
+}
+
 function findRanges(text: string, needle: string): TextRange[] {
   const ranges: TextRange[] = [];
-  const haystack = text.toLowerCase();
+  const { lower, origins } = lowerCaseWithOrigins(text);
   let from = 0;
   for (;;) {
-    const index = haystack.indexOf(needle, from);
+    const index = lower.indexOf(needle, from);
     if (index < 0) return ranges;
-    ranges.push({ start: index, end: index + needle.length });
-    from = index + needle.length;
+    const end = index + needle.length;
+    // A match ending inside an expanded character covers all of it.
+    let originalEnd = origins[end]!;
+    if (end < lower.length && origins[end] === origins[end - 1]) {
+      const char = String.fromCodePoint(text.codePointAt(originalEnd)!);
+      originalEnd += char.length;
+    }
+    ranges.push({ start: origins[index]!, end: originalEnd });
+    from = end;
   }
 }
 
 /**
- * Case-insensitive substring filter over the row label, its display path
- * (home as `~`) and the names of its provider projects. A row stays when it
- * or a descendant matches; empty folders and groups go.
+ * Case-insensitive substring filter over the row label, its `matchPath` (the
+ * path below its section's root) and the names of its provider projects. A
+ * row stays when it or a descendant matches; empty folders and groups go.
  */
 export function filterExplorerModel(model: ExplorerModel, query: string): ExplorerFilterResult {
   const needle = query.trim().toLowerCase();
@@ -810,7 +860,7 @@ export function filterExplorerModel(model: ExplorerModel, query: string): Explor
         match.label.length > 0 ||
         match.prefix.length > 0 ||
         match.hint.length > 0 ||
-        row.displayPath.toLowerCase().includes(needle) ||
+        row.matchPath.toLowerCase().includes(needle) ||
         (row.location?.projects.some((project) =>
           (project.name ?? "").toLowerCase().includes(needle)
         ) ??
@@ -869,7 +919,12 @@ function visitRows<T>(model: ExplorerModel, visitor: RowVisitor<T>): T | null {
   return null;
 }
 
-/** The row that best represents `path` (the header breadcrumb reveals it). */
+/**
+ * The row that best represents `path` (the header breadcrumb reveals it).
+ * Candidates are ranked by how deep their path is, not by how deep they sit
+ * in the tree: a row in a group is one level down without being any closer.
+ * Ties go to the first row in display order (the main section first).
+ */
 export function locateInExplorer(model: ExplorerModel, path: string): ExplorerLocateResult | null {
   if (!path) return null;
   const identity = getPathIdentity(withoutTrailingSeparator(path));
@@ -881,7 +936,7 @@ export function locateInExplorer(model: ExplorerModel, path: string): ExplorerLo
   const exact = visitRows<ExplorerLocateResult>(model, (row, ancestorKeys) => {
     if (!row.path) return null;
     const rowIdentity = getPathIdentity(row.path);
-    const depth = ancestorKeys.length;
+    const depth = rowIdentity === "" ? 0 : rowIdentity.split("/").length;
     if (rowIdentity === identity) return { key: row.key, ancestorKeys, match: "exact" };
     if (isSameOrInsideIdentity(rowIdentity, identity)) {
       if (!best.descendant || depth < best.descendant.depth) {

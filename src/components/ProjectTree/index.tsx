@@ -188,6 +188,7 @@ export const ProjectTree: React.FC<ProjectTreeProps> = ({
   });
 
   useExplorerReveal({
+    model,
     visibleModel: filtered.model,
     searchTerm,
     deferredSearchTerm,

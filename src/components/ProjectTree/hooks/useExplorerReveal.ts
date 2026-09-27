@@ -7,6 +7,8 @@ import { locateInExplorer, type ExplorerModel } from "../../../utils/explorerMod
 const REVEAL_HIGHLIGHT_MS = 1600;
 
 interface UseExplorerRevealArgs {
+  /** The unfiltered model: which row the path means. */
+  model: ExplorerModel;
   /** The rendered (filtered) model. */
   visibleModel: ExplorerModel;
   searchTerm: string;
@@ -26,6 +28,7 @@ interface UseExplorerRevealArgs {
  * highlight it. Each step that changes state resumes on the next run.
  */
 export function useExplorerReveal({
+  model,
   visibleModel,
   searchTerm,
   deferredSearchTerm,
@@ -55,23 +58,26 @@ export function useExplorerReveal({
       return;
     }
 
+    const wanted = locateInExplorer(model, request.path);
+    if (!wanted) {
+      // Nothing in the tree stands for the path: leave the filter alone.
+      handledNonceRef.current = request.nonce;
+      clearRequest();
+      return;
+    }
     // The breadcrumb asks to show this path: keep a filter that already shows
-    // the row, otherwise clear it and wait for the deferred filter to catch up.
+    // its row, otherwise clear it and wait for the deferred filter to catch up.
     if (searchTerm || deferredSearchTerm) {
       const settled = deferredSearchTerm === searchTerm;
       const visible = settled ? locateInExplorer(visibleModel, request.path) : null;
-      if (visible?.match !== "exact") {
+      if (visible?.key !== wanted.key) {
         if (settled) clearSearch();
         return;
       }
     }
 
     handledNonceRef.current = request.nonce;
-    const target = locateInExplorer(visibleModel, request.path);
-    if (!target) {
-      clearRequest();
-      return;
-    }
+    const target = locateInExplorer(visibleModel, request.path) ?? wanted;
     expandGroups(target.ancestorKeys);
     setFocusKey(target.key);
   }, [
@@ -80,6 +86,7 @@ export function useExplorerReveal({
     deferredSearchTerm,
     expandGroups,
     isCollapsed,
+    model,
     onToggleCollapse,
     request,
     searchTerm,

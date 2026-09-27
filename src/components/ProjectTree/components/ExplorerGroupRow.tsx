@@ -57,7 +57,7 @@ export const ExplorerGroupRow: React.FC<ExplorerGroupRowProps> = ({
         className={cn("size-3.5 shrink-0 transition-transform duration-150", isExpanded && "rotate-90")}
       />
       <span className="min-w-0 flex-1 truncate">{label}</span>
-      <span className="w-7 shrink-0 text-right text-px10-5 font-normal tabular-nums">
+      <span className="min-w-7 shrink-0 text-right text-px10-5 font-normal tabular-nums">
         {group.locationCount}
       </span>
     </button>

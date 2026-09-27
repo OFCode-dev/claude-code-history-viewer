@@ -157,6 +157,22 @@ describe("ExplorerRow", () => {
       "Location unavailable"
     );
     expect(within(item).getByText("~/projects")).toHaveClass("shrink-[3]");
+    // The row's accessible name replaces its content, so it carries the status.
+    expect(item).toHaveAttribute("aria-label", "gone, ~/projects, Location unavailable, Claude Code, 2 sessions");
+  });
+
+  it("names what the icon means for home, worktree and path-less rows", () => {
+    const homeModel = buildExplorerModel([
+      project("/home/jack"),
+      project("/home/jack/projects/a"),
+      project("/home/jack/projects/b"),
+      project("/home/jack/projects/c"),
+    ]);
+    const home = homeModel.groups[0]!.rows[0]!;
+    const { item } = renderRow({ row: home, level: 1 });
+
+    expect(home.variant).toBe("home");
+    expect(item).toHaveAttribute("aria-label", "~, Home folder, Claude Code, 2 sessions");
   });
 });
 

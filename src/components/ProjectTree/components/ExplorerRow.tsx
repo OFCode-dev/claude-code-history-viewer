@@ -68,10 +68,28 @@ function locationTooltip(t: TFunction, row: ExplorerRowModel, location: Explorer
   return lines.join("\n");
 }
 
+const isUnavailableRow = (row: ExplorerRowModel) =>
+  row.location?.projects.some(isProjectPathUnavailable) ?? false;
+
+/** What the row's icon stands for, or "" for ordinary rows. */
+function rowStatusLabel(t: TFunction, row: ExplorerRowModel): string {
+  if (isUnavailableRow(row)) return t("project.pathUnavailable");
+  switch (row.variant) {
+    case "home":
+      return t("project.homeFolder");
+    case "worktree":
+      return t("project.gitWorktree");
+    case "unknown":
+      return t("project.unknownPath");
+    default:
+      return "";
+  }
+}
+
 const RowIcon: React.FC<{ row: ExplorerRowModel }> = ({ row }) => {
   const { t } = useTranslation();
   const iconClass = "size-3.5 shrink-0";
-  if (row.location?.projects.some(isProjectPathUnavailable)) {
+  if (row.location && isUnavailableRow(row)) {
     return (
       <span
         data-testid="project-path-unavailable"
@@ -139,10 +157,13 @@ export const ExplorerRow: React.FC<ExplorerRowProps> = ({
   };
 
   const name = `${row.prefix}${row.label}`;
+  // The accessible name replaces the row's content, so it also says what the
+  // icon (and its tooltip) would: unavailable, home, worktree, unknown path.
   const ariaLabel = location
     ? [
         name,
         row.hint,
+        rowStatusLabel(t, row),
         showProviderBadge ? location.providers.map((id) => providerLabel(t, id)).join(", ") : "",
         t("project.sessionCount", { count: location.sessionCount }),
       ]
@@ -288,7 +309,7 @@ export const ExplorerRow: React.FC<ExplorerRowProps> = ({
       {location && (
         <span
           className={cn(
-            "w-7 shrink-0 text-right text-px10-5 tabular-nums",
+            "min-w-7 shrink-0 text-right text-px10-5 tabular-nums",
             isSelected ? "text-foreground/70" : "text-muted-foreground"
           )}
         >

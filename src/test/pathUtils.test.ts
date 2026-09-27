@@ -97,6 +97,14 @@ describe("path identity and home detection", () => {
     expect(resolveHomeDir(paths, "/nowhere")).toBe("/Users/jack");
     expect(resolveHomeDir(["/srv/a", "/srv/b"], "/srv")).toBe("/srv");
   });
+
+  it("never lets a hint above the detected home widen `~`", () => {
+    const windows = ["C:\\Users\\Me\\a", "C:\\Users\\Me\\b"];
+    expect(resolveHomeDir(windows, getClaudeFolderHome("C:\\.claude"))).toBe("C:\\Users\\Me");
+    expect(resolveHomeDir(["/home/jack/a"], getClaudeFolderHome("/home/.claude"))).toBe(
+      "/home/jack"
+    );
+  });
 });
 
 describe("path display utilities", () => {

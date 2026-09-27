@@ -161,6 +161,12 @@ export function resolveHomeDir(paths: string[], hint?: string | null): string | 
   const detected = pickHomeDir(paths);
   const hintId = hint ? getPathIdentity(hint) : "";
   if (!hint || hintId === "") return detected;
+  // A data folder at `C:\.claude` or `/home/.claude` is not a home: a hint
+  // above the detected home would turn a whole drive into `~`.
+  if (detected) {
+    const detectedId = getPathIdentity(detected);
+    if (hintId !== detectedId && isSameOrInsideIdentity(detectedId, hintId)) return detected;
+  }
 
   const countInside = (baseId: string) =>
     paths.filter((path) => isSameOrInsideIdentity(getPathIdentity(path), baseId)).length;

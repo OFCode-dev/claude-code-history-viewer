@@ -352,6 +352,34 @@ describe("buildExplorerModel — main section", () => {
     expect(group(model, "other")).toBeUndefined();
   });
 
+  it("leaves a linked worktree with projects inside it in place (never shown twice)", () => {
+    const model = buildExplorerModel([
+      project(`${H}/projects/app`, { git_info: { worktree_type: "main" } }),
+      project(`${H}/projects/app-wt`, {
+        git_info: { worktree_type: "linked", main_project_path: `${H}/projects/app` },
+      }),
+      project(`${H}/projects/app-wt/sub1`),
+      project(`${H}/projects/app-wt/sub2`),
+    ]);
+
+    expect(outline(model.main)).toBe("app,app-wt{sub1,sub2}");
+    expect(findRow(model.main, "app-wt")!.location).not.toBeNull();
+  });
+
+  it("keeps every location when a path's spelling hides that it is inside the root", () => {
+    // `//home/fx/…` has the same identity as `/home/fx/…` but a UNC shape.
+    const model = buildExplorerModel([
+      project(`${H}/projects/a`),
+      project(`${H}/projects/b`),
+      project(`${H}/projects/c`),
+      project(`/${H}/projects/d`),
+    ]);
+    const count = (rows: ExplorerRow[]): number =>
+      rows.reduce((sum, row) => sum + (row.location ? 1 : 0) + count(row.children), 0);
+
+    expect(count(model.main) + model.groups.reduce((sum, g) => sum + count(g.rows), 0)).toBe(4);
+  });
+
   it("leaves a linked worktree in place when its main project is not listed", () => {
     const model = buildExplorerModel([
       project(`${H}/projects/a`),
@@ -606,16 +634,51 @@ describe("filterExplorerModel", () => {
     expect(filtered.groups).toEqual([]);
   });
 
-  it("matches the display path and provider project names, case-insensitively", () => {
+  it("matches the path below the section and provider project names, case-insensitively", () => {
     const model = buildExplorerModel([
       project(`${H}/projects/app`, { name: "Payments Service", provider: "codex" }),
+      project(`${H}/projects/app/api`),
       project(`${H}/projects/b`),
       project(`${H}/projects/c`),
       project(`${H}/notes`),
     ]);
 
     expect(outline(filterExplorerModel(model, "PAYMENTS").model.main)).toBe("app");
-    expect(outline(filterExplorerModel(model, "~/proj").model.main)).toBe("app,b,c");
+    // A folder's name keeps the rows below it.
+    expect(outline(filterExplorerModel(model, "app").model.main)).toBe("app{api}");
+    expect(outline(filterExplorerModel(model, "app/ap").model.main)).toBe("app{api}");
+  });
+
+  it("does not match every row on the workspace root's or home's own path", () => {
+    const model = buildExplorerModel([
+      project(`${H}/projects/a`),
+      project(`${H}/projects/b`),
+      project(`${H}/projects/c`),
+      project(`${H}/projects`),
+      project(`${H}/notes`),
+    ]);
+
+    const byRoot = filterExplorerModel(model, "projects").model;
+    expect(byRoot.main).toEqual([]);
+    expect(outline(byRoot.groups[0]!.rows)).toBe("projects");
+    expect(outline(filterExplorerModel(model, "~").model.main)).toBe("");
+    expect(filterExplorerModel(model, "home/fx").model.groups).toEqual([]);
+  });
+
+  it("highlights the right characters when lower-casing changes the length", () => {
+    const model = buildExplorerModel([
+      project(`${H}/projects/İstanbul-app`),
+      project(`${H}/projects/b`),
+      project(`${H}/projects/c`),
+    ]);
+    const { model: filtered, matches } = filterExplorerModel(model, "app");
+
+    const row = filtered.main[0]!;
+    expect(row.label).toBe("İstanbul-app");
+    expect(matches.get(row.key)?.label).toEqual([{ start: 9, end: 12 }]);
+    expect(filterExplorerModel(model, "i̇stan").matches.get(row.key)?.label).toEqual([
+      { start: 0, end: 5 },
+    ]);
   });
 
   it("reports highlight ranges for the label, prefix and hint", () => {
@@ -719,6 +782,32 @@ describe("locateInExplorer", () => {
       key: "loc:home/fx/projects/lab-management/ducs",
       ancestorKeys: ["dir:home/fx/projects/lab-management"],
       match: "ancestor",
+    });
+  });
+
+  it("ranks rows by path depth, not by how deep they sit in the tree", () => {
+    const withHome = buildExplorerModel([
+      project(H),
+      project(`${H}/projects/a`),
+      project(`${H}/projects/b`),
+      project(`${H}/projects/c`),
+      project(`${H}/projects/lab`),
+      project(`${H}/projects/lab/x`),
+    ]);
+
+    // `~` sits in a group (one tree level deeper) but is a shallower path.
+    expect(locateInExplorer(withHome, `${H}/projects/a/src`)).toMatchObject({
+      key: "loc:home/fx/projects/a",
+      match: "ancestor",
+    });
+    expect(locateInExplorer(withHome, `${H}/projects/lab/z`)).toMatchObject({
+      key: "dir:home/fx/projects/lab",
+      match: "ancestor",
+    });
+    // The shallowest row inside `~/projects`, main section first on a tie.
+    expect(locateInExplorer(withHome, `${H}/projects`)).toMatchObject({
+      key: "loc:home/fx/projects/a",
+      match: "descendant",
     });
   });
 
