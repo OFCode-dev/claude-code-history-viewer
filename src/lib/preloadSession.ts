@@ -19,6 +19,7 @@
 
 import { toast } from "sonner";
 import { api } from "@/services/api";
+import { loadAllProjectSessions } from "@/services/projectSessionsApi";
 import { useAppStore } from "@/store/useAppStore";
 import { isWebUI } from "@/utils/platform";
 import { readWebUIDeepLink } from "@/utils/webuiDeepLink";
@@ -154,18 +155,6 @@ function matchByTitle(sessions: ClaudeSession[], substring: string): ClaudeSessi
 
 type ProjectSessionsPair = { project: ClaudeProject; sessions: ClaudeSession[] };
 
-async function loadSessionsFor(
-  project: ClaudeProject,
-  excludeSidechain: boolean,
-): Promise<ClaudeSession[]> {
-  const providerId = project.provider ?? "claude";
-  return api<ClaudeSession[]>(
-    providerId !== "claude" ? "load_provider_sessions" : "load_project_sessions",
-    providerId !== "claude"
-      ? { provider: providerId, projectPath: project.path, excludeSidechain }
-      : { projectPath: project.path, excludeSidechain },
-  );
-}
 
 /**
  * Scan every known project and return sessions paired with their owning
@@ -187,7 +176,7 @@ async function scanAllProjects(
       return null;
     }
     try {
-      const sessions = await loadSessionsFor(project, excludeSidechain);
+      const sessions = await loadAllProjectSessions(project, excludeSidechain);
       if (!isCurrent() || useAppStore.getState().selectedSession) {
         return null;
       }
@@ -212,7 +201,7 @@ async function resolveUuid(
   for (const project of projects) {
     if (!isCurrent() || useAppStore.getState().selectedSession) return null;
     try {
-      const sessions = await loadSessionsFor(project, excludeSidechain);
+      const sessions = await loadAllProjectSessions(project, excludeSidechain);
       if (!isCurrent() || useAppStore.getState().selectedSession) return null;
       const session = matchByUuid(sessions, uuid);
       if (session) return { project, session };
@@ -232,7 +221,7 @@ async function resolvePath(
   for (const project of projects) {
     if (!isCurrent() || useAppStore.getState().selectedSession) return null;
     try {
-      const sessions = await loadSessionsFor(project, excludeSidechain);
+      const sessions = await loadAllProjectSessions(project, excludeSidechain);
       if (!isCurrent() || useAppStore.getState().selectedSession) return null;
       const session = matchByPath(sessions, absPath);
       if (session) return { project, session };
@@ -262,7 +251,7 @@ async function resolveFolder(
 
   try {
     const { excludeSidechain } = useAppStore.getState();
-    const sessions = await loadSessionsFor(target, excludeSidechain);
+    const sessions = await loadAllProjectSessions(target, excludeSidechain);
     if (!isCurrent() || useAppStore.getState().selectedSession) return null;
     // Pick the most recently modified session as the "default" for a folder hint.
     const sorted = [...sessions].sort((a, b) => {

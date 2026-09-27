@@ -19,6 +19,7 @@ import type {
   UserMetadata,
   SessionMetadata,
   ProjectMetadata,
+  FavoriteSessionEntry,
   UserSettings,
   ProviderId,
   ProviderInfo,
@@ -374,6 +375,14 @@ export interface AppStoreActions {
   addHiddenPattern: (pattern: string) => Promise<void>;
   removeHiddenPattern: (pattern: string) => Promise<void>;
   clearMetadataError: () => void;
+  isSessionFavorite: (sessionId: string) => boolean;
+  toggleSessionFavorite: (
+    session: ClaudeSession,
+    project: ClaudeProject
+  ) => Promise<void>;
+  removeSessionFavorite: (sessionId: string) => Promise<void>;
+  getFavoriteSessions: () => FavoriteSessionEntry[];
+  openFavoriteSession: (entry: FavoriteSessionEntry) => Promise<void>;
 
   // Capture mode actions
   enterCaptureMode: () => void;

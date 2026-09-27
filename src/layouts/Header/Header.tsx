@@ -21,6 +21,7 @@ import { getAssetPath, isMacOS, isTauri } from "@/utils/platform";
 import { SettingDropdown } from "./SettingDropdown";
 import { SessionCopyMenu } from "./SessionCopyMenu";
 import { HeaderBreadcrumb } from "./HeaderBreadcrumb";
+import { HeaderFavoriteButton } from "./HeaderFavoriteButton";
 import { HistoryNavButtons } from "./HistoryNavButtons";
 import { FocusModeButton } from "./FocusModeButton";
 
@@ -160,6 +161,9 @@ export const Header = ({ analyticsActions, analyticsComputed, updater }: HeaderP
                 if (!computed.isMessagesView) analyticsActions.switchToMessages();
               }}
             />
+            {/* Outside the breadcrumb, which clips as it folds: the star stays
+                whole right after the session crumb. */}
+            <HeaderFavoriteButton />
           </>
         ) : (
           <div className="flex flex-col min-w-0">

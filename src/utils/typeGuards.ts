@@ -173,6 +173,8 @@ export function isSessionMetadataEmpty(metadata: SessionMetadata): boolean {
   return (
     !metadata.customName &&
     !metadata.starred &&
+    !metadata.starredAt &&
+    !metadata.favorite &&
     (!metadata.tags || metadata.tags.length === 0) &&
     !metadata.notes
   );

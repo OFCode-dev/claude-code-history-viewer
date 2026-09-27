@@ -1,8 +1,10 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Check } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { NativeRenameDialog } from "@/components/NativeRenameDialog";
+import { FavoriteStarButton, FavoriteStarIcon } from "@/components/favorites/FavoriteStar";
+import { useSessionFavorite } from "@/components/favorites/useSessionFavorite";
 import { useSessionEditing } from "./hooks/useSessionEditing";
 import { SessionHeader } from "./components/SessionHeader";
 import { SessionNameEditor } from "./components/SessionNameEditor";
@@ -27,7 +29,34 @@ export const SessionItem: React.FC<SessionItemProps> = ({
 }) => {
   const { t } = useTranslation();
   const editing = useSessionEditing(session);
+  const favorite = useSessionFavorite(session);
   const [contextMenu, setContextMenu] = useState<ContextMenuPosition | null>(null);
+
+  // A favourite is marked by a filled star before the title, which unstars it;
+  // other rows show an outline star on hover or focus to add one. In
+  // multi-select mode and on a read-only server the mark stays but cannot be
+  // toggled, and while the name is edited the input has the line to itself.
+  const canToggleFavorite = favorite.canToggle && !isSelectionMode;
+  const showFavoriteMark = favorite.isFavorite && !editing.isEditing;
+  const showAddFavorite = canToggleFavorite && !favorite.isFavorite && !editing.isEditing;
+
+  // The star moves when toggled (before the title once starred, after it
+  // otherwise), so the focused button goes away. Only one of the two is
+  // rendered at a time; hand focus to the one that replaces it, unless focus
+  // has meanwhile gone somewhere else.
+  const starRef = useRef<HTMLButtonElement>(null);
+  const refocusStar = useRef(false);
+  const { toggle: toggleFavoriteState } = favorite;
+  const toggleFavorite = useCallback(() => {
+    refocusStar.current = starRef.current != null && starRef.current === document.activeElement;
+    toggleFavoriteState();
+  }, [toggleFavoriteState]);
+  useEffect(() => {
+    if (!refocusStar.current) return;
+    refocusStar.current = false;
+    const active = document.activeElement;
+    if (active == null || active === document.body) starRef.current?.focus();
+  }, [favorite.isFavorite]);
 
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
@@ -135,6 +164,18 @@ export const SessionItem: React.FC<SessionItemProps> = ({
 
         {/* Session Name / Edit Mode */}
         <div className="flex-1 min-w-0 flex items-start gap-1">
+          {showFavoriteMark &&
+            (canToggleFavorite ? (
+              <FavoriteStarButton
+                ref={starRef}
+                isFavorite
+                onToggle={toggleFavorite}
+                className="mt-0.5 h-4 w-4"
+                iconClassName="w-3 h-3"
+              />
+            ) : (
+              <FavoriteStarIcon className="mt-1" />
+            ))}
           {isSelectionMode ? (
             <span
               className={cn(
@@ -179,6 +220,17 @@ export const SessionItem: React.FC<SessionItemProps> = ({
             onContextMenuOpenChange={editing.setIsContextMenuOpen}
           />
           )}
+          {showAddFavorite && (
+            <FavoriteStarButton
+              ref={starRef}
+              isFavorite={false}
+              onToggle={toggleFavorite}
+              // Always in the layout so the title never shifts; like the
+              // rename button, visible on hover or focus (dimmed on touch).
+              className="p-1 opacity-40 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100 focus-visible:opacity-100"
+              iconClassName="w-3 h-3"
+            />
+          )}
         </div>
       </div>
 
@@ -193,6 +245,8 @@ export const SessionItem: React.FC<SessionItemProps> = ({
       {!isSelectionMode && contextMenu && (
         <SessionContextMenu
           position={contextMenu}
+          isFavorite={favorite.isFavorite}
+          onToggleFavorite={canToggleFavorite ? favorite.toggle : undefined}
           hasCustomName={editing.hasCustomName}
           readOnly={editing.isServerReadOnly}
           supportsNativeRename={editing.supportsNativeRename}

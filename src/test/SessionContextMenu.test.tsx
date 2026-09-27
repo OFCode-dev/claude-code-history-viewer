@@ -3,7 +3,7 @@
  * Verifies scroll-close, resize-close, rAF arm guard, and cleanup symmetry.
  */
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { render, cleanup } from "@testing-library/react";
+import { render, cleanup, fireEvent, screen } from "@testing-library/react";
 import { SessionContextMenu } from "../components/SessionItem/components/SessionContextMenu";
 
 vi.mock("react-i18next", () => ({
@@ -76,5 +76,36 @@ describe("SessionContextMenu listener wiring", () => {
     document.dispatchEvent(new Event("scroll"));
     window.dispatchEvent(new Event("resize"));
     expect(onClose).not.toHaveBeenCalled();
+  });
+});
+
+describe("SessionContextMenu favourite item", () => {
+  afterEach(() => {
+    cleanup();
+    vi.clearAllMocks();
+  });
+
+  it("offers to add a session that is not a favourite, then closes", () => {
+    const onToggleFavorite = vi.fn();
+    const onClose = vi.fn();
+    render(<SessionContextMenu {...makeProps({ onToggleFavorite, onClose })} />);
+
+    fireEvent.click(screen.getByRole("menuitem", { name: "Add to favorites" }));
+
+    expect(onToggleFavorite).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("offers to remove a favourite", () => {
+    render(<SessionContextMenu {...makeProps({ isFavorite: true, onToggleFavorite: vi.fn() })} />);
+
+    expect(screen.getByRole("menuitem", { name: "Remove from favorites" })).toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: "Add to favorites" })).not.toBeInTheDocument();
+  });
+
+  it("leaves the item out when the session cannot be starred here", () => {
+    render(<SessionContextMenu {...makeProps({ readOnly: true })} />);
+
+    expect(screen.queryByRole("menuitem", { name: /favorites/ })).not.toBeInTheDocument();
   });
 });
