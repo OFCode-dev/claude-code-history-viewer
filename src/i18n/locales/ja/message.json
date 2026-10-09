@@ -20,7 +20,6 @@
   "messageContentDisplay.copyMessage": "メッセージをコピー",
   "messageContentDisplay.showLess": "折りたたむ",
   "messageContentDisplay.showMore": "もっと見る...",
-  "messageContentDisplay.showMoreRows": "あと{{count}}行を表示...",
   "promptCard.you": "あなた",
   "promptCard.turn": "ターン {{number}}",
   "promptCard.ariaLabel": "あなたのプロンプト",

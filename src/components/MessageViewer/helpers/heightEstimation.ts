@@ -7,7 +7,7 @@
 import type { FlattenedMessage } from "../types";
 import { isEmptyMessage } from "./messageHelpers";
 import { getUserRecordPresentation } from "../../messageRenderer/systemRecordSummary";
-import { PROMPT_HEAD_CHARS, PROMPT_LINE_LIMIT } from "../../messageRenderer/promptCollapse";
+import { MESSAGE_PREVIEW_CHARS } from "../../messageRenderer/messageCollapse";
 
 // Default heights by message type (in pixels)
 const HEIGHT_DEFAULTS = {
@@ -77,13 +77,10 @@ interface VisibleTextLimit {
   lines: number;
 }
 
-/**
- * What a collapsed PromptCard shows at most: about PROMPT_LINE_LIMIT lines, or
- * PROMPT_HEAD_CHARS plus the closing paragraph.
- */
+/** What a collapsed PromptCard shows at most: its first MESSAGE_PREVIEW_CHARS characters. */
 const FOLDED_PROMPT_LIMIT: VisibleTextLimit = {
-  chars: PROMPT_HEAD_CHARS * 2,
-  lines: PROMPT_LINE_LIMIT,
+  chars: MESSAGE_PREVIEW_CHARS,
+  lines: Number.POSITIVE_INFINITY,
 };
 
 function estimateContentExtraHeight(
@@ -199,7 +196,7 @@ export function estimateMessageHeight(
 
   // User records render as ClaudeMessageNode draws them: records nobody typed
   // as a one-line row (collapsed by default), prompts as a card folded to
-  // about a dozen lines.
+  // their first 10,000 characters.
   if (message.type === "user") {
     const { kind, systemRecordKind } = getUserRecordPresentation(message);
     if (systemRecordKind) {

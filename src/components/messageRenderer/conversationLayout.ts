@@ -1,5 +1,11 @@
 /**
  * Shared width of conversation cards: human prompt cards and assistant cards
- * line up on the same left edge and grow to the same maximum width.
+ * fill the conversation column edge to edge, so they line up on both sides.
  */
-export const CONVERSATION_CARD_WIDTH = "max-w-[95%] md:max-w-2xl xl:max-w-3xl";
+export const CONVERSATION_CARD_WIDTH = "w-full";
+
+/**
+ * Top-level Markdown paragraphs read as justified prose; code blocks, lists,
+ * tables and quotes keep their own alignment.
+ */
+export const JUSTIFIED_PROSE = "[&>p]:text-justify";

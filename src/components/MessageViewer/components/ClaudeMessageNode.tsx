@@ -188,7 +188,7 @@ export const ClaudeMessageNode = React.memo(
             )}
           >
             {CaptureHideButton}
-            <div className="max-w-4xl mx-auto">
+            <div className="w-full">
               <AgentTaskGroupRenderer
                 tasks={agentTaskGroup}
                 timestamp={message.timestamp}
@@ -214,7 +214,7 @@ export const ClaudeMessageNode = React.memo(
             )}
           >
             {CaptureHideButton}
-            <div className="max-w-4xl mx-auto">
+            <div className="w-full">
               <AgentProgressGroupRenderer
                 entries={agentProgressGroup.entries}
                 agentId={agentProgressGroup.agentId}
@@ -240,7 +240,7 @@ export const ClaudeMessageNode = React.memo(
             )}
           >
             {CaptureHideButton}
-            <div className="max-w-4xl mx-auto">
+            <div className="w-full">
               <TaskOperationGroupRenderer
                 operations={taskOperationGroup}
                 taskRegistry={taskRegistry}
@@ -261,7 +261,7 @@ export const ClaudeMessageNode = React.memo(
             data-message-uuid={message.uuid}
             onClick={handleSelectionClick}
             className={cn(
-              "relative max-w-4xl mx-auto transition-all duration-200",
+              "relative w-full px-2 md:px-4 transition-all duration-200",
               isCaptureMode && !isSelected && CAPTURE_HOVER_BG,
               selectionHighlight,
               selectionCursor,
@@ -296,7 +296,7 @@ export const ClaudeMessageNode = React.memo(
             )}
           >
             {CaptureHideButton}
-            <div className="max-w-4xl mx-auto">
+            <div className="w-full">
               <FileHistorySnapshotRenderer
                 messageId={message.messageId ?? message.uuid}
                 snapshot={message.snapshot}
@@ -323,7 +323,7 @@ export const ClaudeMessageNode = React.memo(
             )}
           >
             {CaptureHideButton}
-            <div className="max-w-4xl mx-auto">
+            <div className="w-full">
               <ProgressRenderer
                 data={message.data as ProgressData}
                 toolUseID={message.toolUseID}
@@ -359,7 +359,7 @@ export const ClaudeMessageNode = React.memo(
             )}
           >
             {CaptureHideButton}
-            <div className="max-w-4xl mx-auto">
+            <div className="w-full">
               <SystemMessageRenderer
                 content={systemContent}
                 subtype={message.subtype}
@@ -416,7 +416,7 @@ export const ClaudeMessageNode = React.memo(
             )}
           >
             {CaptureHideButton}
-            <div className="max-w-4xl mx-auto">
+            <div className="w-full">
               {systemRecordKind ? (
                 <SystemRecordRow
                   kind={systemRecordKind}
@@ -490,7 +490,7 @@ export const ClaudeMessageNode = React.memo(
           )}
         >
           {CaptureHideButton}
-          <div className="max-w-4xl mx-auto">
+          <div className="w-full">
             {!hideHeader && <MessageHeader message={message} />}
 
             <div className="w-full">

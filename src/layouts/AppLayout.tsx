@@ -432,9 +432,11 @@ export const AppLayout: React.FC<AppLayoutProps> = (props) => {
               {t("common.a11y.skipToSessions", { defaultValue: "Skip to sessions" })}
             </a>
           )}
+          {/* Narrow screens have no explorer or sessions links to its left;
+              at 24rem it would push the page wider than a phone (390px). */}
           <a
             href="#main-content"
-            className="absolute left-[24rem] top-[-40px] z-[700] rounded-md border border-border bg-card px-3 py-2 text-sm font-medium text-foreground transition-all focus:top-2"
+            className="absolute left-2 md:left-[24rem] top-[-40px] z-[700] rounded-md border border-border bg-card px-3 py-2 text-sm font-medium text-foreground transition-all focus:top-2"
           >
             {t("common.a11y.skipToMain", {
               defaultValue: "Skip to main content",

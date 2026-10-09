@@ -20,7 +20,6 @@
   "messageContentDisplay.copyMessage": "메시지 복사하기",
   "messageContentDisplay.showLess": "접기",
   "messageContentDisplay.showMore": "더 보기...",
-  "messageContentDisplay.showMoreRows": "{{count}}개 행 더 보기...",
   "promptCard.you": "나",
   "promptCard.turn": "턴 {{number}}",
   "promptCard.ariaLabel": "내 프롬프트",

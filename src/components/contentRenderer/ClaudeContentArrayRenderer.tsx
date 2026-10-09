@@ -17,6 +17,7 @@ import { RedactedThinkingRenderer } from "./RedactedThinkingRenderer";
 import { ToolUseRenderer } from "./ToolUseRenderer";
 import { ImageRenderer } from "./ImageRenderer";
 import { CommandRenderer } from "./CommandRenderer";
+import { TextBlockRenderer } from "./TextBlockRenderer";
 import { ServerToolUseRenderer } from "./ServerToolUseRenderer";
 import { WebSearchResultRenderer } from "./WebSearchResultRenderer";
 import { DocumentRenderer } from "./DocumentRenderer";
@@ -203,25 +204,14 @@ export const ClaudeContentArrayRenderer = memo(({
             if (skipFirstText && index === firstTextIndex) return null;
             if (typeof item.text === "string") {
               return (
-                <div
+                <TextBlockRenderer
                   key={entry.key}
-                  className={cn("bg-card border border-border", layout.containerPadding, layout.rounded)}
-                >
-                  {searchQuery ? (
-                    <div className={cn("whitespace-pre-wrap text-foreground", layout.bodyText)}>
-                      <HighlightedText
-                        text={item.text}
-                        searchQuery={searchQuery}
-                        isCurrentMatch={isCurrentMatch}
-                        currentMatchIndex={currentMatchIndex}
-                      />
-                    </div>
-                  ) : (
-                    <Markdown className="text-foreground">
-                      {item.text}
-                    </Markdown>
-                  )}
-                </div>
+                  text={item.text}
+                  index={index}
+                  searchQuery={searchQuery}
+                  isCurrentMatch={isCurrentMatch}
+                  currentMatchIndex={currentMatchIndex}
+                />
               );
             }
             return null;

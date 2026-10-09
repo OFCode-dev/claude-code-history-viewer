@@ -1,6 +1,6 @@
-import React, { useMemo, Children, isValidElement } from "react";
+import React, { useMemo } from "react";
 import ReactMarkdown from "react-markdown";
-import { Copy, ChevronDown } from "lucide-react";
+import { Copy } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { CommandRenderer, ImageRenderer, TaskNotificationRenderer, hasTaskNotification } from "../contentRenderer";
 import { isImageUrl, isBase64Image } from "../../utils/messageUtils";
@@ -10,106 +10,17 @@ import { layout } from "@/components/renderers";
 import { cn } from "@/lib/utils";
 import { REMARK_PLUGINS, REHYPE_PLUGINS } from "@/lib/markdownPlugins";
 import { useCaptureExpandState } from "@/contexts/CaptureExpandContext";
-import { CONVERSATION_CARD_WIDTH } from "./conversationLayout";
+import { CONVERSATION_CARD_WIDTH, JUSTIFIED_PROSE } from "./conversationLayout";
+import { getMessageCollapse } from "./messageCollapse";
+import { ShowMoreToggle } from "./ShowMoreToggle";
 
-// Source lines shown before "Show more". 3 collapsed almost every reply behind
-// a click; 12 keeps typical answers fully visible and only folds long dumps.
-const LINE_LIMIT = 12;
-const TABLE_ROW_LIMIT = 2;
-
-// Get line count and preview text
-const getTextInfo = (text: string) => {
-  const lines = text.split('\n');
-  const lineCount = lines.length;
-  const previewLines = lines.slice(0, LINE_LIMIT);
-
-  // If truncated preview has an unclosed code fence, remove it to avoid
-  // rendering an empty/broken code block (fixes GitHub issue #66)
-  const preview = previewLines.join('\n');
-  const fenceCount = (preview.match(/^```/gm) || []).length;
-  if (fenceCount % 2 !== 0) {
-    // Remove trailing unclosed fence and any trailing empty lines
-    while (previewLines.length > 0) {
-      const last = previewLines[previewLines.length - 1] ?? '';
-      if (last.startsWith('```') || last.trim() === '') {
-        previewLines.pop();
-      } else {
-        break;
-      }
-    }
-  }
-
-  const cleanPreview = previewLines.join('\n');
-  return { lineCount, preview: cleanPreview, needsExpand: lineCount > LINE_LIMIT };
-};
-
-// Collapsible table component for markdown
-const CollapsibleTable = ({ children, ...props }: React.HTMLAttributes<HTMLTableElement>) => {
-  const { t } = useTranslation();
-  const [isExpanded, setIsExpanded] = useCaptureExpandState("table", false);
-
-  // Extract thead and tbody from children
-  const childArray = Children.toArray(children);
-  const thead = childArray.find(
-    (child) => isValidElement(child) && child.type === "thead"
-  );
-  const tbody = childArray.find(
-    (child) => isValidElement(child) && child.type === "tbody"
-  ) as React.ReactElement<{ children?: React.ReactNode }> | undefined;
-
-  // Count rows in tbody
-  let rowCount = 0;
-  if (tbody?.props?.children) {
-    rowCount = Children.count(tbody.props.children);
-  }
-
-  const needsExpand = rowCount > TABLE_ROW_LIMIT;
-
-  // Get limited rows for preview
-  const getLimitedTbody = () => {
-    if (!tbody?.props?.children || !needsExpand || isExpanded) {
-      return tbody;
-    }
-
-    const rows = Children.toArray(tbody.props.children);
-    const limitedRows = rows.slice(0, TABLE_ROW_LIMIT);
-
-    return React.cloneElement(tbody, {
-      children: limitedRows,
-    });
-  };
-
-  return (
-    <div className="relative">
-      <table {...props}>
-        {thead}
-        {getLimitedTbody()}
-      </table>
-
-      {needsExpand && (
-        <button
-          onClick={() => setIsExpanded(prev => !prev)}
-          className={cn(
-            "flex items-center justify-center gap-1 w-full py-1.5 mt-1",
-            "text-2xs text-muted-foreground hover:text-foreground",
-            "border-t border-border/50",
-            "transition-colors"
-          )}
-        >
-          <ChevronDown className={cn(
-            "w-3 h-3 transition-transform",
-            isExpanded && "rotate-180"
-          )} />
-          <span>
-            {isExpanded
-              ? t("messageContentDisplay.showLess")
-              : t("messageContentDisplay.showMoreRows", { count: rowCount - TABLE_ROW_LIMIT })}
-          </span>
-        </button>
-      )}
-    </div>
-  );
-};
+// Tables show every row; a wide one scrolls inside its own box instead of
+// widening the conversation.
+const ScrollableTable = (props: React.HTMLAttributes<HTMLTableElement>) => (
+  <div className="max-w-full overflow-x-auto">
+    <table {...props} />
+  </div>
+);
 
 interface MessageContentDisplayProps {
   content: string | null;
@@ -129,13 +40,16 @@ export const MessageContentDisplay: React.FC<MessageContentDisplayProps> = ({
   const { t } = useTranslation();
   const [isExpanded, setIsExpanded] = useCaptureExpandState("content", false);
 
-  // Check if content needs expand (for both user and assistant)
-  const textInfo = useMemo(() => {
-    if (typeof content === "string") {
-      return getTextInfo(content);
-    }
-    return { lineCount: 0, preview: "", needsExpand: false };
-  }, [content]);
+  // Messages over MESSAGE_PREVIEW_CHARS show their first 10,000 characters
+  // until expanded; shorter ones always show in full.
+  const collapse = useMemo(
+    () =>
+      typeof content === "string"
+        ? getMessageCollapse(content, { markdown: messageType === "assistant" })
+        : null,
+    [content, messageType]
+  );
+  const needsExpand = !!collapse?.needsCollapse;
 
   if (!content) return null;
 
@@ -199,8 +113,8 @@ export const MessageContentDisplay: React.FC<MessageContentDisplayProps> = ({
   }
 
   if (messageType === "user") {
-    const showPreview = textInfo.needsExpand && !isExpanded && !searchQuery;
-    const displayContent = showPreview ? textInfo.preview : content;
+    const showPreview = needsExpand && !isExpanded && !searchQuery;
+    const displayContent = showPreview ? collapse!.preview : content;
 
     // Human prompts render as PromptCard; this is the fallback for other user
     // records that carry plain text. Left-aligned and neutral so it does not
@@ -209,7 +123,7 @@ export const MessageContentDisplay: React.FC<MessageContentDisplayProps> = ({
       <div className="mb-3 flex justify-start">
         <div className={cn(CONVERSATION_CARD_WIDTH, "bg-muted/40 text-foreground rounded-lg px-4 py-2.5 relative group border border-border")}>
           <div className={cn(
-            "whitespace-pre-wrap break-words",
+            "whitespace-pre-wrap break-words text-justify",
             layout.bodyText
           )}>
             {searchQuery ? (
@@ -224,26 +138,12 @@ export const MessageContentDisplay: React.FC<MessageContentDisplayProps> = ({
             )}
           </div>
 
-          {/* Show more / Show less button */}
-          {textInfo.needsExpand && !searchQuery && (
-            <button
-              onClick={() => setIsExpanded(prev => !prev)}
-              className={cn(
-                "flex items-center gap-1 mt-1.5 text-2xs",
-                "text-muted-foreground hover:text-foreground",
-                "transition-colors"
-              )}
-            >
-              <ChevronDown className={cn(
-                "w-3 h-3 transition-transform",
-                isExpanded && "rotate-180"
-              )} />
-              <span>
-                {isExpanded
-                  ? t("messageContentDisplay.showLess", { defaultValue: "Show less" })
-                  : t("messageContentDisplay.showMore", { defaultValue: "Show more..." })}
-              </span>
-            </button>
+          {needsExpand && !searchQuery && (
+            <ShowMoreToggle
+              isExpanded={isExpanded}
+              onToggle={() => setIsExpanded((prev) => !prev)}
+              className="mt-1.5"
+            />
           )}
 
           <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -259,8 +159,8 @@ export const MessageContentDisplay: React.FC<MessageContentDisplayProps> = ({
       </div>
     );
   } else if (messageType === "assistant") {
-    const showPreview = textInfo.needsExpand && !isExpanded && !searchQuery;
-    const displayContent = showPreview ? textInfo.preview : content;
+    const showPreview = needsExpand && !isExpanded && !searchQuery;
+    const displayContent = showPreview ? collapse!.preview : content;
 
     return (
       <div className="mb-3 flex justify-start">
@@ -278,6 +178,7 @@ export const MessageContentDisplay: React.FC<MessageContentDisplayProps> = ({
           ) : (
             <div className={cn(
               layout.prose,
+              JUSTIFIED_PROSE,
               "prose-headings:text-foreground prose-p:text-foreground prose-a:text-accent",
               "prose-code:text-foreground prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:rounded",
               "prose-pre:bg-card prose-pre:text-foreground prose-pre:border prose-pre:border-border",
@@ -289,7 +190,7 @@ export const MessageContentDisplay: React.FC<MessageContentDisplayProps> = ({
                 rehypePlugins={REHYPE_PLUGINS}
                 skipHtml
                 components={{
-                  table: CollapsibleTable,
+                  table: ScrollableTable,
                 }}
               >
                 {displayContent}
@@ -297,26 +198,12 @@ export const MessageContentDisplay: React.FC<MessageContentDisplayProps> = ({
             </div>
           )}
 
-          {/* Show more / Show less button */}
-          {textInfo.needsExpand && !searchQuery && (
-            <button
-              onClick={() => setIsExpanded(prev => !prev)}
-              className={cn(
-                "flex items-center gap-1 mt-2 text-2xs",
-                "text-muted-foreground hover:text-foreground",
-                "transition-colors"
-              )}
-            >
-              <ChevronDown className={cn(
-                "w-3 h-3 transition-transform",
-                isExpanded && "rotate-180"
-              )} />
-              <span>
-                {isExpanded
-                  ? t("messageContentDisplay.showLess", { defaultValue: "Show less" })
-                  : t("messageContentDisplay.showMore", { defaultValue: "Show more..." })}
-              </span>
-            </button>
+          {needsExpand && !searchQuery && (
+            <ShowMoreToggle
+              isExpanded={isExpanded}
+              onToggle={() => setIsExpanded((prev) => !prev)}
+              className="mt-2"
+            />
           )}
 
           <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">

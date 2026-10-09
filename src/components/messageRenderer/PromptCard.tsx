@@ -2,8 +2,8 @@
  * PromptCard — a message the person typed.
  *
  * Human prompts are the anchors of a conversation, so they render as wide,
- * left-aligned cards with an accent edge instead of chat bubbles. Long prompts
- * collapse, but keep their closing question visible (see promptCollapse).
+ * left-aligned cards with an accent edge instead of chat bubbles. Prompts over
+ * MESSAGE_PREVIEW_CHARS show their first 10,000 characters until expanded.
  */
 import React, { useId, useMemo, useRef } from "react";
 import { ChevronDown, Copy, Hourglass } from "lucide-react";
@@ -17,7 +17,7 @@ import { copyTextToClipboard } from "@/utils/clipboard";
 import { formatTime, formatTimeShort } from "@/utils/time";
 import { HighlightedText } from "../common";
 import { CONVERSATION_CARD_WIDTH } from "./conversationLayout";
-import { getPromptCollapse } from "./promptCollapse";
+import { getMessageCollapse } from "./messageCollapse";
 import { usePromptTurnNumber } from "./promptTurnNumber";
 
 interface PromptCardProps {
@@ -74,7 +74,7 @@ export const PromptCard: React.FC<PromptCardProps> = ({
   const [isExpanded, setIsExpanded] = useCaptureExpandState("content", false);
   const toggleRef = useRef<HTMLButtonElement>(null);
 
-  const collapse = useMemo(() => (text ? getPromptCollapse(text) : null), [text]);
+  const collapse = useMemo(() => (text ? getMessageCollapse(text) : null), [text]);
   const isSearching = searchQuery.length > 0;
   const canCollapse = !!collapse?.needsCollapse && !isSearching;
   const showCollapsed = canCollapse && !isExpanded;
@@ -200,7 +200,7 @@ export const PromptCard: React.FC<PromptCardProps> = ({
       {text && collapse && (
         <div
           id={bodyId}
-          className="mt-1 text-xs leading-relaxed text-foreground whitespace-pre-wrap break-words"
+          className="mt-1 text-xs leading-relaxed text-foreground whitespace-pre-wrap break-words text-justify"
         >
           {isSearching ? (
             <HighlightedText
@@ -211,7 +211,7 @@ export const PromptCard: React.FC<PromptCardProps> = ({
             />
           ) : showCollapsed ? (
             <>
-              <div>{collapse.head}</div>
+              <div>{collapse.preview}</div>
               <button
                 type="button"
                 onClick={setExpandedFromBody(true)}
@@ -230,7 +230,6 @@ export const PromptCard: React.FC<PromptCardProps> = ({
                 </span>
                 <span aria-hidden="true" className="h-px flex-1 bg-border" />
               </button>
-              {collapse.tail && <div>{collapse.tail}</div>}
             </>
           ) : (
             text

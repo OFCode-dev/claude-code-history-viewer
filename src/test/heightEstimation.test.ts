@@ -105,11 +105,11 @@ describe("estimateMessageHeight — user records follow how they render", () => 
   });
 
   it("estimates a long prompt at its folded size, not its full length", () => {
-    const folded = estimateMessageHeight(userRecord(longText(400)));
-    const twelveLines = estimateMessageHeight(userRecord(longText(12)));
-
-    expect(folded).toBeLessThan(400);
-    expect(folded).toBeGreaterThanOrEqual(twelveLines);
+    // A prompt folds to its first 10,000 characters: anything longer
+    // estimates like the preview it shows.
+    const twiceTheLimit = estimateMessageHeight(userRecord("x ".repeat(10_000)));
+    const atTheLimit = estimateMessageHeight(userRecord("x ".repeat(5_000)));
+    expect(twiceTheLimit).toBe(atTheLimit);
   });
 
   it("still grows a short prompt with its text", () => {

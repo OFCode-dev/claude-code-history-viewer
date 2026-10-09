@@ -20,7 +20,6 @@
   "messageContentDisplay.copyMessage": "复制消息",
   "messageContentDisplay.showLess": "收起",
   "messageContentDisplay.showMore": "展开更多...",
-  "messageContentDisplay.showMoreRows": "再显示 {{count}} 行...",
   "promptCard.you": "你",
   "promptCard.turn": "第 {{number}} 轮",
   "promptCard.ariaLabel": "你的提示",

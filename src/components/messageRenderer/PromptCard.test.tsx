@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ExpandKeyProvider } from "@/contexts/CaptureExpandContext";
 import { useExpandRegistry } from "@/store/expandRegistryStore";
 import { PromptCard } from "./PromptCard";
+import { getMessageCollapse } from "./messageCollapse";
 
 const { turnNumberMock, copyMock, toastMock } = vi.hoisted(() => ({
   turnNumberMock: vi.fn<(uuid: string) => number | null>(),
@@ -35,9 +36,12 @@ const renderCard = (props: Partial<React.ComponentProps<typeof PromptCard>> & { 
     </ExpandKeyProvider>,
   );
 
-const pastedLines = Array.from({ length: 30 }, (_, i) => `pasted log line ${i + 1}`).join("\n");
+// Over MESSAGE_PREVIEW_CHARS (10,000), so the card folds to its first 10,000 characters.
+const pastedLines = Array.from({ length: 700 }, (_, i) => `pasted log line ${i + 1}`).join("\n");
 const question = "Which of these failures should I fix first?";
 const longPrompt = `${pastedLines}\n\n${question}`;
+const { hiddenLineCount } = getMessageCollapse(longPrompt);
+const lastVisibleLine = getMessageCollapse(longPrompt).preview.split("\n").length;
 
 describe("PromptCard", () => {
   beforeEach(() => {
@@ -93,22 +97,30 @@ describe("PromptCard", () => {
     expect(screen.queryByRole("button", { name: "promptCard.expand" })).not.toBeInTheDocument();
   });
 
-  it("collapses a long pasted prompt but keeps its closing question visible", () => {
+  it("shows a prompt of up to 10,000 characters in full, however many lines it has", () => {
+    const manyLines = Array.from({ length: 400 }, (_, i) => `line ${i + 1}`).join("\n");
+    expect(manyLines.length).toBeLessThan(10_000);
+    renderCard({ text: manyLines });
+    expect(screen.getByRole("article")).toHaveTextContent("line 400");
+    expect(screen.queryByRole("button", { name: "promptCard.expand" })).not.toBeInTheDocument();
+  });
+
+  it("folds a longer prompt to its first 10,000 characters until expanded", () => {
     renderCard({ text: longPrompt });
     const card = screen.getByRole("article");
 
-    expect(card).toHaveTextContent("pasted log line 1");
-    expect(card).toHaveTextContent("pasted log line 6");
-    expect(card).not.toHaveTextContent("pasted log line 7");
-    expect(card).toHaveTextContent(question);
+    expect(card).toHaveTextContent(`pasted log line ${lastVisibleLine}`);
+    expect(card).not.toHaveTextContent(`pasted log line ${lastVisibleLine + 1}`);
+    expect(card).not.toHaveTextContent(question);
 
-    fireEvent.click(screen.getByRole("button", { name: "promptCard.hiddenLines(24)" }));
-    expect(card).toHaveTextContent("pasted log line 30");
+    fireEvent.click(screen.getByRole("button", { name: `promptCard.hiddenLines(${hiddenLineCount})` }));
+    expect(card).toHaveTextContent("pasted log line 700");
+    expect(card).toHaveTextContent(question);
     // Header action and the trailing "collapse" row both collapse it again.
     expect(screen.getAllByRole("button", { name: "promptCard.collapse", expanded: true })).toHaveLength(2);
 
     fireEvent.click(screen.getByText("promptCard.collapse", { selector: "span" }));
-    expect(card).not.toHaveTextContent("pasted log line 7");
+    expect(card).not.toHaveTextContent(question);
   });
 
   it("toggles from the header action and exposes the expanded state", () => {
@@ -119,14 +131,14 @@ describe("PromptCard", () => {
     fireEvent.click(toggle);
     const collapseToggle = screen.getAllByRole("button", { name: "promptCard.collapse" })[0]!;
     expect(collapseToggle).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByRole("article")).toHaveTextContent("pasted log line 30");
+    expect(screen.getByRole("article")).toHaveTextContent("pasted log line 700");
   });
 
   it("keeps keyboard focus on the header toggle when the inline rows unmount", () => {
     renderCard({ text: longPrompt });
     const headerToggle = screen.getByRole("button", { name: "promptCard.expand" });
 
-    const expander = screen.getByRole("button", { name: "promptCard.hiddenLines(24)" });
+    const expander = screen.getByRole("button", { name: `promptCard.hiddenLines(${hiddenLineCount})` });
     expander.focus();
     fireEvent.click(expander); // keyboard activation: detail 0
     expect(expander).not.toBeInTheDocument();
@@ -143,14 +155,14 @@ describe("PromptCard", () => {
 
   it("does not move focus for a pointer click on the inline expander", () => {
     renderCard({ text: longPrompt });
-    fireEvent.click(screen.getByRole("button", { name: "promptCard.hiddenLines(24)" }), { detail: 1 });
-    expect(screen.getByRole("article")).toHaveTextContent("pasted log line 30");
+    fireEvent.click(screen.getByRole("button", { name: `promptCard.hiddenLines(${hiddenLineCount})` }), { detail: 1 });
+    expect(screen.getByRole("article")).toHaveTextContent("pasted log line 700");
     expect(screen.getAllByRole("button", { name: "promptCard.collapse" })[0]).not.toHaveFocus();
   });
 
   it("shows the whole prompt while searching", () => {
     renderCard({ text: longPrompt, searchQuery: "line 17" });
-    expect(screen.getByRole("article")).toHaveTextContent("pasted log line 17");
+    expect(screen.getByRole("article")).toHaveTextContent("pasted log line 700");
     expect(screen.queryByRole("button", { name: "promptCard.expand" })).not.toBeInTheDocument();
   });
 

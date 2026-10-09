@@ -6,7 +6,7 @@
  * `layout.prose` wrapper. Use this for all simple markdown rendering across
  * the app.
  *
- * For advanced use cases (custom components like CollapsibleTable, custom prose
+ * For advanced use cases (custom components like ScrollableTable, custom prose
  * classes), use ReactMarkdown directly with the same plugin set.
  */
 
