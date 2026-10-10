@@ -2,6 +2,7 @@
 import React from "react";
 import { Search, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { useIsInAutoHideOverlay } from "@/components/AutoHide/autoHideHolds";
 import type { ExplorerFilters } from "../hooks/useExplorerFilters";
 import { ExplorerFilterMenu } from "./ExplorerFilterMenu";
 import { ExplorerIconButton } from "./ExplorerIconButton";
@@ -17,6 +18,7 @@ export const ExplorerSearch: React.FC<ExplorerSearchProps> = ({ value, onChange,
   const { t } = useTranslation();
   const inputId = React.useId();
   const placeholder = t("project.filter.placeholder");
+  const inOverlay = useIsInAutoHideOverlay();
 
   return (
     <div className="shrink-0 px-2 pb-2">
@@ -32,6 +34,14 @@ export const ExplorerSearch: React.FC<ExplorerSearchProps> = ({ value, onChange,
           onChange={(event) => onChange(event.target.value)}
           onKeyDown={(event) => {
             if (event.key !== "Escape") return;
+            if (inOverlay) {
+              // In a reading-mode overlay, Esc layers: clear and stay, then
+              // (empty) let the press close the overlay.
+              if (!value) return;
+              event.preventDefault();
+              onChange("");
+              return;
+            }
             event.preventDefault();
             event.stopPropagation();
             onChange("");

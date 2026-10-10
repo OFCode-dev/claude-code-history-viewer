@@ -57,7 +57,9 @@ export const ImageRenderer: React.FC<ImageRendererProps> = ({
     if (!isModalOpen) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
+      // One Esc closes one layer: the lightbox, not a panel behind it.
+      if (e.key === "Escape" && !e.defaultPrevented) {
+        e.preventDefault();
         closeModal();
       }
     };

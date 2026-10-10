@@ -157,5 +157,8 @@
   "filter.targetHidden": "The linked message is hidden by the current filter",
   "dialogue.toggle": "Dialogue",
   "dialogue.tooltip": "Show only your prompts and the assistant's replies",
-  "dialogue.emptyWindow": "No prompts or replies in the loaded messages"
+  "dialogue.emptyWindow": "No prompts or replies in the loaded messages",
+  "messageViewer.prevMatch": "Previous match (Shift+Enter)",
+  "messageViewer.nextMatch": "Next match (Enter)",
+  "messageViewer.clearSearch": "Clear search"
 }

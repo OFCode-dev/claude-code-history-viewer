@@ -3,6 +3,7 @@ import React, { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { EyeOff, Eye, Copy, ArrowRightLeft } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { useAutoHideHold } from "@/components/AutoHide/autoHideHolds";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { ClaudeProject } from "../types";
@@ -33,6 +34,8 @@ export const ProjectContextMenu: React.FC<ProjectContextMenuProps> = ({
   onSelectProject,
 }) => {
   const { t } = useTranslation();
+  // Opened from a reading-mode overlay, the menu belongs to it and holds it open.
+  const ownerProps = useAutoHideHold(true);
   const menuRef = useRef<HTMLDivElement>(null);
   const [adjustedPosition, setAdjustedPosition] = useState({ x: position.x, y: position.y });
 
@@ -45,7 +48,8 @@ export const ProjectContextMenu: React.FC<ProjectContextMenuProps> = ({
     };
 
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
+      if (e.key === "Escape" && !e.defaultPrevented) {
+        e.preventDefault();
         onClose();
       }
     };
@@ -136,6 +140,7 @@ export const ProjectContextMenu: React.FC<ProjectContextMenuProps> = ({
   return createPortal(
     <div
       ref={menuRef}
+      {...ownerProps}
       className={cn(
         "fixed z-50 min-w-[180px] rounded-lg border shadow-lg",
         "bg-popover border-border",

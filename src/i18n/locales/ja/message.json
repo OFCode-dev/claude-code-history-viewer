@@ -157,5 +157,8 @@
   "filter.targetHidden": "リンク先のメッセージは現在のフィルターで非表示です",
   "dialogue.toggle": "対話",
   "dialogue.tooltip": "自分のプロンプトとアシスタントの返答だけを表示",
-  "dialogue.emptyWindow": "読み込んだメッセージにプロンプトや返信がありません"
+  "dialogue.emptyWindow": "読み込んだメッセージにプロンプトや返信がありません",
+  "messageViewer.prevMatch": "前の一致 (Shift+Enter)",
+  "messageViewer.nextMatch": "次の一致 (Enter)",
+  "messageViewer.clearSearch": "検索をクリア"
 }

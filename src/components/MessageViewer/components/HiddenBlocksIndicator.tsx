@@ -97,7 +97,8 @@ export function HiddenBlocksIndicator({
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
+      if (e.key === "Escape" && !e.defaultPrevented) {
+        e.preventDefault();
         setIsOpen(false);
         badgeRef.current?.focus();
       }
