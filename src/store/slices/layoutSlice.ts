@@ -216,6 +216,15 @@ export function migrateLegacyFocusMode(): void {
   writeReadingMode({ on: true, restoreDock: dockOpen });
 }
 
+/** Whether the one-time reading-mode hint was already shown. */
+export function hasSeenReadingHint(): boolean {
+  return readFlag(READING_HINT_SEEN_KEY);
+}
+
+export function markReadingHintSeen(): void {
+  writeFlag(READING_HINT_SEEN_KEY, true);
+}
+
 // ---------------------------------------------------------------------------
 // Selectors
 // ---------------------------------------------------------------------------

@@ -816,6 +816,238 @@
    ============================================ */
 @layer components {
 
+  /* === Reading mode: auto-hiding panels ===
+     A region holds a gutter (or the top strip) with its handle and the panel
+     as an overlay that slides out next to it, never over it. Values follow
+     specs/20261010-reading-mode-autohide/spec.md §3. */
+  .autohide-region {
+    position: relative;
+    z-index: 40;
+    display: flex;
+    flex-shrink: 0;
+  }
+
+  /* The region whose overlay is open or closing paints above the other edges. */
+  .autohide-region.autohide-raised {
+    z-index: 45;
+  }
+
+  .autohide-gutter {
+    position: relative;
+    z-index: 1;
+  }
+
+  .autohide-gutter-left,
+  .autohide-gutter-right {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 24px;
+    height: 100%;
+    padding-top: 8px;
+    background: var(--sidebar);
+  }
+
+  .autohide-gutter-left {
+    border-right: 1px solid color-mix(in oklab, var(--border) 50%, transparent);
+  }
+
+  .autohide-gutter-right {
+    border-left: 1px solid color-mix(in oklab, var(--border) 50%, transparent);
+  }
+
+  .autohide-region-top {
+    flex-direction: column;
+  }
+
+  /* Chips left, handle centred; the chips stop half a strip short of it. */
+  .autohide-gutter-top {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: center;
+    min-height: 24px;
+    background: var(--card);
+    border-bottom: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
+  }
+
+  .autohide-chips {
+    grid-column: 1;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    min-width: 0;
+    overflow: hidden;
+    padding: 0 8px 0 4px;
+  }
+
+  .autohide-chip {
+    height: 24px;
+    max-width: 100%;
+  }
+
+  .autohide-chip-step {
+    width: 24px;
+    height: 24px;
+  }
+
+  .autohide-handle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    border-radius: 6px;
+    color: var(--muted-foreground);
+    transition: background-color 120ms ease, color 120ms ease;
+  }
+
+  .autohide-handle:hover,
+  .autohide-handle[aria-expanded="true"] {
+    background: color-mix(in oklab, var(--muted) 85%, transparent);
+    color: var(--foreground);
+  }
+
+  /* Inset: overflow clipping on the host rows cannot cut it. */
+  .autohide-handle:focus-visible {
+    outline: none;
+    box-shadow: inset 0 0 0 2px var(--ring);
+  }
+
+  .autohide-handle svg {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+  }
+
+  .autohide-handle-left,
+  .autohide-handle-right {
+    width: 24px;
+    height: 48px;
+  }
+
+  .autohide-handle-top {
+    grid-column: 2;
+    width: 48px;
+    height: 24px;
+  }
+
+  .autohide-handle-top svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  @media (pointer: coarse) {
+    .autohide-gutter-left,
+    .autohide-gutter-right {
+      width: 44px;
+    }
+
+    .autohide-gutter-top {
+      min-height: 44px;
+    }
+
+    .autohide-handle-left,
+    .autohide-handle-right,
+    .autohide-handle-top {
+      width: 44px;
+      height: 44px;
+    }
+
+    .autohide-chip {
+      height: 44px;
+    }
+
+    .autohide-chip-step {
+      width: 44px;
+      height: 44px;
+    }
+  }
+
+  /* Hidden: off-screen and, once the slide ends, invisible (and inert in the DOM). */
+  .autohide-overlay {
+    position: absolute;
+    z-index: 0;
+    display: flex;
+    visibility: hidden;
+    box-shadow: var(--shadow-xl);
+    transition:
+      transform var(--autohide-out) cubic-bezier(0.4, 0, 1, 1),
+      visibility 0s linear var(--autohide-out);
+  }
+
+  .autohide-overlay-left {
+    --autohide-in: 200ms;
+    --autohide-out: 150ms;
+    top: 0;
+    bottom: 0;
+    left: 100%;
+    transform: translateX(-100%);
+    background: var(--sidebar);
+    border-right: 1px solid var(--border);
+  }
+
+  .autohide-overlay-right {
+    --autohide-in: 180ms;
+    --autohide-out: 150ms;
+    top: 0;
+    bottom: 0;
+    right: 100%;
+    transform: translateX(100%);
+    background: var(--sidebar);
+    border-left: 1px solid var(--border);
+  }
+
+  .autohide-overlay-top {
+    --autohide-in: 150ms;
+    --autohide-out: 120ms;
+    top: 100%;
+    left: 0;
+    right: 0;
+    flex-direction: column;
+    transform: translateY(-100%);
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* Shown: no transform at rest, so fixed-position menus inside stay put. */
+  .autohide-overlay[data-state="open"] {
+    visibility: visible;
+    transform: none;
+    transition:
+      transform var(--autohide-in) cubic-bezier(0, 0, 0.2, 1),
+      visibility 0s;
+  }
+
+  .autohide-overlay[data-quick] {
+    --autohide-in: 100ms;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .autohide-overlay,
+    .autohide-overlay[data-state="open"] {
+      transform: none;
+    }
+
+    .autohide-overlay {
+      opacity: 0;
+      transition:
+        opacity 100ms linear,
+        visibility 0s linear 100ms;
+    }
+
+    .autohide-overlay[data-state="open"] {
+      opacity: 1;
+      transition:
+        opacity 100ms linear,
+        visibility 0s;
+    }
+  }
+
+  /* Layout switches are instant: no slide into the hidden position. */
+  .autohide-overlay[data-settling],
+  .autohide-overlay[data-settling][data-state] {
+    transition: none;
+  }
+
   /* === Custom Scrollbar === */
   .scrollbar-thin {
     scrollbar-width: thin;

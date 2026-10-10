@@ -313,13 +313,28 @@ describe("autoHideMachine: what blocks a hover reveal", () => {
     expect(m.reveals()).toHaveLength(1);
   });
 
-  it("a disarmed zone (zones start disarmed)", () => {
+  it("a zone the pointer was already in when reading mode started", () => {
     const m = harness();
-    // No warm-up: the first movement lands straight in the band.
-    m.move(0, { x: 300, y: 300 });
-    m.enterLeftBand(50);
+    // The first event lands in the band: it stays disarmed until it leaves.
+    m.enterLeftBand(0);
+    m.move(50, { x: 13, y: 61, hot: "left", inside: "left" });
     m.advanceTo(2000);
     expect(m.reveals()).toHaveLength(0);
+    m.move(2000, { x: 300, y: 300 });
+    m.advanceTo(2300);
+    m.enterLeftBand(2350);
+    m.advanceTo(2650);
+    expect(m.reveals()).toHaveLength(1);
+  });
+
+  it("a pointer first seen outside a zone does not have to leave it again", () => {
+    const m = harness();
+    // Straight from the transcript to the band, faster than the re-arm delay.
+    m.move(0, { x: 300, y: 300 });
+    m.move(16, { x: 150, y: 200 });
+    m.enterLeftBand(32);
+    m.advanceTo(400);
+    expect(m.reveals()).toHaveLength(1);
   });
 
   it("the document not having focus", () => {
@@ -722,6 +737,18 @@ describe("autoHideMachine: focus moving outside the boundary", () => {
     m.move(1050, { x: 600, y: 80, inside: "top", inOverlay: true });
     m.at(1100, { type: "focusIn", inside: null, editable: true, modal: true });
     expect(m.hides()).toEqual([{ type: "hide", group: "top", reason: "modal", focus: "none" }]);
+  });
+
+  it("focus cleared to <body> closes nothing but no longer holds", () => {
+    const m = harness();
+    m.warmUp();
+    m.open("left", "keyboard", 1000);
+    m.at(1016, { type: "focusIn", inside: "left", editable: true, modal: false });
+    m.at(1100, { type: "keydown", navigation: false });
+    m.at(1200, { type: "focusCleared" });
+    expect(m.hides()).toHaveLength(0);
+    m.advanceTo(1700);
+    expect(m.hides()).toEqual([{ type: "hide", group: "left", reason: "grace", focus: "handle" }]);
   });
 
   it("losing focus to <body> is not a close", () => {

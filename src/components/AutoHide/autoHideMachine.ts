@@ -142,6 +142,8 @@ export type AutoHideEvent =
   | { type: "keydown"; now: number; navigation: boolean }
   | { type: "focusIn"; now: number; inside: PanelGroup | null; editable: boolean; modal: boolean }
   | { type: "focusLost"; now: number }
+  /** Focus went to <body> with its element still there (a click on plain text). */
+  | { type: "focusCleared"; now: number }
   | { type: "holdChange"; now: number; group: PanelGroup; count: number }
   | { type: "esc"; now: number }
   | { type: "explicitOpen"; now: number; group: PanelGroup; source: RevealSource }
@@ -432,8 +434,10 @@ function applyPointerMove(
     } else if (isHot && zone.presenceSince == null && moved) {
       // A key press or a lost window focus reset the wait; movement restarts it.
       startPresence(state, zone, now);
-    } else if (!isHot && moved && zone.exitedAt == null) {
-      zone.exitedAt = now;
+    } else if (!isHot && zone.exitedAt == null && (moved || previous == null)) {
+      // First sight of the pointer, outside: it left long ago. Zones start
+      // disarmed only for a pointer that sits in them when reading starts.
+      zone.exitedAt = previous == null ? -Infinity : now;
     }
   }
 
@@ -470,6 +474,9 @@ export function stepAutoHide(previous: AutoHideState, event: AutoHideEvent): Aut
 
     case "reset":
       state.zones = { left: createZone(), right: createZone(), top: createZone() };
+      // Where the pointer is now is learnt afresh from its next event.
+      state.pointer.last = null;
+      state.pointer.hot = null;
       state.open = null;
       state.graceDeadline = null;
       state.dismiss = null;
@@ -575,6 +582,11 @@ export function stepAutoHide(previous: AutoHideState, event: AutoHideEvent): Aut
 
     case "focusLost":
       // Its element was removed: not a close. The adapter refocuses the panel.
+      break;
+
+    case "focusCleared":
+      // Not focus moving to an element outside: nothing closes, but focus no longer holds.
+      state.focus = { inside: null, editable: false, movedPx: 0 };
       break;
 
     case "holdChange":
