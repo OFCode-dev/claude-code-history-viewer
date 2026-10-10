@@ -5,6 +5,7 @@ import { OverlayScrollbarsComponent } from "overlayscrollbars-react";
 import { cn } from "@/lib/utils";
 import { SessionList } from "@/components/ProjectTree/components/SessionList";
 import { SubagentsSection } from "./SubagentsSection";
+import { SubagentsRailButton } from "./SubagentsRailButton";
 import { getProviderBadgeStyle, getProviderId, getProviderLabel } from "@/utils/providers";
 import type { ClaudeProject, ClaudeSession } from "@/types";
 
@@ -256,6 +257,9 @@ function SessionsPaneRail({ count, projectPath, onExpand, expandRef }: SessionsP
           </span>
           <span className="sr-only">{countLabel}</span>
         </div>
+
+        {/* The subagent list lives at the bottom of the pane: this leads there. */}
+        {onExpand && <SubagentsRailButton onExpand={onExpand} className="mt-1" />}
       </div>
     </aside>
   );

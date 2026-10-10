@@ -3,6 +3,7 @@ import { ListTree } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { MessageNavigator } from "@/components/MessageNavigator";
+import { PromptSeekButtons } from "@/components/PromptSeek/PromptSeekButtons";
 import type { ClaudeMessage } from "@/types";
 
 interface MobileNavigatorSheetProps {
@@ -15,14 +16,17 @@ export function MobileNavigatorSheet({ messages }: MobileNavigatorSheetProps) {
 
   return (
     <>
-      {/* FAB button */}
-      <button
-        onClick={() => setIsOpen(true)}
-        className="fixed bottom-20 right-4 z-30 md:hidden w-12 h-12 rounded-full bg-accent text-accent-foreground shadow-lg flex items-center justify-center hover:bg-accent/90 transition-colors"
-        aria-label={t("common.mobile.openNavigator")}
-      >
-        <ListTree className="w-5 h-5" />
-      </button>
+      {/* Previous / next prompt above the button that opens the navigator */}
+      <div className="fixed bottom-20 right-4 z-30 md:hidden flex flex-col items-center gap-2">
+        <PromptSeekButtons variant="floating" />
+        <button
+          onClick={() => setIsOpen(true)}
+          className="w-12 h-12 rounded-full bg-accent text-accent-foreground shadow-lg flex items-center justify-center hover:bg-accent/90 transition-colors"
+          aria-label={t("common.mobile.openNavigator")}
+        >
+          <ListTree className="w-5 h-5" />
+        </button>
+      </div>
 
       {/* Bottom Sheet */}
       <Sheet open={isOpen} onOpenChange={setIsOpen}>

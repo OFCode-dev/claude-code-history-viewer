@@ -1,12 +1,13 @@
-import { act, fireEvent, render, renderHook, screen } from "@testing-library/react";
+import { act, fireEvent, render, renderHook, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ImageRenderer } from "@/components/contentRenderer/ImageRenderer";
 import { useAppStore } from "@/store/useAppStore";
 import { AutoHideRegion } from "./AutoHideRegion";
-import { revealPanel } from "./panelActions";
+import { AUTOHIDE_COLD_ATTR } from "./constants";
+import { panelDomIds, revealPanel } from "./panelActions";
 import { panelShortcut } from "./shortcuts";
-import { useAutoHidePanel } from "./useAutoHidePanel";
+import { AutoHideController, useAutoHidePanel } from "./useAutoHidePanel";
 
 vi.mock("react-i18next", async (importOriginal) => ({
   ...(await importOriginal<typeof import("react-i18next")>()),
@@ -249,5 +250,91 @@ describe("useAutoHidePanel: focus", () => {
     });
     expect(document.activeElement).toBe(screen.getByRole("treeitem"));
     expect(useAppStore.getState().revealed?.group).toBe("left");
+  });
+});
+
+describe("useAutoHidePanel: prompt seek buttons under the right handle", () => {
+  function RightGutter() {
+    return (
+      <TooltipProvider>
+        <AutoHideRegion
+          group="right"
+          mode="autohide"
+          label="Navigator"
+          shortcut={panelShortcut("right")}
+          gutterAccessory={
+            <div role="group" aria-label="seek" {...{ [AUTOHIDE_COLD_ATTR]: "" }}>
+              <button type="button">previous prompt</button>
+              <span>gap</span>
+              <button type="button">next prompt</button>
+            </div>
+          }
+        >
+          <aside id="message-navigator" tabIndex={-1} />
+        </AutoHideRegion>
+        <main id="main-content" tabIndex={-1} />
+      </TooltipProvider>
+    );
+  }
+
+  /** The gutter is 24 px wide at the right edge; its hover band is its top 96 px. */
+  function layOutGutter() {
+    vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (
+      this: Element
+    ) {
+      const rect = (left: number, top: number, width: number, height: number) =>
+        ({ left, top, right: left + width, bottom: top + height, width, height, x: left, y: top }) as DOMRect;
+      if (this.id === panelDomIds.gutter("right")) return rect(1000, 0, 24, 800);
+      if (this.id === panelDomIds.handle("right")) return rect(1000, 8, 24, 48);
+      return rect(0, 0, 0, 0);
+    });
+  }
+
+  type HitTester = {
+    hitTest: (
+      x: number,
+      y: number,
+      target: EventTarget | null
+    ) => { hot: string | null; inside: string | null };
+  };
+
+  it("sits in the gutter, after the handle", () => {
+    render(<RightGutter />);
+    const gutter = document.getElementById(panelDomIds.gutter("right"))!;
+    const handle = document.getElementById(panelDomIds.handle("right"))!;
+    const seek = within(gutter).getByRole("group", { name: "seek" });
+    expect(handle.compareDocumentPosition(seek) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("a pointer over them is inside the gutter but never in the hover band", () => {
+    render(<RightGutter />);
+    layOutGutter();
+    const controller = new AutoHideController();
+    controller.start();
+    const tester = controller as unknown as HitTester;
+    try {
+      // In the band: the handle is hot, the seek buttons are not.
+      const handle = document.getElementById(panelDomIds.handle("right"))!;
+      expect(tester.hitTest(1010, 30, handle)).toMatchObject({ hot: "right", inside: "right" });
+      const next = screen.getByRole("button", { name: "next prompt" });
+      expect(tester.hitTest(1010, 80, next)).toMatchObject({ hot: null, inside: "right" });
+      expect(tester.hitTest(1010, 70, screen.getByText("gap"))).toMatchObject({ hot: null });
+      // The rest of the band still counts.
+      const gutter = document.getElementById(panelDomIds.gutter("right"))!;
+      expect(tester.hitTest(1010, 90, gutter)).toMatchObject({ hot: "right" });
+    } finally {
+      controller.stop();
+    }
+  });
+
+  it("clicking them, or between them, does not open the panel", () => {
+    renderHook(() => useAutoHidePanel(true));
+    render(<RightGutter />);
+    fireEvent.click(screen.getByRole("button", { name: "next prompt" }));
+    fireEvent.click(screen.getByText("gap"));
+    expect(useAppStore.getState().revealed).toBeNull();
+    // The bare gutter still opens it.
+    fireEvent.click(document.getElementById(panelDomIds.gutter("right"))!);
+    expect(useAppStore.getState().revealed?.group).toBe("right");
   });
 });

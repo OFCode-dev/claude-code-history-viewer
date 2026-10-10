@@ -3,14 +3,15 @@
  *
  * While the reader is inside a long turn whose prompt has scrolled out of
  * view, a slim bar at the top of the conversation keeps the question in
- * sight: "You · time — preview", with jumps to this / the previous / the
- * next prompt.
+ * sight: "You · time — preview"; activating it jumps back to that prompt.
+ * Stepping between prompts lives in the seek buttons under the navigator
+ * toggle (PromptSeekButtons), so it is not repeated here.
  *
  * Reads the viewport-anchor store directly (narrow selectors), so it updates
  * with the scroll position without re-rendering the conversation.
  */
 import React, { useMemo } from "react";
-import { ChevronDown, ChevronUp, CornerLeftUp } from "lucide-react";
+import { CornerLeftUp } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import type { ClaudeMessage } from "../../../types";
@@ -21,7 +22,6 @@ import {
 } from "../../../store/viewportAnchorStore";
 import { getPromptPreview, getUserMessageText } from "../../../utils/userMessageKind";
 import { formatPromptTime, jumpToPrompt } from "../../../utils/promptNavigation";
-import { isMacOS } from "../../../utils/platform";
 
 interface StickyPromptBarProps {
   /** The list the conversation renders — the prompt text is read from it. */
@@ -29,16 +29,6 @@ interface StickyPromptBarProps {
 }
 
 const PREVIEW_MAX_LENGTH = 220;
-
-/** The next-prompt shortcut as the keyboard labels it. */
-const NEXT_PROMPT_SHORTCUT = isMacOS() ? "⌥↓" : "Alt+↓";
-
-const iconButtonClass = cn(
-  "shrink-0 p-1.5 rounded-md transition-colors",
-  "text-muted-foreground hover:text-foreground hover:bg-muted",
-  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60",
-  "disabled:opacity-40 disabled:pointer-events-none"
-);
 
 export const StickyPromptBar: React.FC<StickyPromptBarProps> = React.memo(({ messages }) => {
   const { t } = useTranslation();
@@ -58,18 +48,14 @@ export const StickyPromptBar: React.FC<StickyPromptBarProps> = React.memo(({ mes
     return {
       anchor,
       preview: getPromptPreview(getUserMessageText(message), PREVIEW_MAX_LENGTH),
-      previous: track.anchors[position - 1] ?? null,
-      next: track.anchors[position + 1] ?? null,
     };
   }, [isVisible, track, activeUuid, messages]);
 
   if (!current) return null;
 
-  const { anchor, preview, previous, next } = current;
+  const { anchor, preview } = current;
   const time = formatPromptTime(anchor.timestamp);
   const previewText = preview.fromTail ? `… ${preview.text}` : preview.text;
-  const previousLabel = t("navigator.promptBar.previous");
-  const nextLabel = t("navigator.promptBar.next");
 
   return (
     <nav
@@ -112,32 +98,6 @@ export const StickyPromptBar: React.FC<StickyPromptBarProps> = React.memo(({ mes
           aria-hidden
           className="ml-auto h-3.5 w-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
         />
-      </button>
-      <button
-        type="button"
-        onClick={() => previous && jumpToPrompt(previous.uuid)}
-        disabled={!previous}
-        className={iconButtonClass}
-        aria-label={previousLabel}
-        // No Alt+↑ hint: inside a turn, Alt+↑ first returns to this turn's
-        // own prompt, while this button goes to the turn before it.
-        title={previousLabel}
-      >
-        <ChevronUp className="h-4 w-4" />
-      </button>
-      <button
-        type="button"
-        onClick={() => next && jumpToPrompt(next.uuid)}
-        disabled={!next}
-        className={iconButtonClass}
-        aria-label={nextLabel}
-        aria-keyshortcuts="Alt+ArrowDown"
-        title={t("navigator.promptBar.nextWithShortcut", {
-          label: nextLabel,
-          shortcut: NEXT_PROMPT_SHORTCUT,
-        })}
-      >
-        <ChevronDown className="h-4 w-4" />
       </button>
     </nav>
   );

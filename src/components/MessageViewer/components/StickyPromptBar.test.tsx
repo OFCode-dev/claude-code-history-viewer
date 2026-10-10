@@ -9,6 +9,8 @@ const { storeState, useAppStoreMock } = vi.hoisted(() => {
     pagination: { hasMore: false },
     parentSessionStack: [] as string[],
     navigateToMessage: vi.fn(),
+    announceLayout: vi.fn(),
+    loadMoreMessages: vi.fn(),
   };
   const useAppStore = Object.assign(
     (selector: (store: typeof state) => unknown) => selector(state),
@@ -72,18 +74,18 @@ describe("StickyPromptBar", () => {
   });
 
   it("moves focus to the prompt card when a keyboard jump hides the bar", () => {
-    const card = renderPromptRow("p2");
+    const card = renderPromptRow("p1");
     render(<StickyPromptBar messages={messages} />);
-    const next = screen.getByRole("button", { name: "navigator.promptBar.next" });
+    const jump = screen.getByRole("button", { name: /^navigator\.promptBar\.jump/ });
 
     act(() => {
-      next.focus();
+      jump.focus();
     });
     act(() => {
-      fireEvent.click(next);
+      fireEvent.click(jump);
     });
 
-    expect(storeState.navigateToMessage).toHaveBeenCalledWith("p2", { history: "replace" });
+    expect(storeState.navigateToMessage).toHaveBeenCalledWith("p1", { history: "replace" });
     expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
 
     act(() => {
@@ -155,14 +157,11 @@ describe("StickyPromptBar", () => {
     expect(screen.getByText("navigator.promptBar.you")).toBeInTheDocument();
   });
 
-  it("announces the next-prompt shortcut through i18n and aria-keyshortcuts", () => {
+  it("leaves stepping to the seek buttons: only the jump-to-this-prompt button", () => {
     render(<StickyPromptBar messages={messages} />);
-    const next = screen.getByRole("button", { name: "navigator.promptBar.next" });
 
-    expect(next).toHaveAttribute(
-      "title",
-      "navigator.promptBar.nextWithShortcut|navigator.promptBar.next|Alt+↓"
-    );
-    expect(next).toHaveAttribute("aria-keyshortcuts", "Alt+ArrowDown");
+    expect(screen.getAllByRole("button")).toHaveLength(1);
+    expect(screen.queryByRole("button", { name: "navigator.promptBar.next" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "navigator.promptBar.previous" })).not.toBeInTheDocument();
   });
 });

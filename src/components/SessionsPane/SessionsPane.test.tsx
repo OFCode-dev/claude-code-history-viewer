@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ClaudeProject, ClaudeSession, SubagentSession } from "@/types";
 import { englishT } from "@/test/utils/englishTranslator";
@@ -115,5 +115,63 @@ describe("SessionsPane subagents section", () => {
     const list = screen.getByRole("list", { name: "Session list" });
     expect(screen.getByRole("region", { name: "Subagents of this session" })).toBeInTheDocument();
     expect(elementsBefore(list)).toEqual(before);
+  });
+});
+
+describe("SessionsPane rail: the way to the subagents", () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  const paneWith = (isCollapsed: boolean, onToggleCollapse: () => void) => (
+    <SessionsPane
+      selectedProject={project}
+      sessions={[session]}
+      selectedSession={session}
+      isLoading={false}
+      onSessionSelect={vi.fn()}
+      formatTimeAgo={() => ""}
+      width={320}
+      isCollapsed={isCollapsed}
+      onToggleCollapse={onToggleCollapse}
+    />
+  );
+
+  it("offers one Bot + count button instead of the list, and none without subagents", () => {
+    setSubagents([subagent]);
+    const { rerender } = render(paneWith(true, vi.fn()));
+    expect(screen.getByRole("button", { name: "Show 1 subagent" })).toHaveTextContent("1");
+    expect(screen.queryByRole("region", { name: "Subagents of this session" })).toBeNull();
+
+    setSubagents([]);
+    rerender(paneWith(true, vi.fn()));
+    expect(screen.queryByRole("button", { name: /subagent/i })).toBeNull();
+  });
+
+  it("expands the pane and focuses the Subagents header, opening the list", () => {
+    // The list was closed last time; the rail button still shows it.
+    localStorage.setItem("sessionsPane.subagentsOpen", "false");
+    setSubagents([subagent]);
+    const onToggleCollapse = vi.fn();
+    const { rerender } = render(paneWith(true, onToggleCollapse));
+
+    const button = screen.getByRole("button", { name: "Show 1 subagent" });
+    button.focus();
+    fireEvent.click(button);
+    expect(onToggleCollapse).toHaveBeenCalledTimes(1);
+
+    rerender(paneWith(false, onToggleCollapse));
+    const header = screen.getByRole("button", { name: /Subagents/ });
+    expect(document.activeElement).toBe(header);
+    expect(header).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("button", { name: /Map the API error codes/ })).toBeInTheDocument();
+  });
+
+  it("does not steal focus when the pane is expanded some other way", () => {
+    setSubagents([subagent]);
+    const { rerender } = render(paneWith(true, vi.fn()));
+    fireEvent.click(screen.getByRole("button", { name: "Expand sessions" }));
+    rerender(paneWith(false, vi.fn()));
+    expect(document.activeElement).not.toBe(screen.getByRole("button", { name: /Subagents/ }));
   });
 });

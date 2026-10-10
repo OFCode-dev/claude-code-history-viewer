@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import i18n from "@/i18n";
 import type { SubagentSession } from "@/types";
 import { englishT } from "@/test/utils/englishTranslator";
@@ -161,38 +161,6 @@ describe("SubagentList", () => {
       } finally {
         await i18n.changeLanguage("en");
       }
-    });
-  });
-
-  describe("grid layout (in-conversation panel)", () => {
-    it("keeps the multi-line card with agent type and model badges", () => {
-      render(
-        <SubagentList subagents={[described, summaryOnly]} onSelect={vi.fn()} layout="grid" />,
-      );
-
-      const row = screen.getByRole("button", { name: /Map the API error codes/ });
-      expect(row.className).not.toMatch(/\bh-7\b/);
-      expect(within(row).getByTitle("Agent type: Explore")).toHaveTextContent("Explore");
-      expect(within(row).getByTitle("Model: sonnet")).toHaveTextContent("sonnet");
-      expect(row).toHaveTextContent("12 messages");
-
-      // No meta.json → no badges, but the row still lists.
-      const plain = screen.getByRole("button", { name: /Audit the webhook retries/ });
-      expect(within(plain).queryByTitle(/Agent type/)).toBeNull();
-      expect(within(plain).queryByTitle(/Model/)).toBeNull();
-      expect(plain).toHaveTextContent("3 messages");
-    });
-
-    afterEach(async () => {
-      await i18n.changeLanguage("en");
-    });
-
-    it("shows the last-activity time in a <time> element, formatted in the app language", async () => {
-      await i18n.changeLanguage("ko");
-      render(<SubagentList subagents={[described]} onSelect={vi.fn()} layout="grid" />);
-
-      const time = screen.getByRole("button").querySelector("time");
-      expect(time).toHaveAttribute("title", expect.stringMatching(/^Last activity 2026년 9월 20일/));
     });
   });
 });

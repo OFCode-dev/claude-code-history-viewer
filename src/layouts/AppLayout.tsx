@@ -44,6 +44,7 @@ import { supportsSessionBoard } from "@/layouts/sessionBoard";
 import { effectiveGroupMode } from "@/store/slices/layoutSlice";
 import { AutoHideRegion } from "@/components/AutoHide/AutoHideRegion";
 import { PinToggle } from "@/components/AutoHide/PinToggle";
+import { PromptSeekButtons } from "@/components/PromptSeek/PromptSeekButtons";
 import { panelShortcut } from "@/components/AutoHide/shortcuts";
 import { useAutoHidePanel } from "@/components/AutoHide/useAutoHidePanel";
 import {
@@ -267,11 +268,10 @@ export const AppLayout: React.FC<AppLayoutProps> = (props) => {
     selectedProject != null &&
     !computed.isSettingsView &&
     !computed.isArchiveView;
-  // Subagents show in exactly one place: the sessions pane's own docked
-  // "Subagents" section when it is on screen, otherwise the collapsible
-  // panel MessageViewer renders above the conversation. In reading mode the
-  // pane is never a rail (pinned in flow, or inside the left overlay).
-  const isSubagentListDocked = showSessionsPane && (readingActive || !isSessionsPaneCollapsed);
+  // Subagents have one home: the "Subagents" section docked at the bottom of
+  // whatever lists the sessions, the sessions pane here or the explorer
+  // (inline sessions, also inside the mobile drawer). Folded to a rail, that
+  // column offers a button that unfolds it and focuses the section.
   const {
     width: sessionsPaneWidth,
     isResizing: isSessionsPaneResizing,
@@ -914,7 +914,6 @@ export const AppLayout: React.FC<AppLayoutProps> = (props) => {
                           ? () => analyticsActions.switchToBoard()
                           : undefined
                       }
-                      showSubagentPanel={!isSubagentListDocked}
                     />
                   </div>
                   <AutoHideRegion
@@ -923,6 +922,7 @@ export const AppLayout: React.FC<AppLayoutProps> = (props) => {
                     label={t("readingMode.group.right")}
                     shortcut={panelShortcut("right")}
                     overlayWidth={rightMode === "autohide" ? rightOverlayWidth : undefined}
+                    gutterAccessory={<PromptSeekButtons variant="gutter" />}
                   >
                     <div className="hidden md:block">
                       <MessageNavigator
@@ -937,6 +937,9 @@ export const AppLayout: React.FC<AppLayoutProps> = (props) => {
                         headerAccessory={
                           rightMode === "normal" ? undefined : <PinToggle group="right" />
                         }
+                        // Auto-hidden, the gutter under the handle carries them;
+                        // on phones, the navigator button does.
+                        showPromptSeek={rightMode !== "autohide" && !isMobile}
                         asideId="message-navigator"
                       />
                     </div>

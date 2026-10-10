@@ -16,6 +16,7 @@ import { NavigatorModeToggle } from "./NavigatorModeToggle";
 import { NavigatorPromptRow } from "./NavigatorPromptRow";
 import { buildPromptEntries, buildPromptListRows, type PromptListRow } from "./promptEntries";
 import { useNavigatorEntries } from "./useNavigatorEntries";
+import { PromptSeekButtons } from "../PromptSeek/PromptSeekButtons";
 
 // Height estimation constants for virtual scrolling
 const ESTIMATED_CHARS_PER_LINE = 40; // Conservative estimate for small text
@@ -42,6 +43,12 @@ interface MessageNavigatorProps {
   onToggleCollapse?: () => void;
   /** Reading mode: the pin toggle, at the end of the header. */
   headerAccessory?: React.ReactNode;
+  /**
+   * Previous / next prompt buttons beside the panel toggle (under it on the
+   * rail). Off where another toggle carries them (the reading-mode gutter)
+   * or where there is none (the mobile sheet).
+   */
+  showPromptSeek?: boolean;
   asideId?: string;
 }
 
@@ -57,6 +64,7 @@ export const MessageNavigator: React.FC<MessageNavigatorProps> = ({
   isCollapsed,
   onToggleCollapse,
   headerAccessory,
+  showPromptSeek = false,
   asideId = "message-navigator",
 }) => {
   const { t } = useTranslation();
@@ -367,6 +375,8 @@ export const MessageNavigator: React.FC<MessageNavigatorProps> = ({
             <PanelRight className="w-4 h-4" />
           </button>
 
+          {showPromptSeek && <PromptSeekButtons variant="rail" />}
+
           <div className="w-6 h-px bg-accent/20" />
 
           {/* Prompt count */}
@@ -452,6 +462,7 @@ export const MessageNavigator: React.FC<MessageNavigatorProps> = ({
             <Zap className="w-3.5 h-3.5" />
           </button>
         )}
+        {showPromptSeek && <PromptSeekButtons variant="header" />}
         {onToggleCollapse && (
           <button
             onClick={onToggleCollapse}

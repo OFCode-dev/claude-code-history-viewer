@@ -25,6 +25,7 @@ import {
 } from "./autoHideMachine";
 import { AUTOHIDE_OWNER_ATTR, getHoldCount, subscribeHolds } from "./autoHideHolds";
 import {
+  AUTOHIDE_COLD_ATTR,
   AUTOHIDE_DEBUG_KEY,
   DISMISS_SWALLOW_SELECTOR,
   HOVER_BAND_PX,
@@ -364,11 +365,15 @@ export class AutoHideController {
       }
     }
 
-    const owner = ownerOf(target instanceof Element ? target : null);
+    const element = target instanceof Element ? target : null;
+    const owner = ownerOf(element);
     if (owner) {
       inside = owner;
       hot = null;
     }
+    // Controls that act without the panel (the prompt seek buttons under the
+    // handle): aiming at them is not a request to open it.
+    if (hot != null && hot !== "top" && element?.closest(`[${AUTOHIDE_COLD_ATTR}]`)) hot = null;
     return { hot, inside, inOverlay };
   }
 

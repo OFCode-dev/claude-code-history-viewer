@@ -85,6 +85,13 @@ export const DISMISS_SWALLOW_SELECTOR = [
   '[tabindex]:not([tabindex="-1"])',
 ].join(",");
 
+/**
+ * Marks controls inside a side gutter that work without opening the panel
+ * (the previous / next prompt buttons): the pointer over them is never in
+ * the hover band, and a click on them does not open the panel.
+ */
+export const AUTOHIDE_COLD_ATTR = "data-autohide-cold";
+
 /** Marks the container of the sticky prompt bar and the transcript scroller. */
 export const TRANSCRIPT_AREA_ATTR = "data-transcript-area";
 

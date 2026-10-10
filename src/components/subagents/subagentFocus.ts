@@ -2,7 +2,7 @@
  * Keyboard focus around subagent navigation.
  *
  * Opening a subagent replaces the conversation, so the control that opened it
- * (a subagent panel row, an Agent card's "Open transcript", a Workflow card
+ * (an Agent card's "Open transcript", a Workflow card
  * row) unmounts and focus falls to <body>. These helpers move it to the
  * subagent context bar instead.
  */

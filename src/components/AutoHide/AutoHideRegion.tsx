@@ -15,7 +15,7 @@ import { useAppStore } from "@/store/useAppStore";
 import type { EffectiveGroupMode, PanelGroup } from "@/store/slices/layoutSlice";
 import { getTranscriptViewport } from "@/components/MessageViewer/hooks/useReadingPosition";
 import { AutoHideOwnerProvider } from "./AutoHideHoldContext";
-import { SLIDE_OUT_MS, WHEEL_LINE_PX } from "./constants";
+import { AUTOHIDE_COLD_ATTR, SLIDE_OUT_MS, WHEEL_LINE_PX } from "./constants";
 import { panelDomIds, sourceFromActivation, togglePanel } from "./panelActions";
 import type { ShortcutLabel } from "./shortcuts";
 
@@ -30,6 +30,8 @@ interface AutoHideRegionProps {
   overlayWidth?: number;
   /** Top strip only: the status chips. */
   chips?: ReactNode;
+  /** Side gutters only: controls under the handle that work without the panel. */
+  gutterAccessory?: ReactNode;
   /** Top overlay: its measured height while shown (0 when hidden). */
   onOverlayHeightChange?: (height: number) => void;
   children: ReactNode;
@@ -52,6 +54,7 @@ export function AutoHideRegion({
   shortcut,
   overlayWidth,
   chips,
+  gutterAccessory,
   onOverlayHeightChange,
   children,
 }: AutoHideRegionProps) {
@@ -78,7 +81,14 @@ export function AutoHideRegion({
       }
     >
       {isAutoHide ? (
-        <Gutter group={group} label={label} shortcut={shortcut} open={open} chips={chips} />
+        <Gutter
+          group={group}
+          label={label}
+          shortcut={shortcut}
+          open={open}
+          chips={chips}
+          accessory={gutterAccessory}
+        />
       ) : null}
       <div
         ref={overlayRef}
@@ -110,12 +120,14 @@ function Gutter({
   shortcut,
   open,
   chips,
+  accessory,
 }: {
   group: PanelGroup;
   label: string;
   shortcut: ShortcutLabel;
   open: boolean;
   chips?: ReactNode;
+  accessory?: ReactNode;
 }) {
   const gutterRef = useRef<HTMLDivElement>(null);
   const hoverReveal = useAppStore((s) => s.hoverReveal);
@@ -129,14 +141,17 @@ function Gutter({
       ref={gutterRef}
       className={cn("autohide-gutter", `autohide-gutter-${group}`)}
       onClick={(event) => {
-        // Opens only: closing is the handle's job (spec §2.3).
-        if (open || group === "top" || (event.target as Element).closest("button")) return;
+        // Opens only: closing is the handle's job (spec §2.3). Buttons and the
+        // controls that work without the panel keep their own click.
+        const target = event.target as Element;
+        if (open || group === "top" || target.closest(`button, [${AUTOHIDE_COLD_ATTR}]`)) return;
         togglePanel(group, sourceFromActivation(event, hoverReveal));
       }}
     >
       <AutoHideOwnerProvider group={group}>
         {group === "top" ? <div className="autohide-chips">{chips}</div> : null}
         <Handle group={group} label={label} shortcut={shortcut} open={open} />
+        {group === "top" ? null : accessory}
       </AutoHideOwnerProvider>
     </div>
   );

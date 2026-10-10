@@ -1,13 +1,19 @@
 /**
  * Jumping between human prompts of the open conversation — shared by the
- * sticky prompt bar and the Alt+Up / Alt+Down shortcuts.
+ * sticky prompt bar, the previous / next prompt buttons and the Alt+Up /
+ * Alt+Down shortcuts.
  */
+import i18n from "../i18n";
 import { useAppStore } from "../store/useAppStore";
 import {
   useViewportAnchorStore,
   type PromptJumpDirection,
+  type PromptTrack,
 } from "../store/viewportAnchorStore";
+import type { TurnAnchor } from "./turns";
 import { formatTimeShort } from "./time";
+import { isMacOS } from "./platform";
+import { getPromptPreview, getUserMessageText } from "./userMessageKind";
 
 /** Marks the sticky prompt bar, whose buttons disappear when their jump lands. */
 export const PROMPT_BAR_ATTRIBUTE = "data-sticky-prompt-bar";
@@ -79,12 +85,90 @@ export function jumpToPrompt(uuid: string): void {
   if (fromPromptBar) focusPromptAfterJump(uuid);
 }
 
-/** Jump to the previous / next prompt; false when there is none. */
+/** What one previous / next prompt step did. */
+export type PromptStepOutcome =
+  /** Scrolled to the prompt before / after the current position. */
+  | "moved"
+  /** At the first loaded prompt of a partly loaded session: loading earlier messages. */
+  | "loadingEarlier"
+  /** Nowhere to go in that direction; the end was announced. */
+  | "atEnd"
+  /** No prompts in the conversation at all: nothing happened. */
+  | "unavailable";
+
+/** Announced prompt previews stay short: the status region is spoken in full. */
+const ANNOUNCED_PREVIEW_LENGTH = 60;
+
+/** "Prompt 4 of 12, 14:32: Deploy the api" for the prompt a step landed on. */
+function describePromptPosition(track: PromptTrack, anchor: TurnAnchor): string {
+  const { t } = i18n;
+  const isWindowComplete = !useAppStore.getState().pagination.hasMore;
+  const position = t(
+    isWindowComplete ? "navigator.seek.position" : "navigator.seek.positionLoaded",
+    { number: anchor.turnNumber, total: track.anchors.length }
+  );
+  const message = track.messages[anchor.messageIndex];
+  const preview = message
+    ? getPromptPreview(getUserMessageText(message), ANNOUNCED_PREVIEW_LENGTH).text
+    : "";
+  const time = formatPromptTime(anchor.timestamp);
+  if (!preview) return time ? `${position}, ${time}` : position;
+  return time
+    ? t("navigator.seek.announce", { position, time, preview })
+    : t("navigator.seek.announceNoTime", { position, preview });
+}
+
+function announce(text: string): void {
+  useAppStore.getState().announceLayout(text);
+}
+
+/**
+ * One step to the previous / next prompt, as Alt+Up / Alt+Down and the
+ * previous / next prompt buttons take it. Inside a turn, "previous" first
+ * returns to the start of the current prompt; rapid steps chain. Each step
+ * is announced through the app's status region ("Prompt 4 of 12 …"), and so
+ * is reaching either end. At the first loaded prompt of a partly loaded
+ * session, "previous" loads the earlier messages instead.
+ */
+export function stepToAdjacentPrompt(direction: PromptJumpDirection): PromptStepOutcome {
+  const anchorStore = useViewportAnchorStore.getState();
+  const track = anchorStore.promptTrack;
+  if (!track) return "unavailable";
+
+  const uuid = anchorStore.takePromptJump(direction);
+  const target = uuid != null ? track.anchors.find((anchor) => anchor.uuid === uuid) : undefined;
+  if (uuid != null && target) {
+    jumpToPrompt(uuid);
+    announce(describePromptPosition(track, target));
+    return "moved";
+  }
+
+  const app = useAppStore.getState();
+  if (direction === "previous" && app.pagination.hasMore) {
+    if (!app.pagination.isLoadingMore) void app.loadMoreMessages();
+    announce(i18n.t("navigator.seek.loadingEarlier"));
+    return "loadingEarlier";
+  }
+  if (track.anchors.length === 0) return "unavailable";
+  announce(i18n.t(direction === "previous" ? "navigator.seek.first" : "navigator.seek.last"));
+  return "atEnd";
+}
+
+/** Alt+Up / Alt+Down: true when the press was used (moved, loaded or announced an end). */
 export function jumpToAdjacentPrompt(direction: PromptJumpDirection): boolean {
-  const uuid = useViewportAnchorStore.getState().takePromptJump(direction);
-  if (!uuid) return false;
-  jumpToPrompt(uuid);
-  return true;
+  return stepToAdjacentPrompt(direction) !== "unavailable";
+}
+
+/** Alt+Up / Alt+Down as `aria-keyshortcuts` spells them and as people read them. */
+export function promptStepShortcut(direction: PromptJumpDirection): {
+  aria: string;
+  label: string;
+} {
+  const arrow = direction === "previous" ? "↑" : "↓";
+  return {
+    aria: direction === "previous" ? "Alt+ArrowUp" : "Alt+ArrowDown",
+    label: isMacOS() ? `⌥${arrow}` : `Alt+${arrow}`,
+  };
 }
 
 /** A prompt's time in the app language, or "" for a missing or invalid timestamp. */

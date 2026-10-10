@@ -15,6 +15,9 @@ vi.mock("react-i18next", () => ({
 vi.mock("./SubagentsSection", () => ({
   SubagentsSection: () => null,
 }));
+vi.mock("./SubagentsRailButton", () => ({
+  SubagentsRailButton: () => null,
+}));
 
 vi.mock("@/components/ProjectTree/components/SessionList", () => ({
   SessionList: ({ listHeight }: { listHeight?: number }) => (

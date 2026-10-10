@@ -3,6 +3,7 @@ import React from "react";
 import { BarChart3, Folder, PanelLeft } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
+import { SubagentsRailButton } from "@/components/SessionsPane/SubagentsRailButton";
 
 interface CollapsedExplorerRailProps {
   asideId: string;
@@ -11,9 +12,14 @@ interface CollapsedExplorerRailProps {
   isResizing?: boolean;
   onExpand?: () => void;
   onGlobalStatsClick: () => void;
+  /** The explorer lists sessions inline, so the subagent list is docked in it. */
+  showSubagents?: boolean;
 }
 
-/** The folded explorer: expand, global statistics and the project count. */
+/**
+ * The folded explorer: expand, global statistics and the project count, and,
+ * while the explorer lists sessions inline, the way to its subagent list.
+ */
 export const CollapsedExplorerRail: React.FC<CollapsedExplorerRailProps> = ({
   asideId,
   projectCount,
@@ -21,6 +27,7 @@ export const CollapsedExplorerRail: React.FC<CollapsedExplorerRailProps> = ({
   isResizing,
   onExpand,
   onGlobalStatsClick,
+  showSubagents = false,
 }) => {
   const { t } = useTranslation();
   const countLabel = t("project.locationCount", { count: projectCount });
@@ -69,6 +76,7 @@ export const CollapsedExplorerRail: React.FC<CollapsedExplorerRailProps> = ({
         </span>
         <span className="sr-only">{countLabel}</span>
       </div>
+      {showSubagents && onExpand && <SubagentsRailButton onExpand={onExpand} className="mt-1" />}
     </aside>
   );
 };

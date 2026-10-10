@@ -283,6 +283,8 @@
   "subagent.listTitle": "Subagents",
   "subagent.listAria": "Subagents of this session",
   "subagent.toggleList": "Show or hide subagents",
+  "subagent.showList_one": "Show {{count}} subagent",
+  "subagent.showList_other": "Show {{count}} subagents",
   "subagent.workflowGroup": "Workflow {{runId}}",
   "subagent.agentType": "Agent type: {{type}}",
   "subagent.model": "Model: {{model}}",
