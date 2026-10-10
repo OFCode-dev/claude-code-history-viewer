@@ -9,7 +9,8 @@ import {
   getSubagentSiblingPosition,
 } from "@/utils/subagentNavigation";
 import { SubagentMetaBadges } from "@/components/subagents/SubagentMetaBadges";
-import { isFocusLost, restoreFocusAfterBack } from "@/components/subagents/focusRestore";
+import { isFocusLost } from "@/utils/focus";
+import { restoreFocusAfterBack } from "@/components/subagents/focusRestore";
 import type { SubagentSession } from "@/types";
 
 const navButton = cn(

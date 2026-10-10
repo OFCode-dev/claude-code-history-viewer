@@ -21,7 +21,7 @@ export function useAppKeyboard() {
   const { openModal } = useModal();
   const { isMobile } = usePlatform();
   const toggleNavigator = useAppStore((s) => s.toggleNavigator);
-  const toggleFocusMode = useAppStore((s) => s.toggleFocusMode);
+  const toggleFocusMode = useAppStore((s) => s.toggleReadingMode);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

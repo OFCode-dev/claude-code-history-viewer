@@ -7,7 +7,7 @@
  * subagent context bar instead.
  */
 import type { SubagentSession } from "@/types";
-import { isFocusLost } from "./focusRestore";
+import { isFocusLost } from "@/utils/focus";
 
 // One implementation, shared with the "Back" focus handling.
 export { isFocusLost };

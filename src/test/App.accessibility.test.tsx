@@ -72,7 +72,7 @@ const { useAppStoreMock } = vi.hoisted(() => {
     toggleExplorerCollapsed: vi.fn(),
     isSessionsPaneCollapsed: false,
     toggleSessionsPaneCollapsed: vi.fn(),
-    toggleFocusMode: vi.fn(),
+    toggleReadingMode: vi.fn(),
     activeProviders: [],
     setSelectedSession: vi.fn(),
     fontScale: 100,

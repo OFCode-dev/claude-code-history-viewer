@@ -13,8 +13,8 @@ const FOCUS_SHORTCUT_LABEL = isMacOS() ? "⌘⇧F" : "Ctrl+Shift+F";
  */
 export function FocusModeButton({ className }: { className?: string }) {
   const { t } = useTranslation();
-  const isFocusMode = useAppStore((s) => s.focusModeSnapshot != null);
-  const toggleFocusMode = useAppStore((s) => s.toggleFocusMode);
+  const isFocusMode = useAppStore((s) => s.isReadingMode);
+  const toggleFocusMode = useAppStore((s) => s.toggleReadingMode);
   const Icon = isFocusMode ? Minimize2 : Maximize2;
 
   return (

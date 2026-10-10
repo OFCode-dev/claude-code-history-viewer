@@ -6,8 +6,8 @@ import { HistoryNavButtons } from "./HistoryNavButtons";
 
 const { store } = vi.hoisted(() => ({
   store: {
-    focusModeSnapshot: null as null | Record<string, boolean>,
-    toggleFocusMode: vi.fn(),
+    isReadingMode: false,
+    toggleReadingMode: vi.fn(),
   },
 }));
 
@@ -76,8 +76,8 @@ describe("HistoryNavButtons", () => {
 
 describe("FocusModeButton", () => {
   beforeEach(() => {
-    store.focusModeSnapshot = null;
-    store.toggleFocusMode.mockClear();
+    store.isReadingMode = false;
+    store.toggleReadingMode.mockClear();
   });
 
   it("toggles focus mode and reports its state", () => {
@@ -90,13 +90,9 @@ describe("FocusModeButton", () => {
     const button = screen.getByRole("button", { name: "header.focusMode.label" });
     expect(button).toHaveAttribute("aria-pressed", "false");
     fireEvent.click(button);
-    expect(store.toggleFocusMode).toHaveBeenCalledTimes(1);
+    expect(store.toggleReadingMode).toHaveBeenCalledTimes(1);
 
-    store.focusModeSnapshot = {
-      explorerCollapsed: false,
-      sessionsPaneCollapsed: false,
-      navigatorOpen: true,
-    };
+    store.isReadingMode = true;
     rerender(
       <TooltipProvider>
         <FocusModeButton />

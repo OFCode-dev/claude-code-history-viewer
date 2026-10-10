@@ -5,7 +5,7 @@ import { useAppKeyboard } from "./useAppKeyboard";
 const { store, platform } = vi.hoisted(() => ({
   store: {
     toggleNavigator: vi.fn(),
-    toggleFocusMode: vi.fn(),
+    toggleReadingMode: vi.fn(),
   },
   platform: { isMobile: false },
 }));
@@ -24,7 +24,7 @@ vi.mock("@/contexts/platform", () => ({
 
 describe("useAppKeyboard focus mode shortcut", () => {
   beforeEach(() => {
-    store.toggleFocusMode.mockClear();
+    store.toggleReadingMode.mockClear();
     store.toggleNavigator.mockClear();
     platform.isMobile = false;
   });
@@ -40,14 +40,14 @@ describe("useAppKeyboard focus mode shortcut", () => {
     });
     window.dispatchEvent(event);
 
-    expect(store.toggleFocusMode).toHaveBeenCalledTimes(1);
+    expect(store.toggleReadingMode).toHaveBeenCalledTimes(1);
     expect(event.defaultPrevented).toBe(true);
   });
 
   it("toggles focus mode on Cmd+Shift+F", () => {
     renderHook(() => useAppKeyboard());
     fireEvent.keyDown(window, { key: "f", metaKey: true, shiftKey: true });
-    expect(store.toggleFocusMode).toHaveBeenCalledTimes(1);
+    expect(store.toggleReadingMode).toHaveBeenCalledTimes(1);
   });
 
   it("ignores the shortcut while typing in a field", () => {
@@ -56,7 +56,7 @@ describe("useAppKeyboard focus mode shortcut", () => {
 
     fireEvent.keyDown(getByRole("textbox"), { key: "F", ctrlKey: true, shiftKey: true });
 
-    expect(store.toggleFocusMode).not.toHaveBeenCalled();
+    expect(store.toggleReadingMode).not.toHaveBeenCalled();
   });
 
   it("ignores the shortcut inside a contenteditable region", () => {
@@ -69,21 +69,21 @@ describe("useAppKeyboard focus mode shortcut", () => {
 
     fireEvent.keyDown(getByTestId("inner"), { key: "F", ctrlKey: true, shiftKey: true });
 
-    expect(store.toggleFocusMode).not.toHaveBeenCalled();
+    expect(store.toggleReadingMode).not.toHaveBeenCalled();
   });
 
   it("needs both the modifier and Shift", () => {
     renderHook(() => useAppKeyboard());
     fireEvent.keyDown(window, { key: "f", ctrlKey: true });
     fireEvent.keyDown(window, { key: "F", shiftKey: true });
-    expect(store.toggleFocusMode).not.toHaveBeenCalled();
+    expect(store.toggleReadingMode).not.toHaveBeenCalled();
   });
 
   it("does nothing on mobile, where there are no side panels", () => {
     platform.isMobile = true;
     renderHook(() => useAppKeyboard());
     fireEvent.keyDown(window, { key: "F", ctrlKey: true, shiftKey: true });
-    expect(store.toggleFocusMode).not.toHaveBeenCalled();
+    expect(store.toggleReadingMode).not.toHaveBeenCalled();
   });
 });
 
@@ -96,7 +96,7 @@ describe("useAppKeyboard focus mode shortcut focus handling", () => {
   };
 
   beforeEach(() => {
-    store.toggleFocusMode.mockReset();
+    store.toggleReadingMode.mockReset();
     platform.isMobile = false;
     frames = [];
     vi.spyOn(window, "requestAnimationFrame").mockImplementation((cb) => {
@@ -120,7 +120,7 @@ describe("useAppKeyboard focus mode shortcut focus handling", () => {
       </>,
     );
     // Folding the panel unmounts the focused row, as the rail does.
-    store.toggleFocusMode.mockImplementation(() =>
+    store.toggleReadingMode.mockImplementation(() =>
       rerender(
         <>
           <aside id="project-explorer" />
@@ -134,7 +134,7 @@ describe("useAppKeyboard focus mode shortcut focus handling", () => {
     fireEvent.keyDown(row, { key: "F", ctrlKey: true, shiftKey: true });
     flushFrames();
 
-    expect(store.toggleFocusMode).toHaveBeenCalledTimes(1);
+    expect(store.toggleReadingMode).toHaveBeenCalledTimes(1);
     expect(document.activeElement).toBe(getByTestId("main"));
   });
 
@@ -152,7 +152,7 @@ describe("useAppKeyboard focus mode shortcut focus handling", () => {
     fireEvent.keyDown(button, { key: "F", ctrlKey: true, shiftKey: true });
     flushFrames();
 
-    expect(store.toggleFocusMode).toHaveBeenCalledTimes(1);
+    expect(store.toggleReadingMode).toHaveBeenCalledTimes(1);
     expect(document.activeElement).toBe(button);
   });
 });
