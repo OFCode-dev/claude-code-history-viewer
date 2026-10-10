@@ -13,6 +13,8 @@ interface FilterToggleProps {
   disabled?: boolean;
   /** Keep the text label even when the toolbar is narrow. */
   alwaysShowLabel?: boolean;
+  /** Where a reading-mode chip lands focus (`data-autohide-focus`). */
+  focusKey?: "dialogue" | "filters";
 }
 
 function FilterToggle({
@@ -23,12 +25,14 @@ function FilterToggle({
   title,
   disabled = false,
   alwaysShowLabel = false,
+  focusKey,
 }: FilterToggleProps) {
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
+      data-autohide-focus={focusKey}
       className={cn(
         "flex items-center gap-1 px-1.5 py-0.5 rounded text-2xs border transition-colors",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
@@ -96,6 +100,7 @@ export function FilterToolbar({ totalCount, filteredCount, hasParallelTasks }: F
         title={t("dialogue.tooltip")}
         icon={<MessagesSquare className="w-3 h-3" />}
         alwaysShowLabel
+        focusKey="dialogue"
       />
 
       <div className="h-3.5 w-px bg-border/40 shrink-0" />
@@ -107,6 +112,7 @@ export function FilterToolbar({ totalCount, filteredCount, hasParallelTasks }: F
           disabled={isDialogue}
           onClick={() => toggleRole("user")}
           label={t("filter.role.user")}
+          focusKey="filters"
           icon={<User className="w-3 h-3" />}
         />
         <FilterToggle

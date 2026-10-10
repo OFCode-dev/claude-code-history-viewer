@@ -5,6 +5,8 @@ import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/useAppStore";
 import { usePlatform } from "@/contexts/platform";
 import { restoreFocusAfterBack } from "@/components/subagents/focusRestore";
+import { revealPanel } from "@/components/AutoHide/panelActions";
+import { effectiveGroupMode } from "@/store/slices/layoutSlice";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -93,6 +95,9 @@ export function HeaderBreadcrumb({ project, onShowTranscript }: HeaderBreadcrumb
   const requestExplorerReveal = useAppStore((s) => s.requestExplorerReveal);
   const setExplorerCollapsed = useAppStore((s) => s.setExplorerCollapsed);
   const navigateBackToParent = useAppStore((s) => s.navigateBackToParent);
+  // Reading mode: the explorer may be hidden at the left edge.
+  const leftMode = useAppStore((s) => effectiveGroupMode(s, "left", isMobile));
+  const revealingIntoOverlayRef = useRef(false);
   // Subscribed so a rename re-labels the session crumb.
   const sessionMetadata = useAppStore((s) => s.userMetadata.sessions);
 
@@ -186,10 +191,19 @@ export function HeaderBreadcrumb({ project, onShowTranscript }: HeaderBreadcrumb
   const isFullyCollapsed = collapsedCount >= maxCollapsed;
   const projectPath = pathCrumbs[pathCrumbs.length - 1]?.path;
 
-  const reveal = (path: string) => {
+  /**
+   * `source`: a crumb clicked with a pointer (`detail > 0`) or activated
+   * from the keyboard, which decides how long a reading-mode overlay stays.
+   */
+  const reveal = (path: string, source: "click" | "keyboard") => {
     if (!canReveal) return;
-    // A reveal into a folded explorer would be invisible, so unfold it first.
-    setExplorerCollapsed(false);
+    if (leftMode === "autohide") {
+      revealingIntoOverlayRef.current = true;
+      revealPanel("left", source);
+    } else if (leftMode === "normal") {
+      // A reveal into a folded explorer would be invisible, so unfold it first.
+      setExplorerCollapsed(false);
+    }
     requestExplorerReveal(path);
   };
 
@@ -211,7 +225,7 @@ export function HeaderBreadcrumb({ project, onShowTranscript }: HeaderBreadcrumb
         {canReveal ? (
           <button
             type="button"
-            onClick={() => reveal(crumb.path)}
+            onClick={(event) => reveal(crumb.path, event.detail > 0 ? "click" : "keyboard")}
             className={cn(crumbButtonClass, isProject && "text-foreground font-medium")}
             title={t("header.breadcrumb.reveal", { path: crumb.path })}
           >
@@ -318,14 +332,18 @@ export function HeaderBreadcrumb({ project, onShowTranscript }: HeaderBreadcrumb
                 // A chosen directory takes focus in the explorer; do not pull
                 // it back to "…" when the menu finishes closing.
                 onCloseAutoFocus={(event) => {
+                  // A reading-mode overlay just opened for the reveal: focus
+                  // pulled back here would close it again.
                   const explorer = document.getElementById("project-explorer");
-                  if (explorer?.contains(document.activeElement)) event.preventDefault();
+                  const revealing = revealingIntoOverlayRef.current;
+                  revealingIntoOverlayRef.current = false;
+                  if (revealing || explorer?.contains(document.activeElement)) event.preventDefault();
                 }}
               >
                 {hidden.map((crumb) => (
                   <DropdownMenuItem
                     key={crumb.path}
-                    onSelect={() => reveal(crumb.path)}
+                    onSelect={() => reveal(crumb.path, "keyboard")}
                     title={t("header.breadcrumb.reveal", { path: crumb.path })}
                   >
                     {crumb.label}

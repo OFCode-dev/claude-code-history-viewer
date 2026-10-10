@@ -1,4 +1,5 @@
 import { useState, useCallback, type ReactNode, useMemo, useRef } from "react";
+import { isInInertSubtree } from "@/utils/focus";
 import {
   ModalContext,
   type FeedbackPrefill,
@@ -29,6 +30,18 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({
       const target = candidates[index];
       if (target == null || !target.isConnected) {
         continue;
+      }
+
+      // The modal opened from a reading-mode panel that has hidden since:
+      // its controls are inert, so land on that panel's handle instead.
+      if (isInInertSubtree(target)) {
+        const handle = target
+          .closest("[data-autohide-region]")
+          ?.querySelector<HTMLElement>(".autohide-handle");
+        const fallback = handle ?? document.getElementById("main-content");
+        if (!fallback) continue;
+        fallback.focus({ preventScroll: true });
+        return true;
       }
 
       target.focus();

@@ -21,6 +21,8 @@ interface ExplorerHeaderProps {
   onToggleCollapse?: () => void;
   /** Mobile drawer: close it. */
   onClose?: () => void;
+  /** Reading mode: the pin toggle, in place of the rail button. */
+  accessory?: React.ReactNode;
 }
 
 const SORT_OPTIONS: Array<{ value: ExplorerSort; labelKey: string }> = [
@@ -28,13 +30,14 @@ const SORT_OPTIONS: Array<{ value: ExplorerSort; labelKey: string }> = [
   { value: "recent", labelKey: "project.sort.recent" },
 ];
 
-/** 36px header: collapse, title, sort and collapse-all. */
+/** 36px header: collapse (or the reading-mode pin), title, sort and collapse-all. */
 export const ExplorerHeader: React.FC<ExplorerHeaderProps> = ({
   sort,
   onSortChange,
   onCollapseAll,
   onToggleCollapse,
   onClose,
+  accessory,
 }) => {
   const { t } = useTranslation();
 
@@ -48,7 +51,9 @@ export const ExplorerHeader: React.FC<ExplorerHeaderProps> = ({
         <ExplorerIconButton label={t("common.close")} onClick={onClose}>
           <X aria-hidden="true" />
         </ExplorerIconButton>
-      ) : null}
+      ) : (
+        accessory ?? null
+      )}
       <span className="min-w-0 flex-1 truncate pl-1 text-2xs font-semibold uppercase tracking-widest text-muted-foreground">
         {t("project.explorer")}
       </span>

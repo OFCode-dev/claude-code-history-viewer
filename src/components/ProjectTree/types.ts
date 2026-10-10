@@ -39,6 +39,8 @@ export interface ProjectTreeProps {
   // Collapse props
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
+  /** Reading mode: the pin toggle, shown where the rail button would be. */
+  headerAccessory?: React.ReactNode;
   asideId?: string;
   // Mobile drawer close callback
   onClose?: () => void;

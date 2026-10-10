@@ -35,9 +35,13 @@ interface MessageNavigatorProps {
   messages: ClaudeMessage[];
   width?: number;
   isResizing: boolean;
-  onResizeStart: (e: React.MouseEvent<HTMLElement>) => void;
+  /** Omitted where the panel cannot be resized (the reading-mode overlay). */
+  onResizeStart?: (e: React.MouseEvent<HTMLElement>) => void;
   isCollapsed: boolean;
-  onToggleCollapse: () => void;
+  /** Omitted in reading mode, which has no rail. */
+  onToggleCollapse?: () => void;
+  /** Reading mode: the pin toggle, at the end of the header. */
+  headerAccessory?: React.ReactNode;
   asideId?: string;
 }
 
@@ -52,6 +56,7 @@ export const MessageNavigator: React.FC<MessageNavigatorProps> = ({
   onResizeStart,
   isCollapsed,
   onToggleCollapse,
+  headerAccessory,
   asideId = "message-navigator",
 }) => {
   const { t } = useTranslation();
@@ -410,10 +415,12 @@ export const MessageNavigator: React.FC<MessageNavigatorProps> = ({
       style={width != null ? { width, minWidth: width, maxWidth: width } : undefined}
     >
       {/* Resize handle (left edge) */}
-      <div
-        className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-accent/30 active:bg-accent/50 z-10"
-        onMouseDown={onResizeStart}
-      />
+      {onResizeStart && (
+        <div
+          className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-accent/30 active:bg-accent/50 z-10"
+          onMouseDown={onResizeStart}
+        />
+      )}
 
       {/* Header */}
       <div className="flex items-center gap-2 px-3 py-2 border-b border-border/50 shrink-0">
@@ -445,13 +452,16 @@ export const MessageNavigator: React.FC<MessageNavigatorProps> = ({
             <Zap className="w-3.5 h-3.5" />
           </button>
         )}
-        <button
-          onClick={onToggleCollapse}
-          className="p-0.5 rounded hover:bg-accent/10 text-muted-foreground hover:text-foreground transition-colors"
-          aria-label={t("navigator.toggle")}
-        >
-          <PanelRightClose className="w-3.5 h-3.5" />
-        </button>
+        {onToggleCollapse && (
+          <button
+            onClick={onToggleCollapse}
+            className="p-0.5 rounded hover:bg-accent/10 text-muted-foreground hover:text-foreground transition-colors"
+            aria-label={t("navigator.toggle")}
+          >
+            <PanelRightClose className="w-3.5 h-3.5" />
+          </button>
+        )}
+        {headerAccessory}
       </div>
 
       {/* Filter input */}
@@ -462,6 +472,13 @@ export const MessageNavigator: React.FC<MessageNavigatorProps> = ({
             type="text"
             value={filterText}
             onChange={(e) => setFilterText(e.target.value)}
+            onKeyDown={(e) => {
+              // Esc clears a filter; an empty one lets the press go on
+              // (to close the reading-mode overlay, for one).
+              if (e.key !== "Escape" || !filterText) return;
+              e.preventDefault();
+              setFilterText("");
+            }}
             placeholder={isPromptsMode ? t("navigator.filterPrompts") : t("navigator.filter")}
             aria-label={isPromptsMode ? t("navigator.filterPrompts") : t("navigator.filter")}
             className="w-full pl-6 pr-2 py-1 text-xs bg-muted/30 border border-border/30 rounded focus:outline-none focus:ring-1 focus:ring-accent/40 placeholder:text-muted-foreground/40"
