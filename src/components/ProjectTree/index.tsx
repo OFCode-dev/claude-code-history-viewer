@@ -18,6 +18,7 @@ import { formatTimeAgo as formatTimeAgoUtil } from "../../utils/time";
 import { ProjectContextMenu } from "../ProjectContextMenu";
 import { ActiveFilterChips } from "./components/ActiveFilterChips";
 import { CollapsedExplorerRail } from "./components/CollapsedExplorerRail";
+import { SubagentsSection } from "../SessionsPane/SubagentsSection";
 import { ExplorerHeader } from "./components/ExplorerHeader";
 import { ExplorerFavorites } from "./components/ExplorerFavorites";
 import { ExplorerSearch } from "./components/ExplorerSearch";
@@ -276,6 +277,7 @@ export const ProjectTree: React.FC<ProjectTreeProps> = ({
         isResizing={isResizing}
         onExpand={onToggleCollapse}
         onGlobalStatsClick={handleGlobalStatsClick}
+        showSubagents={inlineSessions}
       />
     );
   }
@@ -368,6 +370,10 @@ export const ProjectTree: React.FC<ProjectTreeProps> = ({
         <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
           {announcement}
         </div>
+
+        {/* Sessions listed inline here: their subagents dock at the bottom,
+            as in the sessions pane (choosing one closes the mobile drawer). */}
+        {inlineSessions && <SubagentsSection onSelected={onClose} />}
       </div>
 
       {/* A thin sash over the border rather than a gutter: every pixel of the

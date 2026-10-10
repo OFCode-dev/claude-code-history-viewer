@@ -23,7 +23,6 @@ import { FilterHiddenNotice } from "./components/FilterHiddenNotice";
 import { SessionBoardButton } from "./components/SessionBoardButton";
 import { OffScreenCaptureRenderer } from "./components/OffScreenCaptureRenderer";
 import { ScreenshotPreviewModal } from "./components/ScreenshotPreviewModal";
-import { SubagentSessionsPanel } from "./components/SubagentSessionsPanel";
 import { SubagentContextBar } from "./components/SubagentContextBar";
 import { useSearchState } from "./hooks/useSearchState";
 import { useScrollNavigation } from "./hooks/useScrollNavigation";
@@ -37,7 +36,6 @@ import {
   usePositionRestore,
   useViewportAnchorPublisher,
 } from "./hooks/useReadingPosition";
-import { useSubagentPanelOpen } from "./hooks/useSubagentPanelOpen";
 import { useCapturePreview } from "../../hooks/useCapturePreview";
 import { MAX_CAPTURE_MESSAGES } from "../../hooks/useCaptureScreenshot";
 import {
@@ -81,7 +79,6 @@ export const MessageViewer: React.FC<MessageViewerProps> = ({
   onNextMatch,
   onPrevMatch,
   onOpenBoard,
-  showSubagentPanel = true,
 }) => {
   const { t } = useTranslation();
   // Reading mode: the toolbar and filter row hide in a strip at the top.
@@ -96,10 +93,6 @@ export const MessageViewer: React.FC<MessageViewerProps> = ({
   // Track when OverlayScrollbars is initialized
   const [scrollElementReady, setScrollElementReady] = useState(false);
   const [virtualScrollMargin, setVirtualScrollMargin] = useState(0);
-
-  // SubAgent 패널 접힘 상태 — MessageViewer에 lift해야 filter toggle 같은
-  // 분기 재렌더(패널 자식 unmount)에서 유저 선택이 보존됨. Persisted.
-  const [isSubagentPanelOpen, toggleSubagentPanel] = useSubagentPanelOpen();
 
   // Capture mode state
   const {
@@ -120,9 +113,7 @@ export const MessageViewer: React.FC<MessageViewerProps> = ({
     clearTargetMessage,
     messageFilter,
     // SubAgent navigation
-    subagentSessions,
     parentSessionStack,
-    navigateToSubagent,
     // 메시지 로딩 상태 — 로딩 스피너 표시 조건
     isLoadingMessages,
     setActiveSessionNearBottom,
@@ -1115,19 +1106,6 @@ export const MessageViewer: React.FC<MessageViewerProps> = ({
 
       {/* SubAgent: context bar (back, label, previous/next sibling) */}
       <SubagentContextBar />
-
-      {/* SubAgent sessions panel — collapsible (접힘 상태는 MessageViewer에 lift됨).
-          Hidden when the sessions pane's docked section already lists these
-          subagents (showSubagentPanel=false from AppLayout), so they never
-          show in two places at once. */}
-      {showSubagentPanel && subagentSessions.length > 0 && parentSessionStack.length === 0 && (
-        <SubagentSessionsPanel
-          subagentSessions={subagentSessions}
-          navigateToSubagent={navigateToSubagent}
-          isOpen={isSubagentPanelOpen}
-          onToggle={toggleSubagentPanel}
-        />
-      )}
 
       <div className="relative flex-1 min-h-0" data-transcript-area="">
         {/* Current prompt while reading inside a long turn */}

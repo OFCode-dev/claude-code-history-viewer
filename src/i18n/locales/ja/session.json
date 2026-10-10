@@ -283,6 +283,8 @@
   "subagent.listTitle": "サブエージェント",
   "subagent.listAria": "このセッションのサブエージェント",
   "subagent.toggleList": "サブエージェントの表示/非表示",
+  "subagent.showList_one": "{{count}}件のサブエージェントを表示",
+  "subagent.showList_other": "{{count}}件のサブエージェントを表示",
   "subagent.workflowGroup": "ワークフロー {{runId}}",
   "subagent.agentType": "エージェントタイプ: {{type}}",
   "subagent.model": "モデル: {{model}}",

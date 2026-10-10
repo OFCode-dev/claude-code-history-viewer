@@ -1,11 +1,11 @@
-import { useCallback, useId, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Bot, ChevronDown, ChevronRight } from "lucide-react";
 import { OverlayScrollbarsComponent } from "overlayscrollbars-react";
 import { useAppStore } from "@/store/useAppStore";
 import { SubagentList } from "@/components/subagents/SubagentList";
-import { getActiveSubagentFrame } from "@/utils/subagentNavigation";
 import type { SubagentSession } from "@/types";
+import { takeSubagentsFocusRequest, useSessionSubagents } from "./useSessionSubagents";
 
 const OPEN_STORAGE_KEY = "sessionsPane.subagentsOpen";
 
@@ -25,29 +25,36 @@ function writeOpenPreference(open: boolean): void {
   }
 }
 
+interface SubagentsSectionProps {
+  /** After a subagent is chosen (the mobile drawer closes, as for a session). */
+  onSelected?: () => void;
+}
+
 /**
- * "Subagents (n)" docked at the bottom of the sessions pane, below the session
- * list, so its asynchronous arrival never moves the session rows. At top level
- * it lists the selected session's subagents; inside a subagent it keeps
- * listing the parent's subagents with the one on screen highlighted, so
- * siblings stay one click away. Hidden when there is nothing to list.
+ * "Subagents (n)" docked at the bottom of whatever lists the sessions (the
+ * sessions pane, or the explorer when it lists them inline), below the
+ * session list, so its asynchronous arrival never moves the session rows.
+ * The app's one subagent list. At top level it lists the selected session's
+ * subagents; inside a subagent it keeps listing the parent's subagents with
+ * the one on screen highlighted, so siblings stay one click away. Hidden
+ * when there is nothing to list.
  */
-export function SubagentsSection() {
+export function SubagentsSection({ onSelected }: SubagentsSectionProps = {}) {
   const { t } = useTranslation();
   const listId = useId();
+  const headerRef = useRef<HTMLButtonElement>(null);
   const [isOpen, setIsOpen] = useState(readOpenPreference);
 
-  const subagentSessions = useAppStore((s) => s.subagentSessions);
-  const parentSessionStack = useAppStore((s) => s.parentSessionStack);
-  const subagentNavStack = useAppStore((s) => s.subagentNavStack);
   const selectedSession = useAppStore((s) => s.selectedSession);
   const navigateToSubagent = useAppStore((s) => s.navigateToSubagent);
+  const subagents = useSessionSubagents();
 
-  const subagents = useMemo(() => {
-    const frame = getActiveSubagentFrame({ subagentNavStack, parentSessionStack, selectedSession });
-    if (frame) return frame.siblings;
-    return parentSessionStack.length === 0 ? subagentSessions : [];
-  }, [subagentNavStack, parentSessionStack, selectedSession, subagentSessions]);
+  // Reached from a rail's "show subagents" button: open the list and take focus.
+  useEffect(() => {
+    if (!takeSubagentsFocusRequest()) return;
+    setIsOpen(true);
+    headerRef.current?.focus();
+  }, []);
 
   const toggle = useCallback(() => {
     const next = !isOpen;
@@ -58,8 +65,9 @@ export function SubagentsSection() {
   const handleSelect = useCallback(
     (subagent: SubagentSession) => {
       void navigateToSubagent(subagent);
+      onSelected?.();
     },
-    [navigateToSubagent],
+    [navigateToSubagent, onSelected],
   );
 
   if (subagents.length === 0) return null;
@@ -72,7 +80,9 @@ export function SubagentsSection() {
       className="shrink-0 flex flex-col min-h-0 max-h-[40%] border-t border-border/50"
     >
       <button
+        ref={headerRef}
         type="button"
+        data-subagents-header=""
         onClick={toggle}
         aria-expanded={isOpen}
         aria-controls={isOpen ? listId : undefined}

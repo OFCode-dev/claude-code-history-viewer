@@ -1,5 +1,5 @@
 import React from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { ClaudeProject } from "../../../types";
 import { englishT } from "../../../test/utils/englishTranslator";
@@ -22,6 +22,12 @@ const store = vi.hoisted(() => {
     clearProjectSelection: () => {},
     claudePath: "/home/jack/.claude",
     selectedProject: null,
+    // The docked "Subagents" section reads these; the tree tests list none.
+    subagentSessions: [] as unknown[],
+    parentSessionStack: [] as unknown[],
+    subagentNavStack: [] as unknown[],
+    selectedSession: null,
+    navigateToSubagent: async () => {},
     explorerRevealRequest: null as { path: string; nonce: number } | null,
     clearExplorerRevealRequest: () => {
       state.explorerRevealRequest = null;
@@ -691,5 +697,72 @@ describe("ProjectTree reveal requests", () => {
 
     await waitFor(() => expect(document.activeElement).toBe(row(KEYS.tool)));
     expect(filterInput()).toHaveValue("");
+  });
+});
+
+describe("ProjectTree subagents (sessions listed inline)", () => {
+  const subagent = {
+    agent_id: "a",
+    file_path: "/p/s/subagents/agent-a.jsonl",
+    message_count: 5,
+    file_size: 10,
+    first_message_time: null,
+    last_message_time: null,
+    summary: null,
+    tool_use_id: "toolu_a",
+    workflow_run_id: null,
+    description: "Map the API error codes",
+  };
+  const navigateToSubagent = vi.fn(async () => {});
+
+  beforeEach(() => {
+    store.subagentSessions = [subagent];
+    store.navigateToSubagent = navigateToSubagent;
+    navigateToSubagent.mockClear();
+    localStorage.clear();
+  });
+
+  afterEach(() => {
+    store.subagentSessions = [];
+  });
+
+  const regions = () => screen.queryAllByRole("region", { name: "Subagents of this session" });
+
+  it("docks the subagent list at the bottom of the explorer when it lists sessions", () => {
+    renderTree({ inlineSessions: true });
+    expect(regions()).toHaveLength(1);
+    const tree = screen.getByRole("tree");
+    expect(tree.compareDocumentPosition(regions()[0]!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("leaves it to the sessions pane when the sessions have their own column", () => {
+    renderTree({ inlineSessions: false });
+    expect(regions()).toHaveLength(0);
+  });
+
+  it("closes the drawer when a subagent is chosen, like a session", () => {
+    const onClose = vi.fn();
+    renderTree({ inlineSessions: true, onClose });
+    fireEvent.click(screen.getByRole("button", { name: /Map the API error codes/ }));
+    expect(navigateToSubagent).toHaveBeenCalledWith(subagent);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("collapsed to the rail: a Bot + count button that expands it and focuses the list", () => {
+    const onToggleCollapse = vi.fn();
+    const { rerenderWith } = renderTree({ inlineSessions: true, isCollapsed: true, onToggleCollapse });
+    expect(regions()).toHaveLength(0);
+    const button = screen.getByRole("button", { name: "Show 1 subagent" });
+    fireEvent.click(button);
+    expect(onToggleCollapse).toHaveBeenCalledTimes(1);
+
+    rerenderWith({ isCollapsed: false });
+    expect(regions()).toHaveLength(1);
+    expect(document.activeElement).toBe(within(regions()[0]!).getByRole("button", { name: /Subagents/ }));
+  });
+
+  it("collapsed to the rail beside a sessions pane: no subagent button there", () => {
+    renderTree({ inlineSessions: false, isCollapsed: true, onToggleCollapse: vi.fn() });
+    expect(screen.queryByRole("button", { name: "Show 1 subagent" })).toBeNull();
   });
 });

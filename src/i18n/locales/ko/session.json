@@ -283,6 +283,8 @@
   "subagent.listTitle": "서브에이전트",
   "subagent.listAria": "이 세션의 서브에이전트",
   "subagent.toggleList": "서브에이전트 표시/숨기기",
+  "subagent.showList_one": "서브에이전트 {{count}}개 보기",
+  "subagent.showList_other": "서브에이전트 {{count}}개 보기",
   "subagent.workflowGroup": "워크플로 {{runId}}",
   "subagent.agentType": "에이전트 유형: {{type}}",
   "subagent.model": "모델: {{model}}",

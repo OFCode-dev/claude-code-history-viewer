@@ -283,6 +283,8 @@
   "subagent.listTitle": "子代理",
   "subagent.listAria": "此會話的子代理",
   "subagent.toggleList": "顯示或隱藏子代理",
+  "subagent.showList_one": "顯示 {{count}} 個子代理",
+  "subagent.showList_other": "顯示 {{count}} 個子代理",
   "subagent.workflowGroup": "工作流程 {{runId}}",
   "subagent.agentType": "代理類型：{{type}}",
   "subagent.model": "模型：{{model}}",

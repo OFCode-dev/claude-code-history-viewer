@@ -119,7 +119,7 @@ function setStoreState() {
   });
 }
 
-function renderViewer(showSubagentPanel?: boolean) {
+function renderViewer() {
   return render(
     <MessageViewer
       messages={[message]}
@@ -131,33 +131,22 @@ function renderViewer(showSubagentPanel?: boolean) {
       onClearSearch={vi.fn()}
       onNextMatch={vi.fn()}
       onPrevMatch={vi.fn()}
-      showSubagentPanel={showSubagentPanel}
     />,
   );
 }
 
 /**
- * AppLayout sets showSubagentPanel={false} once the sessions pane's own
- * docked "Subagents" section is on screen, so a session's subagents are
- * never listed in both places at the same time (spec: explorer-declutter).
+ * Subagents have one home: the "Subagents" section at the bottom of whatever
+ * lists the sessions. The conversation never lists them above itself.
  */
-describe("MessageViewer subagent panel visibility", () => {
+describe("MessageViewer and the subagent list", () => {
   beforeEach(() => {
     setStoreState();
   });
 
-  it("renders the panel when the prop is omitted (other callers keep today's behaviour)", () => {
-    renderViewer(undefined);
-    expect(screen.getByRole("region", { name: "Subagents of this session" })).toBeInTheDocument();
-  });
-
-  it("renders the panel when explicitly told to", () => {
-    renderViewer(true);
-    expect(screen.getByRole("region", { name: "Subagents of this session" })).toBeInTheDocument();
-  });
-
-  it("hides the panel when the sessions pane already docks the subagent list", () => {
-    renderViewer(false);
+  it("lists no subagents above the conversation, even when the session has some", () => {
+    renderViewer();
     expect(screen.queryByRole("region", { name: "Subagents of this session" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Investigate the flaky test/ })).toBeNull();
   });
 });
