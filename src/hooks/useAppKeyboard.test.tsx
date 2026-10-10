@@ -39,7 +39,7 @@ const ctrlShift = (key: string, init: KeyboardEventInit = {}, target: EventTarge
   press(key, { ctrlKey: true, shiftKey: true, ...init }, target);
 
 /** The DOM the shortcuts act on: the three regions, main and the search field. */
-function Layout({ withRight = true }: { withRight?: boolean }) {
+function Layout({ withRight = true, withSessions = false }: { withRight?: boolean; withSessions?: boolean }) {
   return (
     <>
       <section id="autohide-region-left">
@@ -49,6 +49,16 @@ function Layout({ withRight = true }: { withRight?: boolean }) {
             <div role="treeitem" tabIndex={-1} aria-selected="false">other</div>
             <div role="treeitem" tabIndex={-1} aria-selected="true">selected project</div>
           </aside>
+          {withSessions && (
+            <aside id="sessions-pane" tabIndex={-1}>
+              <div data-session-list="">
+                <button type="button" data-session-open="" tabIndex={-1}>other session</button>
+                <button type="button" data-session-open="" aria-current="true" tabIndex={0}>
+                  selected session
+                </button>
+              </div>
+            </aside>
+          )}
         </div>
       </section>
       <main id="main-content" tabIndex={-1}>
@@ -175,6 +185,15 @@ describe("Mod+Shift+E: explorer and sessions", () => {
     ctrlShift("E", {}, document.activeElement ?? window);
     expect(useAppStore.getState().revealed).toBeNull();
     expect(document.activeElement).toBe(before);
+  });
+
+  it("lands on the selected session row first when the sessions are listed", () => {
+    enterReadingMode();
+    renderHook(() => useAppKeyboard());
+    const { getByText } = render(<Layout withSessions />);
+    ctrlShift("E");
+    flushFrames();
+    expect(document.activeElement).toBe(getByText("selected session"));
   });
 
   it("focuses the row of a pinned panel without revealing anything", () => {

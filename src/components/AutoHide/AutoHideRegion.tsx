@@ -129,7 +129,8 @@ function Gutter({
       ref={gutterRef}
       className={cn("autohide-gutter", `autohide-gutter-${group}`)}
       onClick={(event) => {
-        if (group === "top" || (event.target as Element).closest("button")) return;
+        // Opens only: closing is the handle's job (spec §2.3).
+        if (open || group === "top" || (event.target as Element).closest("button")) return;
         togglePanel(group, sourceFromActivation(event, hoverReveal));
       }}
     >
@@ -186,7 +187,10 @@ function Handle({
           onPointerEnter={() => {
             if (hoverReveal === "off") setTooltipWanted(true);
           }}
-          onPointerLeave={() => setTooltipWanted(false)}
+          onPointerLeave={(event) => {
+            // A tooltip shown for keyboard focus stays while focus does.
+            if (!event.currentTarget.matches(":focus-visible")) setTooltipWanted(false);
+          }}
         >
           <Icon aria-hidden="true" />
           {group === "top" ? <Chevron aria-hidden="true" /> : null}
@@ -246,10 +250,13 @@ function useOverlayHeight(
     }
     const report = () => onChange(overlay.offsetHeight);
     report();
-    if (!("ResizeObserver" in window)) return;
-    const observer = new ResizeObserver(report);
-    observer.observe(overlay);
-    return () => observer.disconnect();
+    const observer = "ResizeObserver" in window ? new ResizeObserver(report) : null;
+    observer?.observe(overlay);
+    return () => {
+      observer?.disconnect();
+      // Closing or unmounting while open must not leave the clearance inflated.
+      onChange(0);
+    };
   }, [overlayRef, open, onChange]);
 }
 
@@ -263,6 +270,8 @@ function useWheelForwarding(gutterRef: React.RefObject<HTMLDivElement | null>): 
     const gutter = gutterRef.current;
     if (!gutter) return;
     const onWheel = (event: WheelEvent) => {
+      // Ctrl/Cmd + wheel and trackpad pinch (a ctrlKey wheel) keep zooming.
+      if (event.ctrlKey || event.metaKey) return;
       const viewport = getTranscriptViewport();
       if (!viewport) return;
       event.preventDefault();

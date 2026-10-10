@@ -346,7 +346,10 @@ function evaluate(step: Step, now: number): void {
   const { state } = step;
   const open = state.open;
   if (open) {
-    const paused = open.source === "sticky" || !state.windowFocused || state.recheckPending;
+    // Sticky opens, and every open while hover reveal is Off, stay until
+    // dismissed (a keyboard open keeps its source so Esc returns focus).
+    const sticky = open.source === "sticky" || state.hoverReveal === "off";
+    const paused = sticky || !state.windowFocused || state.recheckPending;
     if (paused || isHeld(state)) {
       state.graceDeadline = null;
     } else if (state.graceDeadline == null) {
@@ -444,6 +447,10 @@ function applyPointerMove(
   pointer.hot = event.hot;
   pointer.inside = event.inside;
   pointer.inOverlay = event.inOverlay;
+
+  // A drag (text selection, scrollbar thumb, sash) that reaches a band is
+  // not a request to open: the zone ignores hover until the pointer leaves.
+  if (event.hot && event.buttons !== 0) disarm(state.zones[event.hot]);
 
   const open = state.open;
   if (open?.awaitingEntry && event.inOverlay && event.inside === open.group) {
@@ -607,6 +614,9 @@ export function stepAutoHide(previous: AutoHideState, event: AutoHideEvent): Aut
       };
       state.graceDeadline = null;
       state.dismiss = null;
+      // The 24 px focus-release count starts with the open: focus may already
+      // sit on the handle, inside the boundary, so no focusIn would reset it.
+      state.focus.movedPx = 0;
       resetPresence(state.zones[event.group]);
       break;
 

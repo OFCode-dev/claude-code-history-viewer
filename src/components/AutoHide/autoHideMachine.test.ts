@@ -279,6 +279,23 @@ describe("autoHideMachine: what blocks a hover reveal", () => {
     expect(m.reveals()).toHaveLength(0);
   });
 
+  it("a drag that ends in the band (selection, scrollbar thumb) reveals nothing on release", () => {
+    const m = harness();
+    m.warmUp();
+    m.move(1000, { x: 600, y: 400, buttons: 1 });
+    m.move(1100, { x: 12, y: 60, hot: "left", inside: "left", buttons: 1 });
+    m.at(1200, { type: "pointerUp", pointerId: 1, inside: "left" });
+    m.move(1210, { x: 12, y: 60, hot: "left", inside: "left" });
+    m.advanceTo(4000);
+    expect(m.reveals()).toHaveLength(0);
+    // Out and back: the band works again.
+    m.move(4000, { x: 300, y: 300 });
+    m.advanceTo(4300);
+    m.enterLeftBand(4350);
+    m.advanceTo(4650);
+    expect(m.reveals()).toHaveLength(1);
+  });
+
   it("a wheel event in the last 500 ms", () => {
     const m = harness();
     m.warmUp();
@@ -563,6 +580,44 @@ describe("autoHideMachine: holds", () => {
     expect(m.hides()).toHaveLength(0);
     m.advanceTo(5600);
     expect(m.hides()).toHaveLength(1);
+  });
+
+  it("a keyboard open from the focused handle starts the 24 px count afresh", () => {
+    const m = harness();
+    m.warmUp();
+    // Focus on the handle (inside the boundary), then the mouse is nudged.
+    m.at(900, { type: "focusIn", inside: "left", editable: false, modal: false });
+    m.move(950, { x: 660, y: 400 });
+    m.open("left", "keyboard", 1000);
+    // Focus moves from the handle into the panel: same boundary, no focusIn change.
+    m.at(1016, { type: "focusIn", inside: "left", editable: false, modal: false });
+    m.advanceTo(5000);
+    expect(m.hides()).toHaveLength(0);
+  });
+
+  it("with hover reveal Off every open is sticky, keyboard opens included", () => {
+    const m = harness("off");
+    m.warmUp();
+    m.open("left", "keyboard", 1000);
+    m.at(1016, { type: "focusIn", inside: "left", editable: false, modal: false });
+    m.move(1100, { x: 900, y: 600 });
+    m.at(1200, { type: "pointerLeaveDocument" });
+    m.advanceTo(20_000);
+    expect(m.hides()).toHaveLength(0);
+    // Still dismissible, and Esc still returns focus for a keyboard open.
+    m.at(20_000, { type: "esc" });
+    expect(m.hides()).toEqual([{ type: "hide", group: "left", reason: "esc", focus: "return" }]);
+  });
+
+  it("switching hover reveal Off makes an open hover panel stay", () => {
+    const m = harness();
+    m.warmUp();
+    m.enterLeftBand(1000);
+    m.advanceTo(1300);
+    m.at(1350, { type: "configure", hoverReveal: "off" });
+    m.move(1400, { x: 600, y: 300 });
+    m.advanceTo(5000);
+    expect(m.hides()).toHaveLength(0);
   });
 
   it("a keyboard open holds until the pointer moves 24 px", () => {

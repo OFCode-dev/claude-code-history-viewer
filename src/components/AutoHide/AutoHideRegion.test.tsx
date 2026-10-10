@@ -7,6 +7,7 @@ import { AutoHideRegion } from "./AutoHideRegion";
 import { PinToggle } from "./PinToggle";
 import { concealPanel, revealPanel } from "./panelActions";
 import { panelShortcut } from "./shortcuts";
+import { registerTranscript } from "@/components/MessageViewer/hooks/useReadingPosition";
 
 vi.mock("react-i18next", async (importOriginal) => ({
   ...(await importOriginal<typeof import("react-i18next")>()),
@@ -230,6 +231,78 @@ describe("AutoHideRegion: focus on close", () => {
     render(<Region />);
     fireEvent.click(handle(), { detail: 1 });
     expect(useAppStore.getState().revealed).toMatchObject({ group: "left", source: "sticky" });
+  });
+});
+
+describe("AutoHideRegion: gutter, wheel and clearance", () => {
+  it("a click on the gutter body opens the panel but never closes it", () => {
+    render(<Region />);
+    const gutter = document.getElementById("autohide-gutter-left") as HTMLElement;
+    fireEvent.click(gutter, { detail: 1 });
+    expect(useAppStore.getState().revealed).toMatchObject({ group: "left", source: "click" });
+    fireEvent.click(gutter, { detail: 1 });
+    expect(useAppStore.getState().revealed?.group).toBe("left");
+    // Only the handle toggles.
+    fireEvent.click(handle(), { detail: 1 });
+    expect(useAppStore.getState().revealed).toBeNull();
+  });
+
+  it("forwards the wheel to the transcript, but leaves Ctrl or Cmd + wheel (zoom) alone", () => {
+    const viewport = document.createElement("div");
+    viewport.scrollBy = vi.fn() as unknown as typeof viewport.scrollBy;
+    const unregister = registerTranscript({
+      getViewport: () => viewport,
+      captureRow: () => null,
+      scrollRowTo: () => {},
+    });
+    render(<Region />);
+    const gutter = document.getElementById("autohide-gutter-left") as HTMLElement;
+
+    const plain = new WheelEvent("wheel", { deltaY: 3, deltaMode: 1, bubbles: true, cancelable: true });
+    gutter.dispatchEvent(plain);
+    expect(plain.defaultPrevented).toBe(true);
+    expect(viewport.scrollBy).toHaveBeenCalledWith({ top: 120, left: 0 });
+
+    const zoom = new WheelEvent("wheel", { deltaY: 3, ctrlKey: true, bubbles: true, cancelable: true });
+    gutter.dispatchEvent(zoom);
+    expect(zoom.defaultPrevented).toBe(false);
+    expect(viewport.scrollBy).toHaveBeenCalledTimes(1);
+    unregister();
+  });
+
+  it("reports the top overlay height while open and resets it when unmounted open", () => {
+    const onHeight = vi.fn();
+    const view = render(
+      <TooltipProvider>
+        <AutoHideRegion
+          group="top"
+          mode="autohide"
+          label="Conversation tools"
+          shortcut={panelShortcut("top")}
+          onOverlayHeightChange={onHeight}
+        >
+          <div>tools</div>
+        </AutoHideRegion>
+      </TooltipProvider>,
+    );
+    act(() => {
+      revealPanel("top", "click");
+    });
+    onHeight.mockClear();
+    view.unmount();
+    expect(onHeight).toHaveBeenLastCalledWith(0);
+  });
+
+  it("keeps a keyboard-focus tooltip when the pointer leaves the handle", () => {
+    render(<Region />);
+    const button = handle();
+    // jsdom has no focus-visible heuristics: stand in for a keyboard focus.
+    const matches = button.matches.bind(button);
+    button.matches = (selector: string) => selector === ":focus-visible" || matches(selector);
+    act(() => button.focus());
+    expect(screen.getByRole("tooltip")).toBeInTheDocument();
+    fireEvent.pointerLeave(button);
+    expect(screen.getByRole("tooltip")).toBeInTheDocument();
   });
 });
 

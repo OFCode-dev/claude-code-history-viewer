@@ -11,6 +11,7 @@ import { useAppStore } from "@/store/useAppStore";
 import type { HoverRevealSetting, PanelGroup, RevealSource } from "@/store/slices/layoutSlice";
 import { canRestoreFocusTo, moveFocusOutOf } from "@/utils/focus";
 import type { CloseFocus, PointerKind } from "./autoHideMachine";
+import { SESSION_OPEN_ATTR } from "@/components/SessionItem/sessionRowFocus";
 
 export const panelDomIds = {
   region: (group: PanelGroup) => `autohide-region-${group}`,
@@ -86,7 +87,11 @@ function findPrimary(group: PanelGroup, container: HTMLElement): HTMLElement | n
   };
   switch (group) {
     case "left":
+      // Selected session row first (Sessions pane, or inline in the tree),
+      // then the selected tree row, then the first row.
       return pick(
+        `#sessions-pane [${SESSION_OPEN_ATTR}][aria-current="true"]`,
+        `[${SESSION_OPEN_ATTR}][aria-current="true"]`,
         '[role="treeitem"][aria-selected="true"]',
         '[role="treeitem"][tabindex="0"]',
         '[role="treeitem"]',
@@ -109,8 +114,18 @@ function findFocusTarget(
   return overlay.querySelector<HTMLElement>(`[${PANEL_FOCUS_ATTR}="${target}"]:not(:disabled)`);
 }
 
-function focusElement(element: HTMLElement | null): void {
+/** Frames to wait for a just-revealed control to become focusable. */
+const FOCUS_RETRY_FRAMES = 12;
+
+function focusElement(element: HTMLElement | null, framesLeft = FOCUS_RETRY_FRAMES): void {
   if (!element) return;
+  // A control with its own `transition-all` inherits the overlay's
+  // visibility through a transition, so it can still be hidden (and refuse
+  // focus) on the first frame after the reveal.
+  if (getComputedStyle(element).visibility === "hidden" && framesLeft > 0) {
+    requestAnimationFrame(() => focusElement(element, framesLeft - 1));
+    return;
+  }
   element.focus({ preventScroll: true });
   element.scrollIntoView?.({ block: "nearest" });
   if (element instanceof HTMLInputElement) element.select();
@@ -153,6 +168,7 @@ export function revealPanel(
       getOverlay(current.group),
       source === "keyboard" ? getHandle(group) : getHandle(current.group)
     );
+    returnTargets.delete(current.group);
   }
   if (source === "keyboard") rememberReturnTarget(group);
   if (!store.revealPanel(group, source, options.quick ?? false)) return false;
