@@ -20,8 +20,11 @@ import {
   useViewportAnchorStore,
 } from "../../../store/viewportAnchorStore";
 import { getPromptPreview, getUserMessageText } from "../../../utils/userMessageKind";
-import { formatPromptTime, jumpToPrompt } from "../../../utils/promptNavigation";
-import { isMacOS } from "../../../utils/platform";
+import {
+  formatPromptTime,
+  jumpToPrompt,
+  promptStepShortcut,
+} from "../../../utils/promptNavigation";
 
 interface StickyPromptBarProps {
   /** The list the conversation renders — the prompt text is read from it. */
@@ -31,7 +34,7 @@ interface StickyPromptBarProps {
 const PREVIEW_MAX_LENGTH = 220;
 
 /** The next-prompt shortcut as the keyboard labels it. */
-const NEXT_PROMPT_SHORTCUT = isMacOS() ? "⌥↓" : "Alt+↓";
+const NEXT_PROMPT_SHORTCUT = promptStepShortcut("next").label;
 
 const iconButtonClass = cn(
   "shrink-0 p-1.5 rounded-md transition-colors",

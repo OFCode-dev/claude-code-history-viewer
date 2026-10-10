@@ -5,8 +5,8 @@
  * 직접 수정하지 마세요.
  *
  * 생성 명령: pnpm run generate:i18n-types
- * 생성 시간: 2026-10-10T02:12:14.488Z
- * 총 키 개수: 2106
+ * 생성 시간: 2026-10-10T12:19:03.294Z
+ * 총 키 개수: 2115
  * Namespace 수: 11
  */
 
@@ -1455,7 +1455,7 @@ export type ErrorKeys =
   | 'error.viewDetails';
 
 /**
- * message namespace의 번역 키 (162개)
+ * message namespace의 번역 키 (171개)
  * 파일: locales/{lang}/message.json
  */
 export type MessageKeys =
@@ -1590,6 +1590,15 @@ export type MessageKeys =
   | 'navigator.role.summary'
   | 'navigator.role.system'
   | 'navigator.role.user'
+  | 'navigator.seek.announce'
+  | 'navigator.seek.announceNoTime'
+  | 'navigator.seek.first'
+  | 'navigator.seek.group'
+  | 'navigator.seek.last'
+  | 'navigator.seek.loadingEarlier'
+  | 'navigator.seek.position'
+  | 'navigator.seek.positionLoaded'
+  | 'navigator.seek.withShortcut'
   | 'navigator.showParallelTasks'
   | 'navigator.spawnHint'
   | 'navigator.steps_one'
@@ -3044,6 +3053,15 @@ export type TranslationKey =
   | 'navigator.role.summary'
   | 'navigator.role.system'
   | 'navigator.role.user'
+  | 'navigator.seek.announce'
+  | 'navigator.seek.announceNoTime'
+  | 'navigator.seek.first'
+  | 'navigator.seek.group'
+  | 'navigator.seek.last'
+  | 'navigator.seek.loadingEarlier'
+  | 'navigator.seek.position'
+  | 'navigator.seek.positionLoaded'
+  | 'navigator.seek.withShortcut'
   | 'navigator.showParallelTasks'
   | 'navigator.spawnHint'
   | 'navigator.steps_one'

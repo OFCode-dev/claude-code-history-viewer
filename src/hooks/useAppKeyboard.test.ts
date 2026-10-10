@@ -79,9 +79,20 @@ describe("useAppKeyboard prompt jumps", () => {
     input.remove();
   });
 
-  it("leaves the key alone when there is no prompt to go to", () => {
+  it("announces the end, like the next-prompt button, when there is no prompt to go to", () => {
     renderHook(() => useAppKeyboard());
     useViewportAnchorStore.getState().publishAnchor(SESSION, "a2");
+
+    const event = press("ArrowDown", { altKey: true });
+
+    expect(navigateToMessage).not.toHaveBeenCalled();
+    expect(useAppStore.getState().layoutAnnouncement?.text).toBe("This is the last prompt");
+    expect(event.defaultPrevented).toBe(true);
+  });
+
+  it("leaves the key alone when the conversation has no prompts", () => {
+    renderHook(() => useAppKeyboard());
+    useViewportAnchorStore.getState().setPromptTrack(buildPromptTrack(SESSION, [messages[1]!]));
 
     const event = press("ArrowDown", { altKey: true });
 

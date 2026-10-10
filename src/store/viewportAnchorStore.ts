@@ -32,7 +32,7 @@ export type PromptJumpDirection = "previous" | "next";
 /** Rapid repeated jumps continue from the last target, not the stale viewport. */
 const JUMP_CHAIN_WINDOW_MS = 1200;
 
-interface ViewportAnchorState {
+export interface ViewportAnchorState {
   sessionPath: string | null;
   /** First visible message row of the conversation. */
   anchorUuid: string | null;
@@ -99,6 +99,31 @@ export function resolvePromptJump(
 }
 
 /**
+ * Where a previous / next prompt jump would land from the current position,
+ * without taking it: the same rule as `takePromptJump`, so controls can show
+ * that a direction has nowhere to go. A recent jump is the position, so rapid
+ * presses chain; otherwise the first visible row is.
+ */
+export function selectPromptJumpTarget(
+  state: Pick<ViewportAnchorState, "promptTrack" | "sessionPath" | "anchorUuid" | "lastJump">,
+  direction: PromptJumpDirection,
+  now: number = Date.now()
+): TurnAnchor | null {
+  const { promptTrack: track, sessionPath, anchorUuid, lastJump } = state;
+  if (!track || track.anchors.length === 0) return null;
+
+  const chained =
+    lastJump !== null &&
+    lastJump.sessionPath === track.sessionPath &&
+    now - lastJump.at < JUMP_CHAIN_WINDOW_MS
+      ? lastJump.uuid
+      : null;
+  const fromUuid = chained ?? (sessionPath === track.sessionPath ? anchorUuid : null);
+  const fromIndex = fromUuid !== null ? (track.indexByUuid.get(fromUuid) ?? null) : null;
+  return resolvePromptJump(track.anchors, fromIndex, direction);
+}
+
+/**
  * The sticky prompt bar shows while the current turn's prompt has scrolled
  * above the viewport, i.e. the first visible row is not the prompt itself.
  */
@@ -139,23 +164,10 @@ export const useViewportAnchorStore = create<ViewportAnchorState>((set, get) => 
   },
 
   takePromptJump: (direction, now = Date.now()) => {
-    const { promptTrack: track, sessionPath, anchorUuid, lastJump } = get();
-    if (!track || track.anchors.length === 0) return null;
-
-    const chained =
-      lastJump !== null &&
-      lastJump.sessionPath === track.sessionPath &&
-      now - lastJump.at < JUMP_CHAIN_WINDOW_MS
-        ? lastJump.uuid
-        : null;
-    const fromUuid =
-      chained ?? (sessionPath === track.sessionPath ? anchorUuid : null);
-    const fromIndex =
-      fromUuid !== null ? (track.indexByUuid.get(fromUuid) ?? null) : null;
-
-    const target = resolvePromptJump(track.anchors, fromIndex, direction);
-    if (!target) return null;
-    set({ lastJump: { sessionPath: track.sessionPath, uuid: target.uuid, at: now } });
+    const state = get();
+    const target = selectPromptJumpTarget(state, direction, now);
+    if (!target || !state.promptTrack) return null;
+    set({ lastJump: { sessionPath: state.promptTrack.sessionPath, uuid: target.uuid, at: now } });
     return target.uuid;
   },
 

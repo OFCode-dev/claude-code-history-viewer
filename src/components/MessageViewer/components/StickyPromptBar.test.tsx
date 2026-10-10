@@ -9,6 +9,8 @@ const { storeState, useAppStoreMock } = vi.hoisted(() => {
     pagination: { hasMore: false },
     parentSessionStack: [] as string[],
     navigateToMessage: vi.fn(),
+    announceLayout: vi.fn(),
+    loadMoreMessages: vi.fn(),
   };
   const useAppStore = Object.assign(
     (selector: (store: typeof state) => unknown) => selector(state),
