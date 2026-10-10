@@ -32,6 +32,58 @@ Browse, search, and analyze conversations from **Claude Code**, **Gemini CLI**, 
   <img width="49%" alt="Recent Edits" src="https://github.com/user-attachments/assets/8c9fbff3-55dd-4cfc-a135-ddeb719f3057" />
 </p>
 
+## This fork: built for reading long sessions
+
+This fork of [jhlee0409/claude-code-history-viewer](https://github.com/jhlee0409/claude-code-history-viewer) focuses on one job: **reading long AI coding sessions without the interface getting in the way**. Everything below is on top of the upstream app and works in both the desktop app and the WebUI server.
+
+> The download links and Homebrew formulas further down install the **upstream** app. To run this fork, [build from source](#build-from-source) (`just setup && just tauri-build`) or build the server (`cargo build --release --features webui-server` in `src-tauri/`).
+
+<p align="center">
+  <img width="49%" alt="Reading mode: panels hidden, the conversation fills the window" src="docs/assets/fork/reading-mode.png" />
+  <img width="49%" alt="Reading mode: explorer and sessions slide in over the text from the left edge" src="docs/assets/fork/reading-mode-panel.png" />
+</p>
+<p align="center"><sub>Screenshots use invented demo projects and sessions.</sub></p>
+
+### Read without distractions
+
+- **Reading mode** (<kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd>) — the explorer, session list, prompts navigator and conversation tools step aside, and only the conversation is left. You stay on the same message when you enter or leave.
+  - **Panels wait at the window edges.** Rest the pointer on a handle at the left or right edge (or at the top) and the panel slides in *over* the text, so nothing reflows. Move away and it tucks back after half a second. Click a handle or an edge to open a panel straight away.
+  - **No accidental pop-ups.** Passing over an edge, scrolling, typing, selecting text or dragging a scrollbar never opens a panel. A panel you are using stays open while its menu, filter or rename field is active.
+  - **Keyboard first.** <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>Shift</kbd>+<kbd>E</kbd> opens explorer and sessions on the selected session; <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>Shift</kbd>+<kbd>M</kbd> opens the prompts list; <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>F</kbd> searches without bringing the toolbar back, and <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>G</kbd> steps through matches. <kbd>Esc</kbd> closes one layer at a time and returns focus where it was.
+  - **Your choice of panels.** Pin any panel to keep it visible in reading mode. *Reveal panels on hover* can be set to Standard, Slow or Off (click and keyboard only) in the settings menu. Touch opens stay until you dismiss them, and motion respects *reduced motion*.
+- **Dialogue view** — one click shows only your prompts and the assistant's answers; tool calls, tool results and thinking step aside.
+- **Your prompts stand out** — each message you typed is a wide card (*You · time · Turn N*). Messages you sent while Claude was still working are no longer invisible: they show with *Sent while Claude was working*.
+- **Long messages, readable** — messages up to 10,000 characters show in full; longer ones show their first 10,000 (never cutting a table row or a code block in half) with *Show more*. Tables show every row. Message cards use the full width of the conversation column, with justified prose.
+- **Your place is kept** — leave a session and come back, and you are where you left off.
+
+### Find your way
+
+- **Prompts navigator** — the right-hand list holds only what you actually typed (tool results, task notifications and command output are filtered out). It follows your scrolling, a sticky bar shows the prompt you are reading, and <kbd>Alt</kbd>+<kbd>↑</kbd>/<kbd>↓</kbd> jumps between prompts.
+- **Breadcrumb and history** — the header path is clickable (a folder reveals itself in the explorer), with Back/Forward.
+- **Subagents** — subagent transcripts carry their real task description, agent type and model. Inside one, a bar offers *Back to* the parent session and previous/next sibling. They are listed in one place, docked under the session list.
+
+<p align="center">
+  <img width="80%" alt="Explorer with favorites, one-line projects under ~/projects and an Other locations group" src="docs/assets/fork/explorer-favorites.png" />
+</p>
+
+### An explorer that stays out of the way
+
+- **One line per project.** The folder that holds most of your projects (for example `~/projects`) is detected and its projects sit at the top level — no `~ › projects ›` levels to click through. A folder that is itself a project is a single row; its sub-projects open under it.
+- **Provider chips and counts** — `CC` Claude Code, `CX` Codex CLI, `CP` Copilot, `AG` Antigravity and more, with the session count on the right. A chip switches to that provider's sessions for the folder.
+- **Noise in its place** — *Other locations*, *Temporary* (Claude Code scratchpads are labelled by the project they belong to) and *Unavailable* (folders that no longer exist) are grouped at the bottom.
+- **Filter that keeps context** — matches stay under their parent folders and are highlighted. Sort by name or by recent activity; provider and source filters live in one menu.
+- **Full keyboard support** — arrow keys, Home/End, type-ahead, and the header breadcrumb reveals any folder.
+
+### Favorites
+
+Star a session from its row, its context menu or the header. Starred sessions appear in a **Favorites** section at the top of the explorer and open with one click from any project. Favorites are stored in `~/.claude-history-viewer/user-data.json`, so they follow you between the desktop app and any browser.
+
+### Accurate session names
+
+Claude Code 2.x names sessions itself (`ai-title` records). Sessions you never renamed now show that name instead of their first prompt; a name you gave with `/rename` still wins. Title records no longer count as messages.
+
+---
+
 ## Quick Start
 
 **Desktop app** — download and run:
