@@ -82,13 +82,13 @@ describe("path identity and home detection", () => {
 
   it("prefers the backend's home when it holds every path the detected home holds", () => {
     const paths = [
-      "/home/warden/fixture-home/projects/app",
-      "/home/warden/fixture-home/notes",
+      "/home/dev/fixture-home/projects/app",
+      "/home/dev/fixture-home/notes",
       "/tmp/scratch",
     ];
-    // Detected from the paths: /home/warden. The backend's HOME is deeper.
-    expect(resolveHomeDir(paths, "/home/warden/fixture-home")).toBe("/home/warden/fixture-home");
-    expect(resolveHomeDir(paths, null)).toBe("/home/warden");
+    // Detected from the paths: /home/dev. The backend's HOME is deeper.
+    expect(resolveHomeDir(paths, "/home/dev/fixture-home")).toBe("/home/dev/fixture-home");
+    expect(resolveHomeDir(paths, null)).toBe("/home/dev");
   });
 
   it("keeps the detected home when the hint is a custom data folder elsewhere", () => {

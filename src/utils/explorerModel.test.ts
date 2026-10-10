@@ -236,11 +236,11 @@ describe("buildExplorerModel — workspace root", () => {
 
   it("uses the home hint, so a custom HOME shows as ~", () => {
     const paths = ["projects/a", "projects/b", "projects/c", "notes"].map((rel) =>
-      project(`/home/warden/fixture-home/${rel}`)
+      project(`/home/dev/fixture-home/${rel}`)
     );
-    const model = buildExplorerModel(paths, { homeHint: "/home/warden/fixture-home" });
+    const model = buildExplorerModel(paths, { homeHint: "/home/dev/fixture-home" });
 
-    expect(model.homeDir).toBe("/home/warden/fixture-home");
+    expect(model.homeDir).toBe("/home/dev/fixture-home");
     expect(model.root?.displayPath).toBe("~/projects");
   });
 });
@@ -454,10 +454,10 @@ describe("buildExplorerModel — other locations and buckets", () => {
   it("treats <home>/.claude/jobs as temporary even under a custom HOME", () => {
     const model = buildExplorerModel(
       [
-        project("/home/warden/fx/.claude/jobs/0123456789/tmp"),
-        project("/home/warden/fx/notes"),
+        project("/home/dev/fx/.claude/jobs/0123456789/tmp"),
+        project("/home/dev/fx/notes"),
       ],
-      { homeHint: "/home/warden/fx" }
+      { homeHint: "/home/dev/fx" }
     );
 
     expect(group(model, "temporary")!.rows.map((row) => [row.label, row.hint])).toEqual([

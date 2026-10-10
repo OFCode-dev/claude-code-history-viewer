@@ -691,40 +691,40 @@ This table lists each design intent and the check that will confirm it, for this
   - The follow-up issue for a single-pointer alternative to the pinned sashes (WCAG 2.5.7, an existing gap).
 
 **Changed files (absolute paths):**
-- `/home/warden/projects/computer-management/sessions/src/store/slices/layoutSlice.ts`
-- `/home/warden/projects/computer-management/sessions/src/store/slices/types.ts`
-- `/home/warden/projects/computer-management/sessions/src/store/slices/layoutSlice.test.ts`
-- `/home/warden/projects/computer-management/sessions/src/layouts/AppLayout.tsx`
-- `/home/warden/projects/computer-management/sessions/src/components/MessageViewer/MessageViewer.tsx`
-- `/home/warden/projects/computer-management/sessions/src/components/MessageViewer/hooks/useReadingPosition.ts`
-- `/home/warden/projects/computer-management/sessions/src/components/MessageViewer/components/HiddenBlocksIndicator.tsx`
-- `/home/warden/projects/computer-management/sessions/src/components/contentRenderer/ImageRenderer.tsx`
-- `/home/warden/projects/computer-management/sessions/src/hooks/useAppKeyboard.ts`
-- `/home/warden/projects/computer-management/sessions/src/hooks/useAppKeyboard.test.tsx`
-- `/home/warden/projects/computer-management/sessions/src/layouts/Header/FocusModeButton.tsx` (renamed to `ReadingModeButton.tsx`)
-- `/home/warden/projects/computer-management/sessions/src/layouts/Header/Header.tsx`
-- `/home/warden/projects/computer-management/sessions/src/layouts/Header/HeaderControls.test.tsx`
-- `/home/warden/projects/computer-management/sessions/src/layouts/Header/HeaderBreadcrumb.tsx`
-- `/home/warden/projects/computer-management/sessions/src/layouts/Header/SettingDropdown/index.tsx`
-- `/home/warden/projects/computer-management/sessions/src/components/ProjectTree/components/ExplorerHeader.tsx`
-- `/home/warden/projects/computer-management/sessions/src/components/ProjectTree/components/ExplorerSearch.tsx`
-- `/home/warden/projects/computer-management/sessions/src/components/SessionsPane/SessionsPane.tsx`
-- `/home/warden/projects/computer-management/sessions/src/components/MessageNavigator/MessageNavigator.tsx`
-- `/home/warden/projects/computer-management/sessions/src/components/ProjectContextMenu.tsx`
-- `/home/warden/projects/computer-management/sessions/src/components/SessionItem/components/SessionContextMenu.tsx`
-- `/home/warden/projects/computer-management/sessions/src/components/SessionItem/components/SessionSelectionBar.tsx`
-- `/home/warden/projects/computer-management/sessions/src/components/ui/dropdown-menu.tsx`
-- `/home/warden/projects/computer-management/sessions/src/contexts/modal/ModalProvider.tsx`
-- `/home/warden/projects/computer-management/sessions/src/components/subagents/focusRestore.ts` (moves to `src/utils/focus.ts`)
-- `/home/warden/projects/computer-management/sessions/src/test/App.accessibility.test.tsx`
-- `/home/warden/projects/computer-management/sessions/src/components/SessionsPane/SessionsPane.collapse.test.tsx`
-- `/home/warden/projects/computer-management/sessions/src/components/MessageViewer/MessageViewer.subagentPanel.test.tsx`
-- `/home/warden/projects/computer-management/sessions/src/i18n/locales/{en,ko,ja,zh-CN,zh-TW}/common.json`
+- `src/store/slices/layoutSlice.ts`
+- `src/store/slices/types.ts`
+- `src/store/slices/layoutSlice.test.ts`
+- `src/layouts/AppLayout.tsx`
+- `src/components/MessageViewer/MessageViewer.tsx`
+- `src/components/MessageViewer/hooks/useReadingPosition.ts`
+- `src/components/MessageViewer/components/HiddenBlocksIndicator.tsx`
+- `src/components/contentRenderer/ImageRenderer.tsx`
+- `src/hooks/useAppKeyboard.ts`
+- `src/hooks/useAppKeyboard.test.tsx`
+- `src/layouts/Header/FocusModeButton.tsx` (renamed to `ReadingModeButton.tsx`)
+- `src/layouts/Header/Header.tsx`
+- `src/layouts/Header/HeaderControls.test.tsx`
+- `src/layouts/Header/HeaderBreadcrumb.tsx`
+- `src/layouts/Header/SettingDropdown/index.tsx`
+- `src/components/ProjectTree/components/ExplorerHeader.tsx`
+- `src/components/ProjectTree/components/ExplorerSearch.tsx`
+- `src/components/SessionsPane/SessionsPane.tsx`
+- `src/components/MessageNavigator/MessageNavigator.tsx`
+- `src/components/ProjectContextMenu.tsx`
+- `src/components/SessionItem/components/SessionContextMenu.tsx`
+- `src/components/SessionItem/components/SessionSelectionBar.tsx`
+- `src/components/ui/dropdown-menu.tsx`
+- `src/contexts/modal/ModalProvider.tsx`
+- `src/components/subagents/focusRestore.ts` (moves to `src/utils/focus.ts`)
+- `src/test/App.accessibility.test.tsx`
+- `src/components/SessionsPane/SessionsPane.collapse.test.tsx`
+- `src/components/MessageViewer/MessageViewer.subagentPanel.test.tsx`
+- `src/i18n/locales/{en,ko,ja,zh-CN,zh-TW}/common.json`
 
 **New files:**
-- `/home/warden/projects/computer-management/sessions/src/components/AutoHide/` containing `constants.ts`, `autoHideMachine.ts`, `useAutoHidePanel.ts`, `AutoHideRegion.tsx`, `AutoHideHoldContext.tsx`, `PinToggle.tsx`, `TopStripChips.tsx` and their tests.
-- `/home/warden/projects/computer-management/sessions/src/layouts/Header/SettingDropdown/LayoutMenuGroup.tsx`
-- `/home/warden/projects/computer-management/sessions/src/utils/focus.ts`
+- `src/components/AutoHide/` containing `constants.ts`, `autoHideMachine.ts`, `useAutoHidePanel.ts`, `AutoHideRegion.tsx`, `AutoHideHoldContext.tsx`, `PinToggle.tsx`, `TopStripChips.tsx` and their tests.
+- `src/layouts/Header/SettingDropdown/LayoutMenuGroup.tsx`
+- `src/utils/focus.ts`
 
 ---
 
