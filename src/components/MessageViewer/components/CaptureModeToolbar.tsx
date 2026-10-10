@@ -36,6 +36,7 @@ export function CaptureModeToolbar({
 
   return (
     <div
+      data-capture-toolbar=""
       className={cn(
         "flex items-center justify-between px-4 py-2",
         "bg-card border-b border-border"

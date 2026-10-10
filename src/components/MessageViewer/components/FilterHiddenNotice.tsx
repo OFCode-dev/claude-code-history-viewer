@@ -12,7 +12,7 @@ import { EyeOff } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "../../../store/useAppStore";
-import { focusMainContentIfLost } from "@/components/subagents/focusRestore";
+import { focusMainContentIfLost } from "@/utils/focus";
 
 type FilterHiddenNoticeProps =
   | { variant: "emptyWindow"; className?: string }

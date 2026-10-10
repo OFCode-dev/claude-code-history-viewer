@@ -157,5 +157,8 @@
   "filter.targetHidden": "链接的消息被当前筛选隐藏",
   "dialogue.toggle": "对话",
   "dialogue.tooltip": "仅显示你的提示和助手的回复",
-  "dialogue.emptyWindow": "已加载的消息中没有提示或回复"
+  "dialogue.emptyWindow": "已加载的消息中没有提示或回复",
+  "messageViewer.prevMatch": "上一个匹配项（Shift+Enter）",
+  "messageViewer.nextMatch": "下一个匹配项（Enter）",
+  "messageViewer.clearSearch": "清除搜索"
 }

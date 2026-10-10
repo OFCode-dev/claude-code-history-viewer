@@ -12,6 +12,7 @@ import {
   Star,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { useAutoHideHold } from "@/components/AutoHide/autoHideHolds";
 import { cn } from "@/lib/utils";
 import { computeMenuPosition, type Boundary } from "@/utils/contextMenu";
 
@@ -61,6 +62,8 @@ export const SessionContextMenu: React.FC<SessionContextMenuProps> = ({
   onDeleteSession,
 }) => {
   const { t } = useTranslation();
+  // Opened from a reading-mode overlay, the menu belongs to it and holds it open.
+  const ownerProps = useAutoHideHold(true);
   const menuRef = useRef<HTMLDivElement>(null);
   const [adjustedPosition, setAdjustedPosition] = useState({ x: position.x, y: position.y });
 
@@ -71,14 +74,18 @@ export const SessionContextMenu: React.FC<SessionContextMenuProps> = ({
       }
     };
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key !== "Escape" || e.defaultPrevented) return;
+      e.preventDefault();
+      onClose();
     };
 
     document.addEventListener("mousedown", handleClickOutside);
-    document.addEventListener("keydown", handleEscape);
+    // Capture phase: the menu answers Esc before selection mode even when it
+    // opened later (spec §4.3, one layer per press).
+    document.addEventListener("keydown", handleEscape, true);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("keydown", handleEscape);
+      document.removeEventListener("keydown", handleEscape, true);
     };
   }, [onClose]);
 
@@ -137,6 +144,7 @@ export const SessionContextMenu: React.FC<SessionContextMenuProps> = ({
   return createPortal(
     <div
       ref={menuRef}
+      {...ownerProps}
       role="menu"
       onClick={(e) => e.stopPropagation()}
       onMouseDown={(e) => e.stopPropagation()}

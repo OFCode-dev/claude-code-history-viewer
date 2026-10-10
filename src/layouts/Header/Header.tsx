@@ -23,7 +23,7 @@ import { SessionCopyMenu } from "./SessionCopyMenu";
 import { HeaderBreadcrumb } from "./HeaderBreadcrumb";
 import { HeaderFavoriteButton } from "./HeaderFavoriteButton";
 import { HistoryNavButtons } from "./HistoryNavButtons";
-import { FocusModeButton } from "./FocusModeButton";
+import { ReadingModeButton } from "./ReadingModeButton";
 
 interface HeaderProps {
   analyticsActions: UseAnalyticsReturn["actions"];
@@ -276,7 +276,7 @@ export const Header = ({ analyticsActions, analyticsComputed, updater }: HeaderP
           </div>
         )}
 
-        <FocusModeButton className="hidden md:inline-flex" />
+        <ReadingModeButton className="hidden md:inline-flex" />
 
         {/* Refresh — rescans projects and reloads the selected session, so a
             second per-session refresh button is redundant. */}

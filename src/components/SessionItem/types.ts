@@ -20,6 +20,8 @@ export interface SessionItemProps {
    * (Cmd/Ctrl+click or Shift+click). Enters selection mode.
    */
   onModifierSelect?: (e: React.MouseEvent) => void;
+  /** The list's one tab stop: the selected row, or the first when none is. */
+  isTabStop?: boolean;
 }
 
 export interface SessionHeaderProps {
@@ -35,6 +37,8 @@ export interface SessionNameEditorProps {
   hasClaudeCodeName: boolean;
   isNamed: boolean;
   isSelected: boolean;
+  /** The list's one tab stop (defaults to the selected row). */
+  isTabStop?: boolean;
   isContextMenuOpen: boolean;
   readOnly: boolean;
   providerId: string;

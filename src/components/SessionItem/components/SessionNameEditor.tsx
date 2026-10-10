@@ -28,6 +28,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import type { SessionNameEditorProps } from "../types";
+import { moveSessionFocus, SESSION_OPEN_ATTR } from "../sessionRowFocus";
 
 export const SessionNameEditor: React.FC<SessionNameEditorProps> = ({
   isEditing,
@@ -37,6 +38,7 @@ export const SessionNameEditor: React.FC<SessionNameEditorProps> = ({
   hasClaudeCodeName,
   isNamed,
   isSelected,
+  isTabStop = isSelected,
   isContextMenuOpen,
   readOnly,
   providerId,
@@ -173,9 +175,23 @@ export const SessionNameEditor: React.FC<SessionNameEditorProps> = ({
             </TooltipContent>
           </Tooltip>
         )}
-        <span className={cn("flex-1", isNamed ? "font-bold" : "font-normal")}>
+        {/* The row's keyboard way in: its click reaches the row, which opens
+            the session (Enter or Space as well). One tab stop per list. */}
+        <button
+          type="button"
+          {...{ [SESSION_OPEN_ATTR]: "" }}
+          aria-current={isSelected ? "true" : undefined}
+          tabIndex={isTabStop ? 0 : -1}
+          onKeyDown={moveSessionFocus}
+          className={cn(
+            "flex-1 min-w-0 text-left rounded-sm cursor-pointer",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            readOnly && "cursor-default",
+            isNamed ? "font-bold" : "font-normal"
+          )}
+        >
           {displayName || t("session.summaryNotFound", "No summary")}
-        </span>
+        </button>
       </span>
 
       {/* Context Menu for Rename */}

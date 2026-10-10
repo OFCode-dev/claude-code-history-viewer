@@ -72,7 +72,15 @@ const { useAppStoreMock } = vi.hoisted(() => {
     toggleExplorerCollapsed: vi.fn(),
     isSessionsPaneCollapsed: false,
     toggleSessionsPaneCollapsed: vi.fn(),
-    toggleFocusMode: vi.fn(),
+    toggleReadingMode: vi.fn(),
+    isReadingMode: false,
+    readingProfile: { left: "autohide", right: "autohide", top: "autohide" },
+    revealed: null,
+    hoverReveal: "standard",
+    layoutAnnouncement: null as null | { text: string; id: number },
+    clearLayoutAnnouncement: vi.fn(),
+    revealPanel: vi.fn(() => true),
+    concealPanel: vi.fn(),
     activeProviders: [],
     setSelectedSession: vi.fn(),
     fontScale: 100,
@@ -89,11 +97,13 @@ const { useAppStoreMock } = vi.hoisted(() => {
   type StoreMock = {
     (selector?: (state: typeof state) => unknown): unknown;
     getState: () => typeof state;
+    subscribe: () => () => void;
   };
 
   const storeMock = ((selector?: (state: typeof state) => unknown) =>
     typeof selector === "function" ? selector(state) : state) as StoreMock;
   storeMock.getState = () => state;
+  storeMock.subscribe = () => () => {};
 
   return {
     appStoreState: state,
@@ -295,6 +305,11 @@ describe("App accessibility smoke", () => {
     window.history.replaceState({}, "", "/");
     vi.clearAllMocks();
     resetComputedMock();
+    Object.assign(useAppStoreMock.getState(), {
+      isReadingMode: false,
+      isNavigatorOpen: true,
+      layoutAnnouncement: null,
+    });
   });
 
   it("renders skip links and landmark targets", () => {
@@ -376,6 +391,36 @@ describe("App accessibility smoke", () => {
 
       view.unmount();
     }
+  });
+
+  describe("reading mode", () => {
+    beforeEach(() => {
+      Object.assign(useAppStoreMock.getState(), { isReadingMode: true, isNavigatorOpen: false });
+    });
+
+    it("wraps each hidden group in a labelled region with its handle", () => {
+      render(<App />);
+      for (const group of ["left", "right"]) {
+        const name = `readingMode.group.${group}`;
+        expect(screen.getByRole("region", { name })).toBeInTheDocument();
+        expect(screen.getByRole("button", { name })).toHaveAttribute("aria-expanded", "false");
+      }
+    });
+
+    it("offers the navigator skip link while it is hidden, and reveals it from the keyboard", () => {
+      render(<App />);
+      const link = screen.getByRole("link", { name: "Skip to message navigator" });
+      link.click();
+      expect(useAppStoreMock.getState().revealPanel).toHaveBeenCalledWith("right", "keyboard", false);
+    });
+
+    it("announces layout changes in the status region", () => {
+      Object.assign(useAppStoreMock.getState(), {
+        layoutAnnouncement: { text: "Reading mode on.", id: 1 },
+      });
+      render(<App />);
+      expect(screen.getByRole("status")).toHaveTextContent("Reading mode on.");
+    });
   });
 
   it("replays a WebUI message link from browser history", async () => {

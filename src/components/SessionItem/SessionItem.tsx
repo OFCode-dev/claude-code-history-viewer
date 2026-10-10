@@ -26,6 +26,7 @@ export const SessionItem: React.FC<SessionItemProps> = ({
   isChecked = false,
   onToggleSelect,
   onModifierSelect,
+  isTabStop,
 }) => {
   const { t } = useTranslation();
   const editing = useSessionEditing(session);
@@ -195,6 +196,7 @@ export const SessionItem: React.FC<SessionItemProps> = ({
             hasClaudeCodeName={editing.hasClaudeCodeName}
             isNamed={editing.isNamed}
             isSelected={isSelected}
+            isTabStop={isTabStop ?? isSelected}
             isContextMenuOpen={editing.isContextMenuOpen}
             readOnly={editing.isServerReadOnly}
             providerId={editing.providerId}

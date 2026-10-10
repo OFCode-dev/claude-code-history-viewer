@@ -67,9 +67,125 @@ export function findFirstVisibleMessageRow(
   return null;
 }
 
+// ---------------------------------------------------------------------------
+// The mounted transcript, for code outside the viewer (reading-mode layout
+// switches, wheel forwarding from the gutters).
+// ---------------------------------------------------------------------------
+
+export interface TranscriptHandle {
+  getViewport: () => HTMLElement | null;
+  /** The first visible message row and where it sits in the viewport. */
+  captureRow: () => VisibleRow | null;
+  /** Puts `row` back at its recorded offset (no-op when it is not loaded). */
+  scrollRowTo: (row: VisibleRow) => void;
+}
+
+let activeTranscript: TranscriptHandle | null = null;
+
+/** Registers the viewer's transcript while it is mounted. */
+export function registerTranscript(handle: TranscriptHandle): () => void {
+  activeTranscript = handle;
+  return () => {
+    if (activeTranscript === handle) activeTranscript = null;
+  };
+}
+
+export function getTranscriptViewport(): HTMLElement | null {
+  return activeTranscript?.getViewport() ?? null;
+}
+
+/**
+ * Extra clearance while the conversation tools overlay covers the top of
+ * the transcript, so jump and search targets land below it (WCAG 2.4.11).
+ */
+let topOverlayClearancePx = 0;
+
+export function getTopClearance(): number {
+  return CONVERSATION_TOP_CLEARANCE_PX + topOverlayClearancePx;
+}
+
+export function setTopOverlayClearance(heightPx: number): void {
+  topOverlayClearancePx = Math.max(0, Math.round(heightPx));
+  const viewport = getTranscriptViewport();
+  // scroll-padding also keeps scrollIntoView targets (search matches) clear.
+  if (viewport) {
+    viewport.style.scrollPaddingTop = topOverlayClearancePx > 0 ? `${getTopClearance()}px` : "";
+  }
+}
+
+export interface AnchorToken {
+  row: VisibleRow | null;
+  generation: number;
+}
+
+let anchorGeneration = 0;
+
+/** Records what the reader is looking at before a deliberate layout switch. */
+export function captureAnchor(): AnchorToken {
+  anchorGeneration += 1;
+  return { row: activeTranscript?.captureRow() ?? null, generation: anchorGeneration };
+}
+
+/**
+ * Keeps the captured row where it was while the switched layout reflows,
+ * with the same passes as a position restore. A newer capture, the reader
+ * scrolling (wheel, touch, keys, the scrollbar) or a new jump target ends it.
+ */
+export function restoreAnchor(token: AnchorToken): void {
+  const transcript = activeTranscript;
+  const row = token.row;
+  const viewport = transcript?.getViewport();
+  if (!transcript || !row || !viewport) return;
+
+  const timers: ReturnType<typeof setTimeout>[] = [];
+  let frame: number | null = null;
+  let unsubscribe: (() => void) | null = null;
+  const onPointerDown = (event: PointerEvent) => {
+    if (event.target instanceof Element && event.target.closest(".os-scrollbar")) stop();
+  };
+  function stop() {
+    if (frame !== null) cancelAnimationFrame(frame);
+    timers.forEach(clearTimeout);
+    unsubscribe?.();
+    window.removeEventListener("wheel", stop, true);
+    window.removeEventListener("touchstart", stop, true);
+    window.removeEventListener("keydown", stop, true);
+    window.removeEventListener("pointerdown", onPointerDown, true);
+  }
+  const apply = () => {
+    if (token.generation !== anchorGeneration || !viewport.isConnected) {
+      stop();
+      return;
+    }
+    transcript.scrollRowTo(row);
+  };
+
+  frame = requestAnimationFrame(apply);
+  RESTORE_PASSES_MS.forEach((delay, pass) => {
+    timers.push(
+      setTimeout(() => {
+        apply();
+        if (pass === RESTORE_PASSES_MS.length - 1) stop();
+      }, delay)
+    );
+  });
+  window.addEventListener("wheel", stop, { capture: true, passive: true });
+  window.addEventListener("touchstart", stop, { capture: true, passive: true });
+  window.addEventListener("keydown", stop, true);
+  window.addEventListener("pointerdown", onPointerDown, true);
+  unsubscribe = useAppStore.subscribe((state, previous) => {
+    if (
+      state.targetMessageUuid !== previous.targetMessageUuid ||
+      state.targetRequestId !== previous.targetRequestId
+    ) {
+      stop();
+    }
+  });
+}
+
 /**
  * Scroll so row `index` starts just below the top clearance (a jump target
- * is then never hidden under the sticky prompt bar).
+ * is then never hidden under the sticky prompt bar or the tools overlay).
  */
 export function scrollRowIntoTopView(
   virtualizer: Virtualizer<HTMLElement, Element>,
@@ -82,7 +198,7 @@ export function scrollRowIntoTopView(
     virtualizer.scrollToIndex(index, { align: "start", behavior });
     return;
   }
-  viewport.scrollTo({ top: Math.max(0, start - CONVERSATION_TOP_CLEARANCE_PX), behavior });
+  viewport.scrollTo({ top: Math.max(0, start - getTopClearance()), behavior });
 }
 
 interface PublisherOptions {

@@ -106,7 +106,9 @@ export const SessionSelectionBar: React.FC<SessionSelectionBarProps> = ({
   useEffect(() => {
     if (isDeleteDialogOpen || isResumeDialogOpen || isDeleting || isResuming) return;
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") exitSessionSelectionMode();
+      if (e.key !== "Escape" || e.defaultPrevented) return;
+      e.preventDefault();
+      exitSessionSelectionMode();
     };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);

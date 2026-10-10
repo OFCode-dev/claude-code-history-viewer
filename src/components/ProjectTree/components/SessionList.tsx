@@ -13,6 +13,7 @@ import { useAppStore } from "@/store/useAppStore";
 import type { SessionListProps } from "../types";
 import type { ClaudeSession } from "../../../types";
 import type { SessionSortOrder } from "@/types/metadata.types";
+import { SESSION_LIST_ATTR } from "@/components/SessionItem/sessionRowFocus";
 
 // SessionItem fixed row height. Sized to fit a 2-line wrapped name:
 //   py-2.5 (20px) + name 2 × text-xs/leading-relaxed (39px)
@@ -36,6 +37,8 @@ interface SessionRowData {
   selectedIds: Set<string>;
   onSessionCheck: (session: ClaudeSession, e: React.MouseEvent | React.KeyboardEvent | React.KeyboardEvent) => void;
   onSessionModifierSelect: (session: ClaudeSession, e: React.MouseEvent | React.KeyboardEvent) => void;
+  /** The row holding the list's one tab stop. */
+  tabStopId: string | undefined;
 }
 
 interface SessionRowProps {
@@ -55,6 +58,7 @@ const SessionRow: React.FC<SessionRowProps> = ({ index, style, data }) => {
     selectedIds,
     onSessionCheck,
     onSessionModifierSelect,
+    tabStopId,
   } = data;
   const session = sessions[index];
 
@@ -74,6 +78,7 @@ const SessionRow: React.FC<SessionRowProps> = ({ index, style, data }) => {
         isChecked={selectedIds.has(session.session_id)}
         onToggleSelect={(e) => onSessionCheck(session, e)}
         onModifierSelect={(e) => onSessionModifierSelect(session, e)}
+        isTabStop={session.session_id === tabStopId}
       />
     </div>
   );
@@ -387,6 +392,13 @@ export const SessionList: React.FC<SessionListProps> = ({
     </div>
   ) : null;
 
+  // One tab stop per list: the selected row when it is listed, else the first.
+  const tabStopId = filteredAndSortedSessions.some(
+    (session) => session.session_id === selectedSession?.session_id
+  )
+    ? selectedSession?.session_id
+    : filteredAndSortedSessions[0]?.session_id;
+
   // Virtual list에 전달할 데이터 memoize
   const itemData = useMemo<SessionRowData>(
     () => ({
@@ -399,6 +411,7 @@ export const SessionList: React.FC<SessionListProps> = ({
       selectedIds: selectedIdSet,
       onSessionCheck: handleSessionCheck,
       onSessionModifierSelect: handleModifierSelect,
+      tabStopId,
     }),
     [
       filteredAndSortedSessions,
@@ -410,6 +423,7 @@ export const SessionList: React.FC<SessionListProps> = ({
       selectedIdSet,
       handleSessionCheck,
       handleModifierSelect,
+      tabStopId,
     ]
   );
 
@@ -454,7 +468,7 @@ export const SessionList: React.FC<SessionListProps> = ({
         {selectionBar}
 
         {/* Session List */}
-        <div className="space-y-1 py-2">
+        <div className="space-y-1 py-2" {...{ [SESSION_LIST_ATTR]: "" }}>
           {filteredAndSortedSessions.length === 0 ? (
             <div className="py-2 text-2xs text-muted-foreground text-center">
               {t("session.filter.noResults", "No matching sessions")}
@@ -472,6 +486,7 @@ export const SessionList: React.FC<SessionListProps> = ({
                 isChecked={selectedIdSet.has(session.session_id)}
                 onToggleSelect={(e) => handleSessionCheck(session, e)}
                 onModifierSelect={(e) => handleModifierSelect(session, e)}
+                isTabStop={session.session_id === tabStopId}
               />
             ))
           )}
@@ -488,7 +503,7 @@ export const SessionList: React.FC<SessionListProps> = ({
       {selectionBar}
 
       {/* Virtual Scroll List */}
-      <div className="py-2">
+      <div className="py-2" {...{ [SESSION_LIST_ATTR]: "" }}>
         {filteredAndSortedSessions.length === 0 ? (
           <div className="py-2 text-2xs text-muted-foreground text-center">
             {t("session.filter.noResults", "No matching sessions")}

@@ -5,8 +5,8 @@
  * 직접 수정하지 마세요.
  *
  * 생성 명령: pnpm run generate:i18n-types
- * 생성 시간: 2026-10-09T20:47:42.201Z
- * 총 키 개수: 2077
+ * 생성 시간: 2026-10-10T02:12:14.488Z
+ * 총 키 개수: 2106
  * Namespace 수: 11
  */
 
@@ -40,7 +40,7 @@ export type I18nNamespace =
   | 'recentEdits';
 
 /**
- * common namespace의 번역 키 (212개)
+ * common namespace의 번역 키 (238개)
  * 파일: locales/{lang}/common.json
  */
 export type CommonKeys =
@@ -179,6 +179,10 @@ export type CommonKeys =
   | 'common.settings.language.description'
   | 'common.settings.language.saveFailed'
   | 'common.settings.language.title'
+  | 'common.settings.layout.off'
+  | 'common.settings.layout.slow'
+  | 'common.settings.layout.standard'
+  | 'common.settings.layout.title'
   | 'common.settings.theme.dark'
   | 'common.settings.theme.light'
   | 'common.settings.theme.saveFailed'
@@ -231,11 +235,33 @@ export type CommonKeys =
   | 'header.breadcrumb.showCollapsed'
   | 'header.breadcrumb.subagent'
   | 'header.breadcrumb.untitledSession'
-  | 'header.focusMode.label'
-  | 'header.focusMode.shortcut'
   | 'header.history.back'
   | 'header.history.forward'
+  | 'header.readingMode.label'
+  | 'header.readingMode.tooltip'
   | 'header.views'
+  | 'readingMode.announce.off'
+  | 'readingMode.announce.on'
+  | 'readingMode.chips.dialogue'
+  | 'readingMode.chips.dialogueLabel'
+  | 'readingMode.chips.filters'
+  | 'readingMode.chips.filtersName_one'
+  | 'readingMode.chips.filtersName_other'
+  | 'readingMode.chips.nextMatch'
+  | 'readingMode.chips.prevMatch'
+  | 'readingMode.chips.search'
+  | 'readingMode.group.left'
+  | 'readingMode.group.right'
+  | 'readingMode.group.top'
+  | 'readingMode.handle.tooltip'
+  | 'readingMode.hint.text'
+  | 'readingMode.hint.turnOffHover'
+  | 'readingMode.pin.announceHidden'
+  | 'readingMode.pin.announcePinned'
+  | 'readingMode.pin.left'
+  | 'readingMode.pin.right'
+  | 'readingMode.pin.tooltip'
+  | 'readingMode.pin.top'
   | 'status.checking'
   | 'status.initializing'
   | 'status.loadingMessages'
@@ -1429,7 +1455,7 @@ export type ErrorKeys =
   | 'error.viewDetails';
 
 /**
- * message namespace의 번역 키 (159개)
+ * message namespace의 번역 키 (162개)
  * 파일: locales/{lang}/message.json
  */
 export type MessageKeys =
@@ -1479,6 +1505,7 @@ export type MessageKeys =
   | 'messageViewer.branch'
   | 'messageViewer.checkConsole'
   | 'messageViewer.claude'
+  | 'messageViewer.clearSearch'
   | 'messageViewer.codex'
   | 'messageViewer.debugInfo.file'
   | 'messageViewer.debugInfo.firstMessage'
@@ -1503,10 +1530,12 @@ export type MessageKeys =
   | 'messageViewer.loadingMessages'
   | 'messageViewer.loadingPreviousMessages'
   | 'messageViewer.messagesShort'
+  | 'messageViewer.nextMatch'
   | 'messageViewer.noMessages'
   | 'messageViewer.noMessagesDescription'
   | 'messageViewer.noSearchResults'
   | 'messageViewer.opencode'
+  | 'messageViewer.prevMatch'
   | 'messageViewer.priorContext'
   | 'messageViewer.refresh'
   | 'messageViewer.renderError'
@@ -2630,6 +2659,10 @@ export type TranslationKey =
   | 'common.settings.language.description'
   | 'common.settings.language.saveFailed'
   | 'common.settings.language.title'
+  | 'common.settings.layout.off'
+  | 'common.settings.layout.slow'
+  | 'common.settings.layout.standard'
+  | 'common.settings.layout.title'
   | 'common.settings.theme.dark'
   | 'common.settings.theme.light'
   | 'common.settings.theme.saveFailed'
@@ -2881,10 +2914,10 @@ export type TranslationKey =
   | 'header.breadcrumb.showCollapsed'
   | 'header.breadcrumb.subagent'
   | 'header.breadcrumb.untitledSession'
-  | 'header.focusMode.label'
-  | 'header.focusMode.shortcut'
   | 'header.history.back'
   | 'header.history.forward'
+  | 'header.readingMode.label'
+  | 'header.readingMode.tooltip'
   | 'header.views'
   | 'imageRenderer.cannotLoadImage'
   | 'imageRenderer.close'
@@ -2926,6 +2959,7 @@ export type TranslationKey =
   | 'messageViewer.branch'
   | 'messageViewer.checkConsole'
   | 'messageViewer.claude'
+  | 'messageViewer.clearSearch'
   | 'messageViewer.codex'
   | 'messageViewer.debugInfo.file'
   | 'messageViewer.debugInfo.firstMessage'
@@ -2950,10 +2984,12 @@ export type TranslationKey =
   | 'messageViewer.loadingMessages'
   | 'messageViewer.loadingPreviousMessages'
   | 'messageViewer.messagesShort'
+  | 'messageViewer.nextMatch'
   | 'messageViewer.noMessages'
   | 'messageViewer.noMessagesDescription'
   | 'messageViewer.noSearchResults'
   | 'messageViewer.opencode'
+  | 'messageViewer.prevMatch'
   | 'messageViewer.priorContext'
   | 'messageViewer.refresh'
   | 'messageViewer.renderError'
@@ -3111,6 +3147,28 @@ export type TranslationKey =
   | 'queueOperationRenderer.operations.popAll'
   | 'queueOperationRenderer.operations.remove'
   | 'queueOperationRenderer.title'
+  | 'readingMode.announce.off'
+  | 'readingMode.announce.on'
+  | 'readingMode.chips.dialogue'
+  | 'readingMode.chips.dialogueLabel'
+  | 'readingMode.chips.filters'
+  | 'readingMode.chips.filtersName_one'
+  | 'readingMode.chips.filtersName_other'
+  | 'readingMode.chips.nextMatch'
+  | 'readingMode.chips.prevMatch'
+  | 'readingMode.chips.search'
+  | 'readingMode.group.left'
+  | 'readingMode.group.right'
+  | 'readingMode.group.top'
+  | 'readingMode.handle.tooltip'
+  | 'readingMode.hint.text'
+  | 'readingMode.hint.turnOffHover'
+  | 'readingMode.pin.announceHidden'
+  | 'readingMode.pin.announcePinned'
+  | 'readingMode.pin.left'
+  | 'readingMode.pin.right'
+  | 'readingMode.pin.tooltip'
+  | 'readingMode.pin.top'
   | 'recentEdits.cancel'
   | 'recentEdits.confirmRestore'
   | 'recentEdits.confirmRestoreMessage'
@@ -4315,6 +4373,7 @@ export type TranslationPrefix =
   | 'project'
   | 'promptCard'
   | 'queueOperationRenderer'
+  | 'readingMode'
   | 'recentEdits'
   | 'redactedThinkingRenderer'
   | 'rendererLabels'

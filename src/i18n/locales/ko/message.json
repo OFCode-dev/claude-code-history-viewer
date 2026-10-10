@@ -157,5 +157,8 @@
   "filter.targetHidden": "연결된 메시지가 현재 필터로 숨겨져 있습니다",
   "dialogue.toggle": "대화",
   "dialogue.tooltip": "내 프롬프트와 어시스턴트의 답변만 표시",
-  "dialogue.emptyWindow": "불러온 메시지에 프롬프트나 응답이 없습니다"
+  "dialogue.emptyWindow": "불러온 메시지에 프롬프트나 응답이 없습니다",
+  "messageViewer.prevMatch": "이전 일치 항목 (Shift+Enter)",
+  "messageViewer.nextMatch": "다음 일치 항목 (Enter)",
+  "messageViewer.clearSearch": "검색 지우기"
 }

@@ -3,6 +3,7 @@ import React, { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { EyeOff, Eye, Copy, ArrowRightLeft } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { useAutoHideHold } from "@/components/AutoHide/autoHideHolds";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { ClaudeProject } from "../types";
@@ -33,6 +34,8 @@ export const ProjectContextMenu: React.FC<ProjectContextMenuProps> = ({
   onSelectProject,
 }) => {
   const { t } = useTranslation();
+  // Opened from a reading-mode overlay, the menu belongs to it and holds it open.
+  const ownerProps = useAutoHideHold(true);
   const menuRef = useRef<HTMLDivElement>(null);
   const [adjustedPosition, setAdjustedPosition] = useState({ x: position.x, y: position.y });
 
@@ -45,16 +48,19 @@ export const ProjectContextMenu: React.FC<ProjectContextMenuProps> = ({
     };
 
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
+      if (e.key === "Escape" && !e.defaultPrevented) {
+        e.preventDefault();
         onClose();
       }
     };
 
     document.addEventListener("mousedown", handleClickOutside);
-    document.addEventListener("keydown", handleEscape);
+    // Capture phase: the menu answers Esc before selection mode even when it
+    // opened later (spec §4.3, one layer per press).
+    document.addEventListener("keydown", handleEscape, true);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("keydown", handleEscape);
+      document.removeEventListener("keydown", handleEscape, true);
     };
   }, [onClose]);
 
@@ -136,6 +142,9 @@ export const ProjectContextMenu: React.FC<ProjectContextMenuProps> = ({
   return createPortal(
     <div
       ref={menuRef}
+      {...ownerProps}
+      role="menu"
+      aria-label={project.name}
       className={cn(
         "fixed z-50 min-w-[180px] rounded-lg border shadow-lg",
         "bg-popover border-border",
@@ -148,7 +157,10 @@ export const ProjectContextMenu: React.FC<ProjectContextMenuProps> = ({
     >
       <div className="p-1">
         {/* Project name header */}
-        <div className="px-2 py-1.5 text-xs text-muted-foreground truncate border-b border-border mb-1">
+        <div
+          aria-hidden="true"
+          className="px-2 py-1.5 text-xs text-muted-foreground truncate border-b border-border mb-1"
+        >
           {project.name}
         </div>
 
@@ -161,6 +173,8 @@ export const ProjectContextMenu: React.FC<ProjectContextMenuProps> = ({
           return (
             <button
               key={sibling.path}
+              type="button"
+              role="menuitem"
               onClick={() => {
                 onSelectProject?.(sibling);
                 onClose();
@@ -182,6 +196,8 @@ export const ProjectContextMenu: React.FC<ProjectContextMenuProps> = ({
 
         {/* Copy path option */}
         <button
+          type="button"
+          role="menuitem"
           onClick={handleCopyPath}
           className={menuItemClass}
         >
@@ -191,6 +207,8 @@ export const ProjectContextMenu: React.FC<ProjectContextMenuProps> = ({
 
         {/* Hide/Unhide option */}
         <button
+          type="button"
+          role="menuitem"
           onClick={handleHideClick}
           className={menuItemClass}
         >

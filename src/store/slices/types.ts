@@ -210,7 +210,12 @@ export interface AppStoreState {
   // Panel layout state (explorer / sessions pane collapse, focus mode)
   isExplorerCollapsed: boolean;
   isSessionsPaneCollapsed: boolean;
-  focusModeSnapshot: import("./layoutSlice").PanelLayoutSnapshot | null;
+  isReadingMode: boolean;
+  readingRestoreDock: boolean;
+  readingProfile: import("./layoutSlice").ReadingProfile;
+  hoverReveal: import("./layoutSlice").HoverRevealSetting;
+  revealed: import("./layoutSlice").RevealedPanel | null;
+  layoutAnnouncement: import("./layoutSlice").LayoutAnnouncement | null;
 
   // Recent Edits panel state
   recentEditsMode: import('./recentEditsPanelSlice').RecentEditsMode;
@@ -439,7 +444,17 @@ export interface AppStoreActions {
   setExplorerCollapsed: (collapsed: boolean) => void;
   toggleSessionsPaneCollapsed: () => void;
   setSessionsPaneCollapsed: (collapsed: boolean) => void;
-  toggleFocusMode: () => void;
+  toggleReadingMode: () => void;
+  setReadingPin: (group: import("./layoutSlice").PanelGroup, pinned: boolean) => void;
+  revealPanel: (
+    group: import("./layoutSlice").PanelGroup,
+    source: import("./layoutSlice").RevealSource,
+    quick?: boolean
+  ) => boolean;
+  concealPanel: (group?: import("./layoutSlice").PanelGroup) => void;
+  setHoverReveal: (value: import("./layoutSlice").HoverRevealSetting) => void;
+  announceLayout: (text: string) => void;
+  clearLayoutAnnouncement: (id: number) => void;
 
   // Recent Edits panel actions
   setRecentEditsMode: (mode: import('./recentEditsPanelSlice').RecentEditsMode) => void;
