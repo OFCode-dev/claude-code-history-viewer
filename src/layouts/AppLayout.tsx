@@ -44,6 +44,7 @@ import { supportsSessionBoard } from "@/layouts/sessionBoard";
 import { effectiveGroupMode } from "@/store/slices/layoutSlice";
 import { AutoHideRegion } from "@/components/AutoHide/AutoHideRegion";
 import { PinToggle } from "@/components/AutoHide/PinToggle";
+import { PromptSeekButtons } from "@/components/PromptSeek/PromptSeekButtons";
 import { panelShortcut } from "@/components/AutoHide/shortcuts";
 import { useAutoHidePanel } from "@/components/AutoHide/useAutoHidePanel";
 import {
@@ -923,6 +924,7 @@ export const AppLayout: React.FC<AppLayoutProps> = (props) => {
                     label={t("readingMode.group.right")}
                     shortcut={panelShortcut("right")}
                     overlayWidth={rightMode === "autohide" ? rightOverlayWidth : undefined}
+                    gutterAccessory={<PromptSeekButtons variant="gutter" />}
                   >
                     <div className="hidden md:block">
                       <MessageNavigator
@@ -937,6 +939,9 @@ export const AppLayout: React.FC<AppLayoutProps> = (props) => {
                         headerAccessory={
                           rightMode === "normal" ? undefined : <PinToggle group="right" />
                         }
+                        // Auto-hidden, the gutter under the handle carries them;
+                        // on phones, the navigator button does.
+                        showPromptSeek={rightMode !== "autohide" && !isMobile}
                         asideId="message-navigator"
                       />
                     </div>
