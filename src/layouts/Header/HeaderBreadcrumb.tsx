@@ -198,8 +198,8 @@ export function HeaderBreadcrumb({ project, onShowTranscript }: HeaderBreadcrumb
   const reveal = (path: string, source: "click" | "keyboard") => {
     if (!canReveal) return;
     if (leftMode === "autohide") {
-      revealingIntoOverlayRef.current = true;
-      revealPanel("left", source);
+      // The explorer reveal focuses the row; the overlay must not race it.
+      revealPanel("left", source, { focus: "none" });
     } else if (leftMode === "normal") {
       // A reveal into a folded explorer would be invisible, so unfold it first.
       setExplorerCollapsed(false);
@@ -343,7 +343,12 @@ export function HeaderBreadcrumb({ project, onShowTranscript }: HeaderBreadcrumb
                 {hidden.map((crumb) => (
                   <DropdownMenuItem
                     key={crumb.path}
-                    onSelect={() => reveal(crumb.path, "keyboard")}
+                    // onClick, not onSelect: its `detail` tells a mouse pick
+                    // (click lifetime) from Enter or Space (keyboard).
+                    onClick={(event) => {
+                      revealingIntoOverlayRef.current = leftMode === "autohide";
+                      reveal(crumb.path, event.detail > 0 ? "click" : "keyboard");
+                    }}
                     title={t("header.breadcrumb.reveal", { path: crumb.path })}
                   >
                     {crumb.label}

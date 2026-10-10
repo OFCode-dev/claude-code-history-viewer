@@ -158,7 +158,8 @@ export function getConversationSearchInput(): HTMLInputElement | null {
 export function revealPanel(
   group: PanelGroup,
   source: RevealSource,
-  options: { focus?: PanelFocusTarget; quick?: boolean } = {}
+  /** `focus: "none"`: the caller moves focus itself (the breadcrumb's explorer reveal). */
+  options: { focus?: PanelFocusTarget | "none"; quick?: boolean } = {}
 ): boolean {
   const store = useAppStore.getState();
   const current = store.revealed;
@@ -173,8 +174,8 @@ export function revealPanel(
   if (source === "keyboard") rememberReturnTarget(group);
   if (!store.revealPanel(group, source, options.quick ?? false)) return false;
 
-  const focusTarget = options.focus ?? (source === "keyboard" ? "primary" : null);
-  if (focusTarget) {
+  const focusTarget = options.focus ?? (source === "keyboard" ? "primary" : "none");
+  if (focusTarget !== "none") {
     // After React has committed the overlay without `inert`.
     requestAnimationFrame(() => focusInPanel(group, focusTarget));
   }

@@ -301,7 +301,14 @@ describe("AutoHideRegion: gutter, wheel and clearance", () => {
     button.matches = (selector: string) => selector === ":focus-visible" || matches(selector);
     act(() => button.focus());
     expect(screen.getByRole("tooltip")).toBeInTheDocument();
-    fireEvent.pointerLeave(button);
+    // jsdom has no PointerEvent; Radix reads the leave coordinates.
+    const original = window.PointerEvent;
+    window.PointerEvent = class extends MouseEvent {} as unknown as typeof PointerEvent;
+    try {
+      fireEvent.pointerLeave(button, { clientX: 5, clientY: 5 });
+    } finally {
+      window.PointerEvent = original;
+    }
     expect(screen.getByRole("tooltip")).toBeInTheDocument();
   });
 });

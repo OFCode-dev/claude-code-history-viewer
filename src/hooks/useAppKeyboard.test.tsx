@@ -217,6 +217,24 @@ describe("Mod+Shift+E: explorer and sessions", () => {
     expect(document.activeElement).toBe(getByText("selected project"));
   });
 
+  it("also unfolds the sessions rail that holds the selected session", () => {
+    useAppStore.setState({
+      isExplorerCollapsed: true,
+      isSessionsPaneCollapsed: true,
+      selectedSession: { session_id: "s1" } as never,
+    });
+    renderHook(() => useAppKeyboard());
+    render(
+      <>
+        <Layout />
+        <aside id="sessions-pane" />
+      </>,
+    );
+    ctrlShift("E");
+    expect(useAppStore.getState().isExplorerCollapsed).toBe(false);
+    expect(useAppStore.getState().isSessionsPaneCollapsed).toBe(false);
+  });
+
   it("falls back to the physical key on a non-Latin layout", () => {
     enterReadingMode();
     renderHook(() => useAppKeyboard());
@@ -272,6 +290,13 @@ describe("Mod+Shift+M: prompts", () => {
     render(<Layout withRight={false} />);
     ctrlShift("M");
     expect(useAppStore.getState().revealed).toBeNull();
+    expect(useAppStore.getState().isNavigatorOpen).toBe(true);
+  });
+
+  it("below 768 px swallows the chord (browser profile menu) and changes nothing", () => {
+    platform.isMobile = true;
+    renderHook(() => useAppKeyboard());
+    expect(ctrlShift("M").defaultPrevented).toBe(true);
     expect(useAppStore.getState().isNavigatorOpen).toBe(true);
   });
 

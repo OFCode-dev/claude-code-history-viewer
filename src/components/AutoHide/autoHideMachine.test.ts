@@ -688,6 +688,22 @@ describe("autoHideMachine: light dismiss", () => {
     expect(m.hides()).toEqual([{ type: "hide", group: "left", reason: "dismiss", focus: "none" }]);
   });
 
+  it("while a menu of the panel is open, the outside click only closes the menu", () => {
+    const m = harness();
+    m.warmUp();
+    m.open("left", "click", 1000);
+    m.at(1050, { type: "holdChange", group: "left", count: 1 });
+    const down = m.at(1100, { type: "pointerDown", pointerId: 1, kind: "mouse", inside: null, swallowable: true });
+    expect(down).toHaveLength(0);
+    m.at(1150, { type: "pointerUp", pointerId: 1, inside: null });
+    expect(m.hides()).toHaveLength(0);
+    // Menu gone: the next outside click dismisses as usual.
+    m.at(1200, { type: "holdChange", group: "left", count: 0 });
+    m.at(1300, { type: "pointerDown", pointerId: 2, kind: "mouse", inside: null, swallowable: false });
+    m.at(1350, { type: "pointerUp", pointerId: 2, inside: null });
+    expect(m.hides()).toEqual([{ type: "hide", group: "left", reason: "dismiss", focus: "none" }]);
+  });
+
   it("a press that comes back inside does not dismiss", () => {
     const m = harness();
     m.warmUp();

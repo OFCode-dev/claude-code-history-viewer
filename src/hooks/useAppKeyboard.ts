@@ -46,6 +46,20 @@ function shouldPassFindToBrowser(input: HTMLInputElement, target: EventTarget | 
   return value === "" || (selectionStart === 0 && selectionEnd === value.length);
 }
 
+/**
+ * Normal layout: unfold whichever rail holds the target of Mod+Shift+E, the
+ * explorer and, when a session is selected and the sessions pane is shown,
+ * that pane (the selected session row lives there).
+ */
+function unfoldLeftRails(): void {
+  const state = useAppStore.getState();
+  if (state.isExplorerCollapsed) state.setExplorerCollapsed(false);
+  const sessionsPaneShown = document.getElementById("sessions-pane") != null;
+  if (state.selectedSession && sessionsPaneShown && state.isSessionsPaneCollapsed) {
+    state.setSessionsPaneCollapsed(false);
+  }
+}
+
 /** After the layout has rendered (a rail may first have to unfold). */
 function afterRender(callback: () => void): void {
   requestAnimationFrame(() => requestAnimationFrame(callback));
@@ -74,8 +88,12 @@ export function useAppKeyboard() {
 
   useEffect(() => {
     const handlePanelShortcut = (e: KeyboardEvent): boolean => {
-      if (isMobile || isInDialogOrMenu(e.target)) return false;
       const letter = keyLetter(e);
+      if (isMobile) {
+        // No side panels below 768 px; still keep Chrome's profile menu shut.
+        return isModChord(e) && e.shiftKey && letter === "m";
+      }
+      if (isInDialogOrMenu(e.target)) return false;
       const state = useAppStore.getState();
 
       if (isModChord(e) && e.shiftKey) {
@@ -90,7 +108,7 @@ export function useAppKeyboard() {
           if (mode === "autohide") {
             togglePanel("left", "keyboard");
           } else {
-            if (mode === "normal" && state.isExplorerCollapsed) state.setExplorerCollapsed(false);
+            if (mode === "normal") unfoldLeftRails();
             afterRender(() => focusGroupPrimary("left"));
           }
           return true;

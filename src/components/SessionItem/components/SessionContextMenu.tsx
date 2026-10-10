@@ -80,10 +80,12 @@ export const SessionContextMenu: React.FC<SessionContextMenuProps> = ({
     };
 
     document.addEventListener("mousedown", handleClickOutside);
-    document.addEventListener("keydown", handleEscape);
+    // Capture phase: the menu answers Esc before selection mode even when it
+    // opened later (spec §4.3, one layer per press).
+    document.addEventListener("keydown", handleEscape, true);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("keydown", handleEscape);
+      document.removeEventListener("keydown", handleEscape, true);
     };
   }, [onClose]);
 

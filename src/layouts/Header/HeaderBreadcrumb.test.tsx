@@ -13,6 +13,8 @@ const { store, platform, menu } = vi.hoisted(() => ({
     requestExplorerReveal: vi.fn(),
     setExplorerCollapsed: vi.fn(),
     navigateBackToParent: vi.fn<(levels?: number) => Promise<void>>(async () => {}),
+    isReadingMode: false,
+    readingProfile: { left: "autohide", right: "autohide", top: "autohide" },
   },
   platform: { isMobile: false },
   menu: { onCloseAutoFocus: undefined as undefined | ((event: Event) => void) },
@@ -21,6 +23,9 @@ const { store, platform, menu } = vi.hoisted(() => ({
 vi.mock("@/contexts/platform", () => ({
   usePlatform: () => platform,
 }));
+
+const { revealPanel } = vi.hoisted(() => ({ revealPanel: vi.fn(() => true) }));
+vi.mock("@/components/AutoHide/panelActions", () => ({ revealPanel }));
 
 vi.mock("@/store/useAppStore", () => ({
   useAppStore: (selector: (state: typeof store) => unknown) => selector(store),
@@ -48,8 +53,18 @@ vi.mock("@/components/ui/dropdown-menu", () => ({
   DropdownMenuItem: ({
     children,
     onSelect,
-  }: React.PropsWithChildren<{ onSelect?: () => void }>) => (
-    <button type="button" onClick={onSelect}>
+    onClick,
+  }: React.PropsWithChildren<{
+    onSelect?: () => void;
+    onClick?: (event: React.MouseEvent) => void;
+  }>) => (
+    <button
+      type="button"
+      onClick={(event) => {
+        onClick?.(event);
+        onSelect?.();
+      }}
+    >
       {children}
     </button>
   ),
@@ -114,6 +129,7 @@ describe("HeaderBreadcrumb", () => {
     store.parentSessionStack = [];
     store.subagentSessions = [];
     store.userMetadata = { sessions: {} };
+    store.isReadingMode = false;
     platform.isMobile = false;
     menu.onCloseAutoFocus = undefined;
     store.requestExplorerReveal.mockClear();
@@ -282,6 +298,32 @@ describe("HeaderBreadcrumb", () => {
     } finally {
       explorer.remove();
     }
+  });
+
+  it("reveals into the reading-mode overlay without stealing the explorer's focus", () => {
+    store.isReadingMode = true;
+    render(<HeaderBreadcrumb project={project} />);
+    fireEvent.click(screen.getByRole("button", { name: "api" }), { detail: 1 });
+    expect(revealPanel).toHaveBeenLastCalledWith("left", "click", { focus: "none" });
+    expect(store.setExplorerCollapsed).not.toHaveBeenCalled();
+    expect(store.requestExplorerReveal).toHaveBeenCalledWith("/home/me/work/acme/api");
+  });
+
+  it("a click on a visible crumb does not stop the menu from returning focus later", async () => {
+    store.isReadingMode = true;
+    vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(450);
+    vi.spyOn(HTMLElement.prototype, "scrollWidth", "get").mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      return this.querySelectorAll("li").length * 100;
+    });
+    render(<HeaderBreadcrumb project={{ ...project, actual_path: "/home/me/a/b/c/d/api" }} />);
+    await waitFor(() => expect(menu.onCloseAutoFocus).toBeDefined());
+
+    screen.getByRole("button", { name: "api" }).click();
+    const closed = new Event("focusout", { cancelable: true });
+    menu.onCloseAutoFocus?.(closed);
+    expect(closed.defaultPrevented).toBe(false);
   });
 
   it("folds middle directories into a menu when the trail does not fit", async () => {

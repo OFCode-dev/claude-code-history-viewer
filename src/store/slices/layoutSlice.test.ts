@@ -278,6 +278,14 @@ describe("layoutSlice", () => {
       expect(store.getState().revealed?.group).toBe("left");
     });
 
+    it("never lets a hover downgrade the source of the open overlay", () => {
+      const store = makeStore();
+      store.getState().toggleReadingMode();
+      store.getState().revealPanel("left", "sticky");
+      expect(store.getState().revealPanel("left", "hover")).toBe(true);
+      expect(store.getState().revealed).toMatchObject({ group: "left", source: "sticky" });
+    });
+
     it("conceals only the named group", () => {
       const store = makeStore();
       store.getState().toggleReadingMode();

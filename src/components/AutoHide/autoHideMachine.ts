@@ -515,7 +515,10 @@ export function stepAutoHide(previous: AutoHideState, event: AutoHideEvent): Aut
       state.recheckPending = false;
       const open = state.open;
       state.pressInside = open != null && event.inside === open.group;
-      if (open && event.inside !== open.group) {
+      // With a menu of the panel open, an outside press only closes the
+      // menu (its own outside-click handling must see the press).
+      const layerOpen = open != null && state.ownedLayers[open.group] > 0;
+      if (open && event.inside !== open.group && !layerOpen) {
         state.dismiss = { pointerId: event.pointerId, swallowed: event.swallowable };
         if (event.swallowable) step.effects.push({ type: "swallow" });
       } else {

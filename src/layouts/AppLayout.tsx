@@ -39,7 +39,7 @@ import { useIsLgUp, useIsXlUp } from "@/hooks/useMediaQuery";
 import { useResizablePanel } from "@/hooks/useResizablePanel";
 import { SessionsPane } from "@/components/SessionsPane/SessionsPane";
 import { formatTimeAgo } from "@/utils/time";
-import { focusMainContentIfLost } from "@/utils/focus";
+import { useStatusRegionText } from "@/hooks/useStatusRegionText";
 import { supportsSessionBoard } from "@/layouts/sessionBoard";
 import { effectiveGroupMode } from "@/store/slices/layoutSlice";
 import { AutoHideRegion } from "@/components/AutoHide/AutoHideRegion";
@@ -305,14 +305,6 @@ export const AppLayout: React.FC<AppLayoutProps> = (props) => {
     concealAfterSessionChosen();
   };
 
-  // Below 768 px the drawers take over: no overlay stays open.
-  useEffect(() => {
-    if (!isMobile) return;
-    useAppStore.getState().concealPanel();
-    const frame = requestAnimationFrame(focusMainContentIfLost);
-    return () => cancelAnimationFrame(frame);
-  }, [isMobile]);
-
   // Layout announcements share the status region, then make way again.
   useEffect(() => {
     if (!layoutAnnouncement) return;
@@ -320,6 +312,7 @@ export const AppLayout: React.FC<AppLayoutProps> = (props) => {
     const timer = window.setTimeout(() => clearLayoutAnnouncement(id), 6000);
     return () => window.clearTimeout(timer);
   }, [layoutAnnouncement, clearLayoutAnnouncement]);
+  const statusRegionText = useStatusRegionText(liveStatusMessage, layoutAnnouncement);
 
   const recentEditsDockStats = useAppStore((s) => s.recentEditsDock);
   const setRecentEditsMode = useAppStore((s) => s.setRecentEditsMode);
@@ -1040,7 +1033,7 @@ export const AppLayout: React.FC<AppLayoutProps> = (props) => {
           aria-live="polite"
           aria-atomic="true"
         >
-          {layoutAnnouncement?.text || liveStatusMessage}
+          {statusRegionText}
         </div>
 
         {/* Update Manager (desktop only) */}

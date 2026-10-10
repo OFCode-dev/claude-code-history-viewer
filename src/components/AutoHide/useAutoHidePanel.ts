@@ -13,6 +13,7 @@ import { useEffect } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { PANEL_GROUPS, type PanelGroup, type RevealedPanel } from "@/store/slices/layoutSlice";
 import { isEditableTarget } from "@/utils/editableTarget";
+import { focusMainContentIfLost } from "@/utils/focus";
 import {
   createAutoHideState,
   stepAutoHide,
@@ -178,6 +179,10 @@ export class AutoHideController {
   private swallow: { target: Element; until: number } | null = null;
   private readonly debug = isDebugLogging();
   private opened: { group: PanelGroup; at: number; interacted: boolean } | null = null;
+  /** After stop() nothing may dispatch: late timers and microtasks are dropped. */
+  private stopped = false;
+  /** One refocus attempt per lost focus; a second miss clears the focus hold. */
+  private refocusTried = false;
 
   constructor() {
     this.state = createAutoHideState(useAppStore.getState().hoverReveal);
@@ -220,10 +225,18 @@ export class AutoHideController {
   }
 
   stop(): void {
+    this.stopped = true;
     for (const cleanup of this.cleanups.splice(0)) cleanup();
     if (this.timer != null) window.clearTimeout(this.timer);
     this.timer = null;
     this.layout.dispose();
+    // Auto-hide ends (reading mode off, or the window below 768 px): no
+    // overlay may stay open, or come back open, without it.
+    const { revealed } = useAppStore.getState();
+    if (!revealed) return;
+    concealPanel(revealed.group, "main");
+    // Below 768 px the panel itself may already be gone, focus with it.
+    focusMainContentIfLost();
   }
 
   private listen(
@@ -242,6 +255,7 @@ export class AutoHideController {
   // ---------------------------------------------------------------------------
 
   private dispatch(event: AutoHideEvent): AutoHideEffect[] {
+    if (this.stopped) return [];
     const result = stepAutoHide(this.state, event);
     this.state = result.state;
     // Scheduled first: an effect can dispatch again, and its wake-up is newer.
@@ -253,9 +267,10 @@ export class AutoHideController {
   private schedule(wakeAt: number | null): void {
     if (this.timer != null) window.clearTimeout(this.timer);
     this.timer = null;
-    if (wakeAt == null) return;
+    if (wakeAt == null || this.stopped) return;
     this.timer = window.setTimeout(() => {
       this.timer = null;
+      this.checkFocusAlive();
       this.dispatch({ type: "tick", now: now(), env: this.env() });
     }, Math.max(0, wakeAt - now()));
   }
@@ -366,6 +381,7 @@ export class AutoHideController {
     const kind = toPointerKind(event.pointerType);
     recordPointer(kind, kind === "pen" && event.buttons === 0);
     this.lastPointer = { x: event.clientX, y: event.clientY };
+    this.checkFocusAlive();
     const hit = this.hitTest(event.clientX, event.clientY, event.target);
     this.dispatch({
       type: "pointerMove",
@@ -380,6 +396,8 @@ export class AutoHideController {
   };
 
   private onPointerDown = (event: PointerEvent) => {
+    // A new press is never covered by an earlier swallow.
+    this.swallow = null;
     const kind = toPointerKind(event.pointerType);
     recordPointer(kind, this.state.pointer.penHovered);
     const hit = this.hitTest(event.clientX, event.clientY, event.target);
@@ -410,6 +428,7 @@ export class AutoHideController {
   };
 
   private onPointerCancel = () => {
+    this.swallow = null;
     this.dispatch({ type: "pointerCancel", now: now() });
   };
 
@@ -476,6 +495,7 @@ export class AutoHideController {
 
   private onKeyCapture = (event: KeyboardEvent) => {
     if (event.isComposing || MODIFIER_KEYS.has(event.key)) return;
+    this.checkFocusAlive();
     const open = this.state.open;
     if (open && groupContaining(document.activeElement) === open.group) this.noteInteraction();
     const navigation =
@@ -512,6 +532,7 @@ export class AutoHideController {
     const group = groupContaining(from);
     // Decided once the browser has settled where focus went.
     queueMicrotask(() => {
+      if (this.stopped) return;
       if (document.activeElement !== document.body && document.activeElement != null) return;
       const open = this.state.open;
       if (from && !from.isConnected && open && group === open.group) {
@@ -522,6 +543,29 @@ export class AutoHideController {
       this.dispatch({ type: "focusCleared", now: now() });
     });
   };
+
+  /**
+   * Fallback for engines that fire no focusout when the focused element is
+   * removed (WebKit, Firefox): focus still counted inside a panel while it
+   * actually sits on <body> refocuses the panel once, then stops holding.
+   */
+  private checkFocusAlive(): void {
+    const inside = this.state.focus.inside;
+    const active = document.activeElement;
+    const lost = active == null || active === document.body || !active.isConnected;
+    if (inside == null || !lost) {
+      this.refocusTried = false;
+      return;
+    }
+    const open = this.state.open;
+    if (open?.group === inside && !this.refocusTried) {
+      this.refocusTried = true;
+      this.dispatch({ type: "focusLost", now: now() });
+      focusInPanel(open.group, "primary");
+      return;
+    }
+    this.dispatch({ type: "focusCleared", now: now() });
+  }
 
   private onWindowBlur = () => {
     this.dispatch({ type: "blur", now: now() });

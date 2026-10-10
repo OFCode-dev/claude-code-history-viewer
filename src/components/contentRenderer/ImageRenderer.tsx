@@ -68,10 +68,10 @@ export const ImageRenderer: React.FC<ImageRendererProps> = ({
     const originalOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
 
-    document.addEventListener("keydown", handleKeyDown);
+    document.addEventListener("keydown", handleKeyDown, true);
 
     return () => {
-      document.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("keydown", handleKeyDown, true);
       document.body.style.overflow = originalOverflow;
     };
   }, [isModalOpen, closeModal]);

@@ -5,7 +5,6 @@ import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 
 import { cn } from "@/lib/utils";
 import { useAutoHideOwnerProps } from "@/components/AutoHide/autoHideHolds";
-import { AutoHideLayerHold } from "@/components/AutoHide/AutoHideHoldContext";
 
 function TooltipProvider({
   delayDuration = 0,
@@ -42,7 +41,9 @@ function TooltipContent({
   children,
   ...props
 }: React.ComponentProps<typeof TooltipPrimitive.Content>) {
-  // Shown for a control in an auto-hidden panel, it counts as part of the panel.
+  // Shown for a control in an auto-hidden panel, it counts as part of the
+  // panel for the pointer, but holds nothing open: a tooltip shown for
+  // keyboard focus must not keep a panel up after the pointer moves on.
   const ownerProps = useAutoHideOwnerProps();
   return (
     <TooltipPrimitive.Portal>
@@ -56,7 +57,6 @@ function TooltipContent({
         )}
         {...props}
       >
-        <AutoHideLayerHold />
         {children}
         <TooltipPrimitive.Arrow className="bg-primary fill-primary z-50 size-2.5 translate-y-[calc(-50%-2px)] rotate-45 rounded-[2px]" />
       </TooltipPrimitive.Content>

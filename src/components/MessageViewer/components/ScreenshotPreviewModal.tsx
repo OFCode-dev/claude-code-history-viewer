@@ -108,9 +108,9 @@ export function ScreenshotPreviewModal({
       : null;
     modalRef.current?.focus();
 
-    document.addEventListener("keydown", handleKeyDown);
+    document.addEventListener("keydown", handleKeyDown, true);
     return () => {
-      document.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("keydown", handleKeyDown, true);
       lastFocusedElementRef.current?.focus();
     };
   }, [onClose]);

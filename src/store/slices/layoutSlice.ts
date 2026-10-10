@@ -317,8 +317,9 @@ export const createLayoutSlice: StateCreator<
       const state = get();
       if (!state.isReadingMode || state.readingProfile[group] !== "autohide") return false;
       const current = state.revealed;
-      // Hover never evicts: the other overlay may be in active use.
-      if (source === "hover" && current != null && current.group !== group) return false;
+      // Hover never evicts (the other overlay may be in active use), and
+      // never downgrades how an open overlay was opened.
+      if (source === "hover" && current != null) return current.group === group;
       if (current?.group === group && current.source === source && !!current.quick === quick) {
         return true;
       }

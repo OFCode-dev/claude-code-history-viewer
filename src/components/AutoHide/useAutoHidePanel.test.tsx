@@ -143,6 +143,25 @@ describe("useAutoHidePanel: light dismiss", () => {
     expect(useAppStore.getState().revealed).toBeNull();
   });
 
+  it("a deliberate click right after a swallowed one goes through", () => {
+    renderHook(() => useAutoHidePanel(true));
+    const onTranscriptClick = vi.fn();
+    render(<Layout onTranscriptClick={onTranscriptClick} />);
+    openLeft();
+    const control = screen.getByRole("button", { name: "expand tool result" });
+    act(() => {
+      fireEvent.pointerDown(control, { pointerId: 1, pointerType: "touch", buttons: 1 });
+      fireEvent.pointerUp(control, { pointerId: 1, pointerType: "touch" });
+    });
+    // The tap produced no click (moved slightly); the next tap must work.
+    act(() => {
+      fireEvent.pointerDown(control, { pointerId: 2, pointerType: "touch", buttons: 1 });
+      fireEvent.pointerUp(control, { pointerId: 2, pointerType: "touch" });
+      fireEvent.click(control);
+    });
+    expect(onTranscriptClick).toHaveBeenCalledTimes(1);
+  });
+
   it("a press alone does nothing: the overlay closes on the up-event", () => {
     renderHook(() => useAutoHidePanel(true));
     render(<Layout />);
@@ -172,17 +191,63 @@ describe("useAutoHidePanel: focus", () => {
     expect(useAppStore.getState().revealed).toBeNull();
   });
 
-  it("stops when reading mode ends", () => {
+  it("closes an open overlay when it stops, with focus moved out first", () => {
     const { rerender } = renderHook(({ active }) => useAutoHidePanel(active), {
       initialProps: { active: true },
     });
     render(<Layout />);
     openLeft();
+    screen.getByRole("button", { name: "row" }).focus();
     rerender({ active: false });
+    expect(useAppStore.getState().revealed).toBeNull();
+    expect(document.activeElement?.id).toBe("main-content");
+    // Nothing listens any more.
+    act(() => {
+      revealPanel("left", "click");
+    });
     act(() => {
       pressEscape();
     });
-    // Nothing listens any more: the overlay is left to the store.
+    expect(useAppStore.getState().revealed?.group).toBe("left");
+  });
+
+  it("refocuses the panel when its focused element vanished without a focusout", () => {
+    let frames: FrameRequestCallback[] = [];
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+      frames.push(callback);
+      return frames.length;
+    });
+    renderHook(() => useAutoHidePanel(true));
+    function Panel({ showField }: { showField: boolean }) {
+      return (
+        <TooltipProvider>
+          <AutoHideRegion group="left" mode="autohide" label="Explorer and sessions" shortcut={panelShortcut("left")}>
+            <div role="treeitem" tabIndex={-1} aria-selected="true">selected row</div>
+            {showField && <input aria-label="rename" />}
+          </AutoHideRegion>
+          <main id="main-content" tabIndex={-1} />
+        </TooltipProvider>
+      );
+    }
+    const { rerender } = render(<Panel showField />);
+    openLeft();
+    act(() => screen.getByLabelText("rename").focus());
+    // WebKit-style removal: the element goes, no focusout reaches the adapter.
+    const field = screen.getByLabelText("rename");
+    const stop = (event: Event) => event.stopImmediatePropagation();
+    document.addEventListener("focusout", stop, true);
+    rerender(<Panel showField={false} />);
+    document.removeEventListener("focusout", stop, true);
+    expect(field.isConnected).toBe(false);
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "a", bubbles: true }));
+    });
+    act(() => {
+      const pending = frames;
+      frames = [];
+      pending.forEach((callback) => callback(0));
+    });
+    expect(document.activeElement).toBe(screen.getByRole("treeitem"));
     expect(useAppStore.getState().revealed?.group).toBe("left");
   });
 });

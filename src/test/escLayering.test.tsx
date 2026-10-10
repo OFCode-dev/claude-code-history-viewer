@@ -11,6 +11,7 @@ import { ExplorerSearch } from "@/components/ProjectTree/components/ExplorerSear
 import type { ExplorerFilters } from "@/components/ProjectTree/hooks/useExplorerFilters";
 import { AutoHideOwnerProvider } from "@/components/AutoHide/AutoHideHoldContext";
 import type { ClaudeProject } from "@/types";
+import { useAppStore } from "@/store/useAppStore";
 
 vi.mock("react-i18next", async (importOriginal) => ({
   ...(await importOriginal<typeof import("react-i18next")>()),
@@ -57,6 +58,29 @@ describe("custom layers claim Esc", () => {
     expect(event.defaultPrevented).toBe(true);
   });
 
+  it("answers before selection mode even when it opened later", () => {
+    // Selection mode registered first, in the bubble phase.
+    const exitSelection = vi.fn();
+    const selection = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      event.preventDefault();
+      exitSelection();
+    };
+    document.addEventListener("keydown", selection);
+    const onClose = vi.fn();
+    render(<Menu onClose={onClose} />);
+    escape(document.body);
+    document.removeEventListener("keydown", selection);
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(exitSelection).not.toHaveBeenCalled();
+  });
+
+  it("is a named menu for assistive technology", () => {
+    render(<Menu onClose={vi.fn()} />);
+    const menu = screen.getByRole("menu", { name: "demo" });
+    expect(menu.querySelectorAll('[role="menuitem"]').length).toBeGreaterThan(0);
+  });
+
   it("leaves a press another layer already claimed", () => {
     const onClose = vi.fn();
     render(<Menu onClose={onClose} />);
@@ -89,6 +113,21 @@ describe("explorer filter field", () => {
 
     rerender(<Field value="" onChange={onChange} inOverlay />);
     expect(fireEvent.keyDown(input, { key: "Escape" })).toBe(true);
+  });
+
+  it("with the panel pinned in reading mode: also clears and keeps focus", () => {
+    useAppStore.setState({ isReadingMode: true });
+    try {
+      const onChange = vi.fn();
+      render(<Field value="abc" onChange={onChange} inOverlay={false} />);
+      const input = screen.getByRole("textbox");
+      input.focus();
+      expect(fireEvent.keyDown(input, { key: "Escape" })).toBe(false);
+      expect(onChange).toHaveBeenCalledWith("");
+      expect(document.activeElement).toBe(input);
+    } finally {
+      useAppStore.setState({ isReadingMode: false });
+    }
   });
 
   it("in the normal layout: clears and leaves the field, as before", () => {
