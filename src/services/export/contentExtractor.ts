@@ -27,6 +27,13 @@ function summarizeInput(input: Record<string, unknown>): string {
   return parts.join(", ");
 }
 
+function describeCall(name: string, input: unknown): string {
+  const summary = typeof input === "object" && input != null
+    ? summarizeInput(input as Record<string, unknown>)
+    : "";
+  return summary ? `${name}(${summary})` : name;
+}
+
 function truncate(text: string, max: number): string {
   return text.length > max ? `${text.slice(0, max)}...` : text;
 }
@@ -70,11 +77,7 @@ export function extractBlocks(content: string | ContentItem[] | Record<string, u
 
       case "tool_use":
         if ("name" in raw && typeof raw.name === "string") {
-          const input = typeof raw.input === "object" && raw.input != null
-            ? summarizeInput(raw.input as Record<string, unknown>)
-            : "";
-          const detail = input ? `${raw.name}(${input})` : raw.name;
-          blocks.push({ kind: "tool", text: detail });
+          blocks.push({ kind: "tool", text: describeCall(raw.name, raw.input) });
         }
         break;
 
@@ -94,11 +97,7 @@ export function extractBlocks(content: string | ContentItem[] | Record<string, u
       // ServerToolUseContent: { name, input }
       case "server_tool_use":
         if (typeof raw.name === "string") {
-          const input = typeof raw.input === "object" && raw.input != null
-            ? summarizeInput(raw.input as Record<string, unknown>)
-            : "";
-          const detail = input ? `${raw.name}(${input})` : raw.name;
-          blocks.push({ kind: "tool", text: `[Server: ${detail}]` });
+          blocks.push({ kind: "tool", text: `[Server: ${describeCall(raw.name, raw.input)}]` });
         }
         break;
 
@@ -178,11 +177,7 @@ export function extractBlocks(content: string | ContentItem[] | Record<string, u
         const server = typeof raw.server_name === "string" ? raw.server_name : "";
         const tool = typeof raw.tool_name === "string" ? raw.tool_name : "";
         const name = server && tool ? `${server}.${tool}` : tool || server || "unknown";
-        const input = typeof raw.input === "object" && raw.input != null
-          ? summarizeInput(raw.input as Record<string, unknown>)
-          : "";
-        const detail = input ? `${name}(${input})` : name;
-        blocks.push({ kind: "tool", text: `[MCP: ${detail}]` });
+        blocks.push({ kind: "tool", text: `[MCP: ${describeCall(name, raw.input)}]` });
         break;
       }
 
@@ -268,4 +263,35 @@ export function filterBlocksByContentType(
  */
 export function blocksToPlainText(blocks: ExtractedBlock[]): string {
   return blocks.map((b) => b.text).join("\n\n");
+}
+
+export function formatTimestamp(timestamp: string): { date: string; time: string } {
+  const d = new Date(timestamp);
+  if (Number.isNaN(d.getTime())) return { date: timestamp, time: timestamp };
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return {
+    date: `${y}-${m}-${day}`,
+    time: d.toLocaleTimeString("en-US", { hour12: false }),
+  };
+}
+
+export function describeRange(messages: ClaudeMessage[]): string {
+  const firstTimestamp = messages[0]?.timestamp;
+  const lastTimestamp = messages[messages.length - 1]?.timestamp;
+  const start = firstTimestamp ? formatTimestamp(firstTimestamp) : null;
+  const end = lastTimestamp ? formatTimestamp(lastTimestamp) : null;
+  return start
+    ? end && end.date !== start.date
+      ? `${start.date} ${start.time} ~ ${end.date} ${end.time}`
+      : `${start.date}${end ? ` ~ ${end.time}` : ""}`
+    : "";
+}
+
+export function countRoles(messages: ClaudeMessage[]): { userCount: number; assistantCount: number } {
+  return {
+    userCount: messages.filter((m) => m.type === "user").length,
+    assistantCount: messages.filter((m) => m.type === "assistant").length,
+  };
 }

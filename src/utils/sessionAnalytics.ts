@@ -8,10 +8,8 @@ export interface SessionStats {
     shellCount: number;
     commitCount: number;
     errorCount: number;
-    filesTouched: Set<string>;
     hasMarkdownEdits: boolean; // New Flag
     markdownEditCount: number;
-    toolBreakdown: Record<string, number>;
     searchCount: number;
     webCount: number;
     mcpCount: number;
@@ -26,10 +24,8 @@ export function analyzeSessionMessages(messages: ClaudeMessage[]): SessionStats 
         shellCount: 0,
         commitCount: 0,
         errorCount: 0,
-        filesTouched: new Set(),
         hasMarkdownEdits: false,
         markdownEditCount: 0,
-        toolBreakdown: {},
         searchCount: 0,
         webCount: 0,
         mcpCount: 0,
@@ -65,9 +61,6 @@ export function analyzeSessionMessages(messages: ClaudeMessage[]): SessionStats 
             const tool = msg.toolUse;
             const name = (tool.name as string) || "";
             const input = (tool.input as Record<string, unknown>) || {};
-
-            // Track tool name in breakdown
-            stats.toolBreakdown[name] = (stats.toolBreakdown[name] || 0) + 1;
 
             // Use shared categorization logic to ensure alignment with visuals
             const variant = getToolVariant(name);
@@ -124,8 +117,6 @@ export function analyzeSessionMessages(messages: ClaudeMessage[]): SessionStats 
 
                 const path = input.path || input.file_path || input.TargetFile || input.key;
                 if (typeof path === 'string' && path.trim().length > 0) {
-                    stats.filesTouched.add(path);
-
                     // Markdown edit tracking
                     if (path.toLowerCase().endsWith('.md') || path.toLowerCase().endsWith('.markdown')) {
                         stats.hasMarkdownEdits = true;

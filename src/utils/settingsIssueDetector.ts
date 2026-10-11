@@ -44,12 +44,6 @@ interface AllSettingsRaw {
   local?: string | null;
 }
 
-interface MCPServersMap {
-  userClaudeJson?: Record<string, unknown> | null;
-  projectMcpFile?: Record<string, unknown> | null;
-  localClaudeJson?: Record<string, unknown> | null;
-}
-
 function parseScopeSettings(content: string | null | undefined): Record<string, unknown> | null {
   if (!content || content === "{}") return null;
   try {
@@ -236,7 +230,6 @@ const SEVERITY_ORDER: Record<IssueSeverity, number> = {
 
 export function detectSettingsIssues(
   allSettings: AllSettingsRaw | null,
-  _mcpServers: MCPServersMap | null,
   merged: MergedSettings | null
 ): SettingsIssue[] {
   const issues: SettingsIssue[] = [];

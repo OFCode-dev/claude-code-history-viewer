@@ -159,10 +159,8 @@ export const createBoardSlice: StateCreator<
                         fileEditCount: derivedStats.fileEditCount,
                         shellCount: derivedStats.shellCount,
                         commitCount: derivedStats.commitCount,
-                        filesTouchedCount: derivedStats.filesTouched.size,
                         hasMarkdownEdits: derivedStats.hasMarkdownEdits, // New Flag
                         markdownEditCount: derivedStats.markdownEditCount,
-                        toolBreakdown: derivedStats.toolBreakdown,
                         searchCount: derivedStats.searchCount,
                         webCount: derivedStats.webCount,
                         mcpCount: derivedStats.mcpCount,

@@ -37,14 +37,11 @@ export interface MessageNodeProps {
   currentMatchIndex?: number;
   // Agent task grouping
   agentTaskGroup?: AgentTask[];
-  isAgentTaskGroupMember?: boolean;
   // Agent progress grouping
   agentProgressGroup?: AgentProgressGroup;
-  isAgentProgressGroupMember?: boolean;
   // Task operation grouping
   taskOperationGroup?: TaskOperation[];
   taskRegistry?: Map<string, TaskInfo>;
-  isTaskOperationGroupMember?: boolean;
   /** Omit the role/time/model header (row continues the previous assistant turn). */
   hideHeader?: boolean;
   // Capture mode

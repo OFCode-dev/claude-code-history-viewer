@@ -20,9 +20,7 @@ export interface ResumeArgsValidationResult {
   isValid: boolean;
   tokens: string[];
   errorCode?: ResumeArgsErrorCode;
-  error?: string;
   errorParam?: string;
-  warning?: string;
   hasDangerousFlag: boolean;
 }
 
@@ -35,7 +33,6 @@ export function isDangerousArg(token: string): boolean {
   return (
     lower.startsWith("--dangerously-") ||
     lower.startsWith("-dangerously-") ||
-    lower === "--dangerously-skip-permissions" ||
     lower === "--no-verify" ||
     lower === "--no-permissions"
   );
@@ -77,7 +74,6 @@ export function parseResumeArgs(input: string): ResumeArgsValidationResult {
       isValid: false,
       tokens: [],
       errorCode: "metacharacters",
-      error: "Shell metacharacters (; & | $ ` < > \\ ! \" ' ( ) etc.) are not allowed.",
       hasDangerousFlag: false,
     };
   }
@@ -89,7 +85,6 @@ export function parseResumeArgs(input: string): ResumeArgsValidationResult {
       isValid: false,
       tokens: [],
       errorCode: "maxTokens",
-      error: "Maximum 32 extra arguments allowed.",
       hasDangerousFlag: false,
     };
   }
@@ -101,7 +96,6 @@ export function parseResumeArgs(input: string): ResumeArgsValidationResult {
         tokens: [],
         errorCode: "tokenTooLong",
         errorParam: token.slice(0, 20),
-        error: `Argument exceeds 128 characters: "${token.slice(0, 20)}..."`,
         hasDangerousFlag: false,
       };
     }
@@ -112,7 +106,6 @@ export function parseResumeArgs(input: string): ResumeArgsValidationResult {
         tokens: [],
         errorCode: "invalidCharacters",
         errorParam: token,
-        error: `Argument contains invalid characters: "${token}"`,
         hasDangerousFlag: false,
       };
     }
@@ -123,9 +116,6 @@ export function parseResumeArgs(input: string): ResumeArgsValidationResult {
   return {
     isValid: true,
     tokens: rawTokens,
-    warning: dangerous
-      ? "Warning: Flags like --dangerously-* disable permission checks."
-      : undefined,
     hasDangerousFlag: dangerous,
   };
 }

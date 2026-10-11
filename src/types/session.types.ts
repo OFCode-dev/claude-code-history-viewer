@@ -4,7 +4,7 @@
  * Project and session structures, app state, and search filters.
  */
 
-import type { ClaudeMessage, PaginationState } from "./message.types";
+import type { ClaudeMessage, PaginationState } from "./core/message";
 import type { SessionTokenStats } from "./stats.types";
 import type { AppError } from "./error.types";
 

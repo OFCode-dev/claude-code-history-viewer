@@ -34,10 +34,6 @@ import {
 import { getEffectiveContentTypes } from "../../../store/slices/filterSlice";
 import { extractClaudeMessageContent } from "../../../utils/messageUtils";
 import { isEmptyMessage } from "../helpers/messageHelpers";
-import {
-  isToolUseContent,
-  isToolResultContent,
-} from "../../../utils/typeGuards";
 import { isActionModifier } from "../../../utils/platform";
 import { MessageHeader } from "./MessageHeader";
 import { SummaryMessage } from "./SummaryMessage";
@@ -63,12 +59,9 @@ export const ClaudeMessageNode = React.memo(
     filterType = "content",
     currentMatchIndex,
     agentTaskGroup,
-    isAgentTaskGroupMember,
     agentProgressGroup,
-    isAgentProgressGroupMember,
     taskOperationGroup,
     taskRegistry,
-    isTaskOperationGroupMember,
     isCaptureMode,
     onHideMessage,
     isSelected,
@@ -135,37 +128,6 @@ export const ClaudeMessageNode = React.memo(
     const isInSubagent = parentSessionStack.length > 0;
     if (message.isSidechain && !isInSubagent) {
       return null;
-    }
-
-    // Render hidden placeholders for group members
-    if (isAgentTaskGroupMember) {
-      return (
-        <div
-          data-message-uuid={message.uuid}
-          className="hidden"
-          aria-hidden="true"
-        />
-      );
-    }
-
-    if (isAgentProgressGroupMember) {
-      return (
-        <div
-          data-message-uuid={message.uuid}
-          className="hidden"
-          aria-hidden="true"
-        />
-      );
-    }
-
-    if (isTaskOperationGroupMember) {
-      return (
-        <div
-          data-message-uuid={message.uuid}
-          className="hidden"
-          aria-hidden="true"
-        />
-      );
     }
 
     // Skip empty messages
@@ -459,7 +421,7 @@ export const ClaudeMessageNode = React.memo(
 
     const hasInlineToolResult =
       Array.isArray(message.content) &&
-      message.content.some(isToolResultContent);
+      message.content.some((item) => item.type === "tool_result");
     const shouldRenderLegacyToolResult =
       (message.type === "user" || message.type === "assistant") &&
       message.toolUseResult != null &&
@@ -544,7 +506,7 @@ export const ClaudeMessageNode = React.memo(
                 message.toolUse &&
                 !(
                   Array.isArray(message.content) &&
-                  message.content.some(isToolUseContent)
+                  message.content.some((item) => item.type === "tool_use")
                 ) && <ClaudeToolUseDisplay toolUse={message.toolUse} />}
 
               {(message.type !== "assistant" ||

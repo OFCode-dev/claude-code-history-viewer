@@ -45,14 +45,6 @@ export function isTemporaryPath(path: string | null | undefined): boolean {
   return TEMP_PATH_PATTERNS.some((pattern) => pattern.test(path));
 }
 
-/** Available project whose working directory is an OS scratch location. */
-export function isProjectTemporary(project: {
-  actual_path?: string;
-  path_status?: string;
-} | null | undefined): boolean {
-  return !isProjectPathUnavailable(project) && isTemporaryPath(project?.actual_path);
-}
-
 /**
  * Human label for a project row. Providers that name projects after the
  * encoded store directory (`-Users-jack-client-foo`) or an absolute path get
@@ -188,14 +180,6 @@ export function formatDisplayPath(path: string, homeDir: string | null): string 
 }
 
 /**
- * Format path with automatic home directory detection
- */
-export function formatPathWithTilde(path: string, allPaths?: string[]): string {
-  const homeDir = allPaths ? detectHomeDir(allPaths) : detectHomeDir([path]);
-  return formatDisplayPath(path, homeDir);
-}
-
-/**
  * Split a local filesystem path into non-empty parts.
  */
 export function splitPathParts(path: string): string[] {
@@ -304,40 +288,4 @@ export function elideProjectRoot(
   }
 
   return pathParts.slice(rootParts.length).join("/");
-}
-
-/**
- * Return user-facing path parts for compact sidebar display.
- */
-export function getDisplayPathParts(path: string): string[] {
-  const normalized = path.replace(/\\/g, "/");
-  const iCloudMarker = "/Library/Mobile Documents/com~apple~CloudDocs";
-  const iCloudIndex = normalized.indexOf(iCloudMarker);
-
-  if (iCloudIndex >= 0) {
-    const afterICloud = normalized.slice(iCloudIndex + iCloudMarker.length);
-    return ["iCloud Drive", ...splitPathParts(afterICloud)];
-  }
-
-  const normalizedHomeDir = detectHomeDir([path])?.replace(/\\+/g, "/");
-  if (normalizedHomeDir && normalized.startsWith(normalizedHomeDir)) {
-    const relativePath = normalized.slice(normalizedHomeDir.length);
-    return relativePath ? ["~", ...splitPathParts(relativePath)] : ["~"];
-  }
-
-  const withoutDrivePrefix = normalized.replace(/^[A-Za-z]:(?=\/|$)/, "");
-  return splitPathParts(withoutDrivePrefix);
-}
-
-/**
- * Return a short parent path suitable for secondary text under a leaf label.
- */
-export function getCompactParentPath(path: string, maxParts = 3): string {
-  const parts = getDisplayPathParts(path);
-  if (parts.length <= 1) return "";
-
-  const parentParts = parts.slice(0, -1);
-  const visibleParent = parentParts.slice(-maxParts).join(" / ");
-  const prefix = parentParts.length > maxParts ? "... / " : "";
-  return `${prefix}${visibleParent}`;
 }

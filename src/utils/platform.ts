@@ -227,7 +227,7 @@ export async function clearAuthCookie(): Promise<void> {
   }
 }
 
-export function getCookieValue(name: string): string | null {
+function getCookieValue(name: string): string | null {
   if (typeof document === "undefined") return null;
 
   const prefix = `${name}=`;

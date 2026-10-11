@@ -31,8 +31,6 @@ const mockStore = {
   setSelectedSession: vi.fn(),
   toggleProjectExpanded: vi.fn(),
   loadProjectSessions: vi.fn(),
-  getGroupedProjects: vi.fn(() => ({ groups: [], ungrouped: [] })),
-  getDirectoryGroupedProjects: vi.fn(() => ({ groups: [], ungrouped: [] })),
   updateUserSettings: vi.fn(),
 };
 
@@ -913,16 +911,6 @@ describe("ProjectTree user flow scenarios", () => {
 describe("ProjectTree edge cases", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-  });
-
-  it("should handle empty project list", () => {
-    mockStore.projects = [];
-    mockStore.getGroupedProjects.mockReturnValue({ groups: [], ungrouped: [] });
-
-    const result = mockStore.getGroupedProjects();
-
-    expect(result.groups).toHaveLength(0);
-    expect(result.ungrouped).toHaveLength(0);
   });
 
   it("should handle projects with same name in different directories", () => {

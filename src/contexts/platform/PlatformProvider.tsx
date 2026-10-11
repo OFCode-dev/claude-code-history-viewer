@@ -11,7 +11,6 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
     return {
       platform: (desktop ? "desktop" : "web") as PlatformType,
       isDesktop: desktop,
-      isWeb: !desktop,
     };
   }, []);
 

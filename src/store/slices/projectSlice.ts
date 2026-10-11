@@ -12,13 +12,7 @@ import type { StateCreator } from "zustand";
 import { toast } from "sonner";
 import i18n from "../../i18n";
 import type { FullAppStore } from "./types";
-import {
-  detectWorktreeGroupsHybrid,
-  groupProjectsByDirectory,
-  type WorktreeGroupingResult,
-  type DirectoryGroupingResult,
-} from "../../utils/worktreeUtils";
-import type { GroupingMode } from "../../types/metadata.types";
+import { detectWorktreeGroupsHybrid } from "../../utils/worktreeUtils";
 import {
   DEFAULT_PROVIDER_ID,
   getProviderId,
@@ -66,9 +60,6 @@ export interface ProjectSliceActions {
   setError: (error: AppError | null) => void;
   setSelectedSession: (session: ClaudeSession | null) => void;
   setSessions: (sessions: ClaudeSession[]) => void;
-  getGroupedProjects: () => WorktreeGroupingResult;
-  getDirectoryGroupedProjects: () => DirectoryGroupingResult;
-  getEffectiveGroupingMode: () => GroupingMode;
 }
 
 export type ProjectSlice = ProjectSliceState & ProjectSliceActions;
@@ -926,68 +917,5 @@ export const createProjectSlice: StateCreator<
       sessionsOffset: sessions.length,
       hasMoreSessions: false,
     });
-  },
-
-  getGroupedProjects: () => {
-    const { projects, userMetadata, isProjectHidden } = get();
-    const settings = userMetadata?.settings;
-
-    // Determine effective grouping mode (same logic as getEffectiveGroupingMode)
-    const effectiveMode = settings?.groupingMode ?? (settings?.worktreeGrouping ? "worktree" : "none");
-
-    // Filter out hidden projects first (use actual_path for pattern matching)
-    const visibleProjects = projects.filter((p) => !isProjectHidden(p.actual_path));
-
-    // Only group when worktree mode is active
-    if (effectiveMode !== "worktree") {
-      // When worktree grouping is disabled, return all visible projects as ungrouped
-      return { groups: [], ungrouped: visibleProjects };
-    }
-
-    // Use hybrid detection: git-based (100% accurate) + heuristic fallback
-    const result = detectWorktreeGroupsHybrid(visibleProjects);
-
-    // Filter hidden children from worktree groups
-    const filtered = result.groups.map((group) => ({
-      ...group,
-      children: group.children.filter((child) => !isProjectHidden(child.actual_path)),
-    }));
-
-    // Keep groups with visible children; rescue orphaned parents to ungrouped
-    // (only if the parent itself is not hidden)
-    result.groups = filtered.filter((group) => group.children.length > 0);
-    const orphanedParents = filtered
-      .filter((group) => group.children.length === 0)
-      .map((group) => group.parent)
-      .filter((parent) => !isProjectHidden(parent.actual_path));
-    result.ungrouped = [...result.ungrouped, ...orphanedParents];
-
-    return result;
-  },
-
-  getDirectoryGroupedProjects: () => {
-    const { projects, isProjectHidden } = get();
-
-    // Filter out hidden projects first (use actual_path for pattern matching)
-    const visibleProjects = projects.filter((p) => !isProjectHidden(p.actual_path));
-
-    return groupProjectsByDirectory(visibleProjects);
-  },
-
-  getEffectiveGroupingMode: (): GroupingMode => {
-    const { userMetadata } = get();
-    const settings = userMetadata?.settings;
-
-    // If explicit groupingMode is set, use it
-    if (settings?.groupingMode) {
-      return settings.groupingMode;
-    }
-
-    // Legacy: if worktreeGrouping is true, use "worktree" mode
-    if (settings?.worktreeGrouping) {
-      return "worktree";
-    }
-
-    return "none";
   },
 });

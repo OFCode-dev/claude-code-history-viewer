@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { useAppStore } from "./store/useAppStore";
-import { useAnalytics } from "./hooks/useAnalytics";
+import { useAnalytics } from "./hooks/analytics";
 import { useUpdater } from "./hooks/useUpdater";
 import { useResizablePanel } from "./hooks/useResizablePanel";
 import { useAppKeyboard } from "./hooks/useAppKeyboard";

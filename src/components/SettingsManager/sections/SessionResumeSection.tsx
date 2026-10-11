@@ -139,12 +139,6 @@ export function SessionResumeSection({
    */
   const getValidationErrorMessage = useCallback(
     (validation: ReturnType<typeof parseResumeArgs>) => {
-      if (!validation.errorCode) {
-        return (
-          validation.error ??
-          t("settings.sessionResume.errorInvalid", "Invalid CLI arguments")
-        );
-      }
       switch (validation.errorCode) {
         case "metacharacters":
           return t(
@@ -167,10 +161,7 @@ export function SessionResumeSection({
             param: validation.errorParam ?? "",
           });
         default:
-          return (
-            validation.error ??
-            t("settings.sessionResume.errorInvalid", "Invalid CLI arguments")
-          );
+          return t("settings.sessionResume.errorInvalid", "Invalid CLI arguments");
       }
     },
     [t]

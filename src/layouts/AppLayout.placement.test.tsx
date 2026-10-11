@@ -18,9 +18,8 @@ import { AppLayout, type AppLayoutProps } from "./AppLayout";
 import { MIN_TRANSCRIPT_WIDTH_PX } from "./fitPanels";
 
 vi.mock("@/contexts/platform", () => ({
-  usePlatform: () => ({ platform: "web", isDesktop: false, isWeb: true, isMobile: false }),
+  usePlatform: () => ({ platform: "web", isDesktop: false, isMobile: false }),
   DesktopOnly: () => null,
-  MobileOnly: () => null,
 }));
 vi.mock("@/components/MessageViewer", () => ({
   MessageViewer: () => <div data-testid="message-viewer">conversation</div>,
