@@ -590,6 +590,32 @@ pub fn is_symlink(path: &std::path::Path) -> bool {
         .unwrap_or(false)
 }
 
+/// Collapse whitespace and truncate to 80 chars (with a trailing `…`) for a
+/// session summary line.
+pub fn summarize_text(text: &str) -> String {
+    const MAX_CHARS: usize = 80;
+    let cleaned = text.split_whitespace().collect::<Vec<_>>().join(" ");
+    if cleaned.chars().count() > MAX_CHARS {
+        format!("{}…", cleaned.chars().take(MAX_CHARS).collect::<String>())
+    } else {
+        cleaned
+    }
+}
+
+/// Modification time of `path` as an RFC3339 string, or empty if unavailable.
+pub fn mtime_rfc3339(path: &std::path::Path) -> String {
+    std::fs::metadata(path)
+        .and_then(|m| m.modified())
+        .ok()
+        .and_then(|t| t.duration_since(std::time::SystemTime::UNIX_EPOCH).ok())
+        .map(|d| {
+            chrono::DateTime::from_timestamp(i64::try_from(d.as_secs()).unwrap_or(0), 0)
+                .unwrap_or_else(chrono::Utc::now)
+                .to_rfc3339()
+        })
+        .unwrap_or_default()
+}
+
 /// Convert milliseconds timestamp to ISO 8601 string
 pub fn ms_to_iso(ms: u64) -> String {
     chrono::DateTime::from_timestamp_millis(i64::try_from(ms).unwrap_or(0))

@@ -8,18 +8,17 @@ pub struct WslDistro {
     pub is_default: bool,
 }
 
-/// Convert Linux path to \\wsl.localhost\{distro}\{path}
-pub fn build_unc_path(distro: &str, linux_path: &Path) -> PathBuf {
+fn unc(prefix: &str, distro: &str, linux_path: &Path) -> PathBuf {
     let linux_str = linux_path.to_string_lossy().replace('/', "\\");
-    let linux_str = linux_str.trim_start_matches('\\').to_string();
-    PathBuf::from(format!(r"\\wsl.localhost\{distro}\{linux_str}"))
+    PathBuf::from(format!(
+        r"{prefix}\{distro}\{}",
+        linux_str.trim_start_matches('\\')
+    ))
 }
 
-/// Fallback: \\wsl$\{distro}\{path}
-pub fn build_unc_path_fallback(distro: &str, linux_path: &Path) -> PathBuf {
-    let linux_str = linux_path.to_string_lossy().replace('/', "\\");
-    let linux_str = linux_str.trim_start_matches('\\').to_string();
-    PathBuf::from(format!(r"\\wsl$\{distro}\{linux_str}"))
+/// Convert Linux path to \\wsl.localhost\{distro}\{path}
+pub fn build_unc_path(distro: &str, linux_path: &Path) -> PathBuf {
+    unc(r"\\wsl.localhost", distro, linux_path)
 }
 
 #[cfg(target_os = "windows")]
@@ -135,16 +134,14 @@ fn decode_utf16le(bytes: &[u8]) -> Result<String, String> {
         .map_err(|e| format!("UTF-16LE decode error: {e}"))
 }
 
+/// Try `\\wsl.localhost\...` first, then the legacy `\\wsl$\...` form.
 pub fn resolve_wsl_provider_path(distro: &str, linux_path: &Path) -> Option<PathBuf> {
-    let primary = build_unc_path(distro, linux_path);
-    if primary.exists() {
-        return Some(primary);
-    }
-    let fallback = build_unc_path_fallback(distro, linux_path);
-    if fallback.exists() {
-        return Some(fallback);
-    }
-    None
+    [
+        build_unc_path(distro, linux_path),
+        unc(r"\\wsl$", distro, linux_path),
+    ]
+    .into_iter()
+    .find(|candidate| candidate.exists())
 }
 
 #[cfg(test)]
@@ -162,7 +159,7 @@ mod tests {
 
     #[test]
     fn build_unc_path_fallback_uses_wsl_dollar() {
-        let result = build_unc_path_fallback("Debian", Path::new("/home/dev/.codex"));
+        let result = unc(r"\\wsl$", "Debian", Path::new("/home/dev/.codex"));
         assert_eq!(result, PathBuf::from(r"\\wsl$\Debian\home\dev\.codex"));
     }
 

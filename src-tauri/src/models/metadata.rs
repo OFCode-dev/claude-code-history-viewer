@@ -51,21 +51,6 @@ impl UserMetadata {
         self.sessions.get(session_id)
     }
 
-    /// Get mutable session metadata, creating if not exists
-    pub fn get_session_mut(&mut self, session_id: &str) -> &mut SessionMetadata {
-        self.sessions.entry(session_id.to_string()).or_default()
-    }
-
-    /// Get project metadata, returning None if not found
-    pub fn get_project(&self, project_path: &str) -> Option<&ProjectMetadata> {
-        self.projects.get(project_path)
-    }
-
-    /// Get mutable project metadata, creating if not exists
-    pub fn get_project_mut(&mut self, project_path: &str) -> &mut ProjectMetadata {
-        self.projects.entry(project_path.to_string()).or_default()
-    }
-
     /// Check if a project should be hidden based on settings
     pub fn is_project_hidden(&self, project_path: &str) -> bool {
         // Check explicit hidden flag
@@ -304,22 +289,9 @@ mod tests {
     }
 
     #[test]
-    fn test_get_session_mut_creates_entry() {
-        let mut metadata = UserMetadata::new();
-        let session = metadata.get_session_mut("test-session");
-        session.custom_name = Some("Test Name".to_string());
-
-        assert!(metadata.sessions.contains_key("test-session"));
-        assert_eq!(
-            metadata.sessions.get("test-session").unwrap().custom_name,
-            Some("Test Name".to_string())
-        );
-    }
-
-    #[test]
     fn test_is_project_hidden_explicit() {
         let mut metadata = UserMetadata::new();
-        let project = metadata.get_project_mut("my-project");
+        let project = metadata.projects.entry("my-project".into()).or_default();
         project.hidden = Some(true);
 
         assert!(metadata.is_project_hidden("my-project"));
@@ -365,12 +337,12 @@ mod tests {
     #[test]
     fn test_serialization_roundtrip() {
         let mut metadata = UserMetadata::new();
-        let session = metadata.get_session_mut("session-1");
+        let session = metadata.sessions.entry("session-1".into()).or_default();
         session.custom_name = Some("My Session".to_string());
         session.starred = Some(true);
         session.tags = vec!["work".to_string(), "important".to_string()];
 
-        let project = metadata.get_project_mut("my-project");
+        let project = metadata.projects.entry("my-project".into()).or_default();
         project.alias = Some("Main Project".to_string());
 
         let json = serde_json::to_string_pretty(&metadata).unwrap();

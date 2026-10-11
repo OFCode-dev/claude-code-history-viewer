@@ -164,33 +164,8 @@ pub fn validate_extra_args(args: &[String]) -> Result<Vec<String>, String> {
                 "CLI argument is too long (maximum 128 chars): '{trimmed}'"
             ));
         }
-        // Reject shell metacharacters, control characters, and quotes
-        if trimmed.chars().any(|c| {
-            matches!(
-                c,
-                ';' | '&'
-                    | '|'
-                    | '$'
-                    | '`'
-                    | '<'
-                    | '>'
-                    | '\\'
-                    | '!'
-                    | '"'
-                    | '\''
-                    | '('
-                    | ')'
-                    | '\n'
-                    | '\r'
-                    | '\t'
-                    | ' '
-            )
-        }) {
-            return Err(format!(
-                "CLI argument contains prohibited shell metacharacters: '{trimmed}'"
-            ));
-        }
-        // Validate charset: alphanumeric, '-', '_', '.', '=', '/', ':', ',', '+'
+        // Allowlist charset (also rejects shell metacharacters, control characters,
+        // quotes and whitespace): alphanumeric, '-', '_', '.', '=', '/', ':', ',', '+'
         if !trimmed.chars().all(|c| {
             c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.' | '=' | '/' | ':' | ',' | '+')
         }) {

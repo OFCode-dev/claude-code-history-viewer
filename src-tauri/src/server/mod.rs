@@ -796,7 +796,7 @@ mod tests {
     async fn test_restore_refuses_unrecorded_path_even_on_authenticated_loopback() {
         let _home = crate::test_utils::SandboxHome::new();
         let project = tempfile::tempdir().expect("project dir");
-        let state = state_with(true, Some("a-token"));
+        let state = test_state(Some("a-token"));
         let app = build_router(state, "127.0.0.1", 3728, None, "/");
 
         let body = serde_json::json!({
@@ -834,7 +834,7 @@ mod tests {
     #[serial]
     async fn test_restore_endpoint_refuses_a_path_outside_the_allowlist() {
         let _home = crate::test_utils::SandboxHome::new();
-        let state = state_with(false, None);
+        let state = test_state(None);
         let app = build_router(state, "127.0.0.1", 3727, None, "/");
 
         let project = tempfile::tempdir().expect("project dir");
@@ -868,7 +868,7 @@ mod tests {
 
     /// POST `body` to `/api/read_restore_target` on a fresh router.
     async fn post_read_restore_target(body: serde_json::Value) -> (StatusCode, String) {
-        let app = build_router(state_with(false, None), "127.0.0.1", 3729, None, "/");
+        let app = build_router(test_state(None), "127.0.0.1", 3729, None, "/");
         let response = app
             .oneshot(
                 Request::builder()
@@ -963,27 +963,11 @@ mod tests {
         assert!(!body.contains("do not leak"), "{body}");
     }
 
-    /// An `AppState` differing only in the two inputs the gate reads.
-    fn state_with(loopback_bind: bool, auth_token: Option<&str>) -> Arc<AppState> {
-        let state = test_state(auth_token);
-        let (event_tx, _rx) =
-            tokio::sync::broadcast::channel::<crate::commands::watcher::FileWatchEvent>(1);
-        Arc::new(AppState {
-            metadata: Arc::clone(&state.metadata),
-            start_time: state.start_time,
-            auth: state.auth.clone(),
-            read_only: state.read_only,
-            loopback_bind,
-            event_tx,
-        })
-    }
-
     fn test_state(auth_token: Option<&str>) -> Arc<AppState> {
         let (event_tx, _rx) =
             tokio::sync::broadcast::channel::<crate::commands::watcher::FileWatchEvent>(1);
         Arc::new(AppState {
             metadata: Arc::new(MetadataState::default()),
-            start_time: std::time::Instant::now(),
             auth: auth_token
                 .map(|token| AuthState::Token {
                     token: token.to_string(),
@@ -991,7 +975,6 @@ mod tests {
                 })
                 .unwrap_or(AuthState::Disabled),
             read_only: false,
-            loopback_bind: false,
             event_tx,
         })
     }
@@ -1002,14 +985,12 @@ mod tests {
         let password_hash = hash_password_argon2id("secret-password").unwrap();
         Arc::new(AppState {
             metadata: Arc::new(MetadataState::default()),
-            start_time: std::time::Instant::now(),
             auth: AuthState::Account(Arc::new(AccountAuth::new(
                 "admin".to_string(),
                 password_hash,
                 false,
             ))),
             read_only: false,
-            loopback_bind: false,
             event_tx,
         })
     }
@@ -1019,10 +1000,8 @@ mod tests {
             tokio::sync::broadcast::channel::<crate::commands::watcher::FileWatchEvent>(1);
         Arc::new(AppState {
             metadata: Arc::new(MetadataState::default()),
-            start_time: std::time::Instant::now(),
             auth: AuthState::Disabled,
             read_only: true,
-            loopback_bind: false,
             event_tx,
         })
     }

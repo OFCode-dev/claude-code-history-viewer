@@ -3,7 +3,7 @@
 use argon2::password_hash::SaltString;
 use argon2::{Algorithm, Argon2, Params, PasswordHash, PasswordHasher, PasswordVerifier, Version};
 use axum::http::{header, HeaderMap, Method, Request, StatusCode};
-use axum::response::{AppendHeaders, IntoResponse, Response};
+use axum::response::{IntoResponse, Response};
 use base64::Engine;
 use serde::Deserialize;
 use std::collections::HashMap;
@@ -124,11 +124,9 @@ impl AuthState {
                     || cookie_token(request.headers(), LEGACY_AUTH_COOKIE_NAME).is_some_and(
                         |candidate| constant_time_eq(candidate.as_bytes(), token.as_bytes()),
                     )
-                    || allow_query_token(request)
-                        .and_then(|candidate| {
-                            constant_time_eq(candidate.as_bytes(), token.as_bytes()).then_some(())
-                        })
-                        .is_some()
+                    || allow_query_token(request).is_some_and(|candidate| {
+                        constant_time_eq(candidate.as_bytes(), token.as_bytes())
+                    })
                 {
                     AuthenticatedRequest::Token
                 } else {
@@ -346,69 +344,44 @@ pub fn login_response(outcome: LoginOutcome, secure: bool) -> Response {
 
 pub fn clear_auth_cookies_response(secure: bool) -> Response {
     let secure = secure_attribute(secure);
-    (
-        StatusCode::NO_CONTENT,
-        AppendHeaders([
-            (
-                header::SET_COOKIE,
-                header_value(&format!(
-                    "{LEGACY_AUTH_COOKIE_NAME}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0{secure}"
-                )),
-            ),
-            (
-                header::SET_COOKIE,
-                header_value(&format!(
-                    "{SESSION_COOKIE_NAME}=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0{secure}"
-                )),
-            ),
-            (
-                header::SET_COOKIE,
-                header_value(&format!(
-                    "{CSRF_COOKIE_NAME}=; SameSite=Strict; Path=/; Max-Age=0{secure}"
-                )),
-            ),
-        ]),
-    )
-        .into_response()
+    cookies_response(&[
+        format!("{LEGACY_AUTH_COOKIE_NAME}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0{secure}"),
+        format!("{SESSION_COOKIE_NAME}=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0{secure}"),
+        format!("{CSRF_COOKIE_NAME}=; SameSite=Strict; Path=/; Max-Age=0{secure}"),
+    ])
 }
 
 fn token_cookie_response(token: &str, secure: bool) -> Response {
     let encoded = urlencoding::encode(token);
     let secure = secure_attribute(secure);
-    (
-        StatusCode::NO_CONTENT,
-        [(
-            header::SET_COOKIE,
-            header_value(&format!(
-                "{LEGACY_AUTH_COOKIE_NAME}={encoded}; HttpOnly; SameSite=Lax; Path=/; Max-Age={COOKIE_MAX_AGE_SECONDS}{secure}"
-            )),
-        )],
-    )
-        .into_response()
+    cookies_response(&[format!(
+        "{LEGACY_AUTH_COOKIE_NAME}={encoded}; HttpOnly; SameSite=Lax; Path=/; Max-Age={COOKIE_MAX_AGE_SECONDS}{secure}"
+    )])
 }
 
 fn session_cookie_response(session_id: &str, csrf_token: &str, secure: bool) -> Response {
     let session_id = urlencoding::encode(session_id);
     let csrf_token = urlencoding::encode(csrf_token);
     let secure = secure_attribute(secure);
-    (
-        StatusCode::NO_CONTENT,
-        AppendHeaders([
-            (
-                header::SET_COOKIE,
-                header_value(&format!(
-                    "{SESSION_COOKIE_NAME}={session_id}; HttpOnly; SameSite=Strict; Path=/; Max-Age={COOKIE_MAX_AGE_SECONDS}{secure}"
-                )),
-            ),
-            (
-                header::SET_COOKIE,
-                header_value(&format!(
-                    "{CSRF_COOKIE_NAME}={csrf_token}; SameSite=Strict; Path=/; Max-Age={COOKIE_MAX_AGE_SECONDS}{secure}"
-                )),
-            ),
-        ]),
-    )
-        .into_response()
+    cookies_response(&[
+        format!(
+            "{SESSION_COOKIE_NAME}={session_id}; HttpOnly; SameSite=Strict; Path=/; Max-Age={COOKIE_MAX_AGE_SECONDS}{secure}"
+        ),
+        format!(
+            "{CSRF_COOKIE_NAME}={csrf_token}; SameSite=Strict; Path=/; Max-Age={COOKIE_MAX_AGE_SECONDS}{secure}"
+        ),
+    ])
+}
+
+/// A `204 No Content` response carrying one `Set-Cookie` header per cookie.
+fn cookies_response(cookies: &[String]) -> Response {
+    let mut response = StatusCode::NO_CONTENT.into_response();
+    for cookie in cookies {
+        response
+            .headers_mut()
+            .append(header::SET_COOKIE, header_value(cookie));
+    }
+    response
 }
 
 fn header_value(value: &str) -> axum::http::HeaderValue {

@@ -1169,9 +1169,6 @@ pub async fn restore_file(
     project_path: String,
     session_file_path: Option<String>,
 ) -> Result<(), String> {
-    use std::fs;
-    use std::path::Path;
-
     // Runs before `create_dir_all` below, which is itself a write: an
     // unauthorised path must not leave directories behind.
     tauri::async_runtime::spawn_blocking({

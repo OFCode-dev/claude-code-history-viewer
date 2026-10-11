@@ -358,85 +358,6 @@ fn update_per_archive_manifest(
     atomic_write_string(per_manifest_path, &updated)
 }
 
-/// Counts the number of non-sidechain messages in a JSONL file.
-fn count_messages(path: &Path) -> usize {
-    let file = match fs::File::open(path) {
-        Ok(f) => f,
-        Err(_) => return 0,
-    };
-    let reader = BufReader::new(file);
-    let mut count = 0usize;
-    for line in reader.lines().map_while(Result::ok) {
-        if line.trim().is_empty() {
-            continue;
-        }
-        if let Ok(val) = serde_json::from_str::<serde_json::Value>(&line) {
-            let is_sidechain = val
-                .get("isSidechain")
-                .and_then(serde_json::Value::as_bool)
-                .unwrap_or(false);
-            if !is_sidechain {
-                count += 1;
-            }
-        }
-    }
-    count
-}
-
-/// Extracts the first and last timestamp from a JSONL file.
-/// Returns `(first, last)` as ISO 8601 strings, or empty strings if unavailable.
-#[cfg(test)]
-fn extract_timestamps(path: &Path) -> (String, String) {
-    let file = match fs::File::open(path) {
-        Ok(f) => f,
-        Err(_) => return (String::new(), String::new()),
-    };
-    let reader = BufReader::new(file);
-    let mut first: Option<String> = None;
-    let mut last: Option<String> = None;
-
-    for line in reader.lines().map_while(Result::ok) {
-        if line.trim().is_empty() {
-            continue;
-        }
-        if let Ok(val) = serde_json::from_str::<serde_json::Value>(&line) {
-            if let Some(ts) = val.get("timestamp").and_then(serde_json::Value::as_str) {
-                if first.is_none() {
-                    first = Some(ts.to_string());
-                }
-                last = Some(ts.to_string());
-            }
-        }
-    }
-
-    (first.unwrap_or_default(), last.unwrap_or_default())
-}
-
-/// Extracts the summary from a JSONL file (last `type: "summary"` entry).
-#[cfg(test)]
-fn extract_summary(path: &Path) -> Option<String> {
-    let file = fs::File::open(path).ok()?;
-    let reader = BufReader::new(file);
-    let mut summary: Option<String> = None;
-    for line in reader.lines().map_while(Result::ok) {
-        if line.trim().is_empty() {
-            continue;
-        }
-        if let Ok(val) = serde_json::from_str::<serde_json::Value>(&line) {
-            let msg_type = val
-                .get("type")
-                .and_then(serde_json::Value::as_str)
-                .unwrap_or("");
-            if msg_type == "summary" {
-                if let Some(s) = val.get("summary").and_then(serde_json::Value::as_str) {
-                    summary = Some(s.to_string());
-                }
-            }
-        }
-    }
-    summary
-}
-
 /// Extracts message count, timestamps, and summary in a single pass through the JSONL file.
 /// Returns `(message_count, first_timestamp, last_timestamp, summary)`.
 fn extract_session_metadata(path: &Path) -> (usize, String, String, Option<String>) {
@@ -1096,7 +1017,7 @@ pub async fn get_archive_sessions(archive_id: String) -> Result<Vec<ArchiveSessi
                         meta.get("messageCount")
                             .and_then(serde_json::Value::as_u64)
                             .map(|n| n as usize)
-                            .unwrap_or_else(|| count_messages(&path)),
+                            .unwrap_or_else(|| extract_session_metadata(&path).0),
                         meta.get("firstMessageTime")
                             .and_then(serde_json::Value::as_str)
                             .unwrap_or("")
@@ -1156,7 +1077,7 @@ pub async fn get_archive_sessions(archive_id: String) -> Result<Vec<ArchiveSessi
                                         .unwrap_or("")
                                         .to_string();
                                     let sa_size = sa_meta.len();
-                                    let sa_msg_count = count_messages(&sa_path);
+                                    let sa_msg_count = extract_session_metadata(&sa_path).0;
                                     total_sa_size += sa_size;
                                     sa_list.push(SubagentFileInfo {
                                         file_name: sa_file_name,
@@ -1686,7 +1607,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("empty.jsonl");
         fs::write(&path, "").unwrap();
-        assert_eq!(count_messages(&path), 0);
+        assert_eq!(extract_session_metadata(&path).0, 0);
     }
 
     #[test]
@@ -1700,33 +1621,7 @@ mod tests {
 "#;
         fs::write(&path, content).unwrap();
         // 2 non-sidechain messages
-        assert_eq!(count_messages(&path), 2);
-    }
-
-    #[test]
-    fn test_extract_timestamps() {
-        let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("session.jsonl");
-        let content = r#"{"type":"user","timestamp":"2026-01-01T10:00:00Z"}
-{"type":"assistant","timestamp":"2026-01-01T10:05:00Z"}
-{"type":"user","timestamp":"2026-01-01T10:10:00Z"}
-"#;
-        fs::write(&path, content).unwrap();
-        let (first, last) = extract_timestamps(&path);
-        assert_eq!(first, "2026-01-01T10:00:00Z");
-        assert_eq!(last, "2026-01-01T10:10:00Z");
-    }
-
-    #[test]
-    fn test_extract_summary() {
-        let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("session.jsonl");
-        let content = r#"{"type":"user","timestamp":"2026-01-01T10:00:00Z"}
-{"type":"summary","summary":"A great conversation"}
-"#;
-        fs::write(&path, content).unwrap();
-        let summary = extract_summary(&path);
-        assert_eq!(summary, Some("A great conversation".to_string()));
+        assert_eq!(extract_session_metadata(&path).0, 2);
     }
 
     #[test]
@@ -1739,18 +1634,10 @@ mod tests {
 {"type":"ai-title","aiTitle":"Second title","sessionId":"s1"}
 "#;
         fs::write(&path, content).unwrap();
-        let (_, _, _, summary) = extract_session_metadata(&path);
+        let (_, first, last, summary) = extract_session_metadata(&path);
+        assert_eq!(first, "2026-01-01T10:00:00Z");
+        assert_eq!(last, "2026-01-01T10:00:00Z");
         assert_eq!(summary, Some("Second title".to_string()));
-    }
-
-    #[test]
-    fn test_extract_summary_none() {
-        let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("no_summary.jsonl");
-        let content = r#"{"type":"user","timestamp":"2026-01-01T10:00:00Z"}
-"#;
-        fs::write(&path, content).unwrap();
-        assert_eq!(extract_summary(&path), None);
     }
 
     #[test]

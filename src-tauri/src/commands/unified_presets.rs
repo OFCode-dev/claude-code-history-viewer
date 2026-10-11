@@ -373,7 +373,6 @@ pub async fn save_unified_preset(input: UnifiedPresetInput) -> Result<UnifiedPre
 #[tauri::command]
 pub async fn delete_unified_preset(id: String) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || {
-        validate_preset_id(&id)?;
         let path = get_preset_path(&id)?;
 
         // Check path safety before deletion (symlink protection)
@@ -392,7 +391,6 @@ pub async fn delete_unified_preset(id: String) -> Result<(), String> {
 #[tauri::command]
 pub async fn get_unified_preset(id: String) -> Result<Option<UnifiedPresetData>, String> {
     tauri::async_runtime::spawn_blocking(move || {
-        validate_preset_id(&id)?;
         let path = get_preset_path(&id)?;
 
         // Check path safety before reading (symlink protection)

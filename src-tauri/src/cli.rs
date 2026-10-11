@@ -69,23 +69,14 @@ pub fn parse_session_hint(args: &[String]) -> Option<SessionHint> {
     if let Some(raw) = extract_flag_value(args, "--session") {
         return classify_session_value(raw);
     }
-    if let Some(raw) = extract_flag_value(args, "--session-folder") {
-        if raw.is_empty() {
-            return None;
+    for (flag, kind) in [
+        ("--session-folder", SessionHintKind::Folder),
+        ("--session-title", SessionHintKind::Title),
+    ] {
+        if let Some(value) = extract_flag_value(args, flag) {
+            // `--flag ""` yields Some(""); an empty hint stops the search.
+            return (!value.is_empty()).then_some(SessionHint { kind, value });
         }
-        return Some(SessionHint {
-            kind: SessionHintKind::Folder,
-            value: raw,
-        });
-    }
-    if let Some(raw) = extract_flag_value(args, "--session-title") {
-        if raw.is_empty() {
-            return None;
-        }
-        return Some(SessionHint {
-            kind: SessionHintKind::Title,
-            value: raw,
-        });
     }
     None
 }
@@ -150,7 +141,10 @@ pub fn parse_session_hint_from_url(url: &tauri::Url) -> Option<SessionHint> {
             if raw_path.is_empty() {
                 return None;
             }
-            let decoded = percent_decode(raw_path);
+            // `urlencoding` does not map `+` to a space (a form-encoding convention,
+            // not a path one) and we fall back to the raw input on invalid UTF-8.
+            let decoded = urlencoding::decode(raw_path)
+                .map_or_else(|_| raw_path.to_string(), std::borrow::Cow::into_owned);
             match host {
                 "session" => {
                     if is_uuid_like(&decoded) {
@@ -177,53 +171,12 @@ pub fn parse_session_hint_from_url(url: &tauri::Url) -> Option<SessionHint> {
     }
 }
 
-/// Percent-decode a URL path segment (handles `%xx` hex escapes only).
-///
-/// Does NOT convert `+` → space: that is a
-/// `application/x-www-form-urlencoded` convention for query strings and
-/// form bodies, not URL paths. A literal `+` in a path segment should stay a
-/// `+` — otherwise a session title containing `+` (e.g. "C++ bug") gets
-/// corrupted on the round-trip through a custom-scheme URL.
-///
-/// Decodes into `Vec<u8>` and then `String::from_utf8` so multi-byte UTF-8
-/// sequences (e.g. Korean / Japanese / Chinese titles) survive intact.
-/// Falls back to the raw input if the decoded bytes aren't valid UTF-8.
-fn percent_decode(input: &str) -> String {
-    let mut buf = Vec::with_capacity(input.len());
-    let bytes = input.as_bytes();
-    let mut i = 0;
-    while i < bytes.len() {
-        if bytes[i] == b'%' && i + 2 < bytes.len() {
-            if let Ok(byte) = u8::from_str_radix(&input[i + 1..i + 3], 16) {
-                buf.push(byte);
-                i += 3;
-                continue;
-            }
-        }
-        buf.push(bytes[i]);
-        i += 1;
-    }
-    String::from_utf8(buf).unwrap_or_else(|_| input.to_string())
-}
-
 /// Heuristic absolute-path detection that works on both Unix and Windows.
 /// Unix: starts with `/`. Windows: drive-letter prefix like `C:\` or `C:/` or UNC `\\`.
 fn looks_like_abs_path(value: &str) -> bool {
-    if value.starts_with('/') {
-        return true;
-    }
-    if value.starts_with("\\\\") {
-        return true; // UNC path
-    }
-    let bytes = value.as_bytes();
-    if bytes.len() >= 3
-        && bytes[0].is_ascii_alphabetic()
-        && bytes[1] == b':'
-        && (bytes[2] == b'\\' || bytes[2] == b'/')
-    {
-        return true; // Windows drive-letter path
-    }
-    false
+    value.starts_with('/')
+        || value.starts_with(r"\\")
+        || matches!(value.as_bytes(), [d, b':', b'\\' | b'/', ..] if d.is_ascii_alphabetic())
 }
 
 #[cfg(test)]

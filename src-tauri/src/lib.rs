@@ -460,13 +460,8 @@ fn run_server(args: &[String]) {
 
     let state = Arc::new(server::state::AppState {
         metadata,
-        start_time: std::time::Instant::now(),
         auth: resolved_auth.auth.clone(),
         read_only,
-        // Computed from the resolved bind host, the same predicate the auth
-        // startup checks use, so "is this machine talking to itself" has one
-        // definition in this binary rather than two.
-        loopback_bind: is_loopback_bind_host(&host),
         event_tx,
     });
 
@@ -628,12 +623,7 @@ fn resolve_auth(args: &[String]) -> Result<ResolvedAuth, String> {
         return Ok(account);
     }
 
-    let Some((token, source)) = resolve_auth_token(args) else {
-        return Ok(ResolvedAuth {
-            auth: server::auth::AuthState::Disabled,
-            startup: AuthStartup::Disabled,
-        });
-    };
+    let (token, source) = resolve_auth_token(args);
 
     Ok(ResolvedAuth {
         auth: server::auth::AuthState::Token {
@@ -875,19 +865,17 @@ fn is_weak_custom_token(token: &str, source: AuthTokenSource) -> bool {
 /// Resolve the authentication token from CLI arguments or environment.
 ///
 /// Priority:
-/// - `--no-auth` → `None` (auth disabled)
-/// - `--token <value>` → `Some(value)` (user-supplied via CLI)
-/// - `CCHV_TOKEN` env var → `Some(value)` (user-supplied via env, e.g. systemd)
-/// - otherwise → `Some(uuid-v4)` (auto-generated)
+/// - `--token <value>` → user-supplied via CLI
+/// - `CCHV_TOKEN` env var → user-supplied via env, e.g. systemd
+/// - otherwise → auto-generated uuid-v4
+///
+/// `--no-auth` is handled by the caller before this is reached.
 #[cfg(feature = "webui-server")]
-fn resolve_auth_token(args: &[String]) -> Option<(String, AuthTokenSource)> {
-    if args.iter().any(|a| a == "--no-auth") {
-        return None;
-    }
+fn resolve_auth_token(args: &[String]) -> (String, AuthTokenSource) {
     if let Some(token) = crate::cli_args::extract_flag_value(args, "--token") {
         let trimmed = token.trim();
         if !trimmed.is_empty() {
-            return Some((trimmed.to_string(), AuthTokenSource::Cli));
+            return (trimmed.to_string(), AuthTokenSource::Cli);
         }
         eprintln!("⚠ --token value is empty; falling back to auto-generated token");
     } else if crate::cli_args::has_explicit_empty_flag(args, "--token") {
@@ -899,10 +887,10 @@ fn resolve_auth_token(args: &[String]) -> Option<(String, AuthTokenSource)> {
     if let Ok(token) = std::env::var("CCHV_TOKEN") {
         let trimmed = token.trim();
         if !trimmed.is_empty() {
-            return Some((trimmed.to_string(), AuthTokenSource::Env));
+            return (trimmed.to_string(), AuthTokenSource::Env);
         }
     }
-    Some((uuid::Uuid::new_v4().to_string(), AuthTokenSource::Generated))
+    (uuid::Uuid::new_v4().to_string(), AuthTokenSource::Generated)
 }
 
 /// Persist auto-generated token to a local file instead of logging the full secret.

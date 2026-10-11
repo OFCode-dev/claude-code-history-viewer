@@ -193,8 +193,6 @@ fn validate_session_path(session_path: &Path, raw_session_path: &str) -> Result<
 pub(crate) struct SessionInfo {
     pub(crate) session_id: String,
     pub(crate) cwd: Option<String>,
-    #[allow(dead_code)]
-    pub(crate) model: Option<String>,
     pub(crate) message_count: usize,
     pub(crate) first_message_time: String,
     pub(crate) last_message_time: String,
@@ -382,7 +380,6 @@ pub fn load_messages(session_path: &str) -> Result<Vec<ClaudeMessage>, String> {
 /// base-path/scheme concerns so providers sharing the identical rollout format
 /// (e.g. Open Interpreter) can validate against their own root, call this, and
 /// re-tag the provider on the result.
-#[allow(unsafe_code)] // Required for mmap performance optimization
 pub(crate) fn parse_rollout_file(canonical_path: &Path) -> Result<Vec<ClaudeMessage>, String> {
     let mmap = read_rollout_bytes(canonical_path)?;
     let ranges = find_line_ranges(&mmap);
@@ -986,7 +983,6 @@ fn estimate_rollout_message_count(path: &Path) -> usize {
         .unwrap_or(0)
 }
 
-#[allow(unsafe_code)] // Required for mmap performance optimization
 pub(crate) fn extract_session_cwd(rollout_path: &Path) -> Result<Option<String>, String> {
     let mmap = read_rollout_bytes(rollout_path)?;
 
@@ -1080,7 +1076,6 @@ fn load_native_title_index(base_path: &str) -> HashMap<String, String> {
         .collect()
 }
 
-#[allow(unsafe_code)] // Required for mmap performance optimization
 pub(crate) fn extract_session_info(rollout_path: &Path) -> Result<SessionInfo, String> {
     let mmap = read_rollout_bytes(rollout_path)?;
     let ranges = find_line_ranges(&mmap);
@@ -1089,7 +1084,6 @@ pub(crate) fn extract_session_info(rollout_path: &Path) -> Result<SessionInfo, S
     let mut meta_seen = false;
     let mut cwd = None;
     let mut turn_context_cwd = None;
-    let mut model = None;
     let mut message_count = 0usize;
     let mut first_time = String::new();
     let mut last_time = String::new();
@@ -1128,12 +1122,6 @@ pub(crate) fn extract_session_info(rollout_path: &Path) -> Result<SessionInfo, S
             }
             "turn_context" => {
                 if let Some(payload) = val.get("payload") {
-                    if model.is_none() {
-                        model = payload
-                            .get("model")
-                            .and_then(|v| v.as_str())
-                            .map(String::from);
-                    }
                     // Last turn_context wins — the fallback cwd for
                     // rollouts without any session_meta (issue #451).
                     if let Some(tc_cwd) = payload.get("cwd").and_then(|v| v.as_str()) {
@@ -1214,7 +1202,6 @@ pub(crate) fn extract_session_info(rollout_path: &Path) -> Result<SessionInfo, S
     Ok(SessionInfo {
         session_id,
         cwd,
-        model,
         message_count,
         first_message_time: first_time,
         last_message_time: last_time,
