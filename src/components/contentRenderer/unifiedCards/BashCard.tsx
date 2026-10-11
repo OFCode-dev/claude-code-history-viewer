@@ -33,7 +33,19 @@ export const BashCard = memo(function BashCard({ toolUse, toolResults }: Props) 
         title={t("tools.terminal")}
         icon={<ToolIcon toolName="Bash" className={cn(layout.iconSize, styles.icon)} />}
         titleClassName={styles.title}
-        summary={summarizeToolInput(input)}
+        summaryTitle={description ? `${description}\n${command}` : undefined}
+        summary={
+          description ? (
+            <span className="flex items-center gap-2 min-w-0">
+              <span className="truncate text-foreground">{description}</span>
+              {command ? (
+                <span className={cn(layout.monoText, "truncate")}>{command}</span>
+              ) : null}
+            </span>
+          ) : (
+            summarizeToolInput(input)
+          )
+        }
         rightContent={
           <div className={cn("flex items-center gap-2", layout.smallText)}>
             {timeout != null && (

@@ -56,6 +56,44 @@ pub fn get_base_path() -> Option<String> {
     }
 }
 
+/// Build `tool_result` content for Codex `function_call_output` and `custom_tool_call_output` items.
+/// Sets `is_error: true` when the output parses as JSON and `metadata.exit_code` is non-zero.
+fn build_tool_result_content(item: &Value) -> Value {
+    let raw_output = item.get("output").cloned().unwrap_or(Value::Null);
+    let output = normalize_tool_output(raw_output.clone());
+    let call_id = item
+        .get("call_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+
+    let is_error = match &raw_output {
+        Value::String(s) => serde_json::from_str::<Value>(s).ok(),
+        Value::Object(_) => Some(raw_output),
+        _ => None,
+    }
+    .and_then(|v| {
+        v.get("metadata")
+            .and_then(|m| m.get("exit_code"))
+            .and_then(|ec| {
+                ec.as_i64()
+                    .map(|code| code != 0)
+                    .or_else(|| ec.as_f64().map(|code| code != 0.0))
+            })
+    })
+    .unwrap_or(false);
+
+    let mut result = serde_json::json!([{
+        "type": "tool_result",
+        "tool_use_id": call_id,
+        "content": output
+    }]);
+    if is_error {
+        result[0]["is_error"] = Value::Bool(true);
+    }
+    result
+}
+
 fn get_sessions_dir() -> Result<PathBuf, String> {
     let base_path = get_base_path().ok_or_else(|| "Codex not found".to_string())?;
     Ok(Path::new(&base_path).join("sessions"))
@@ -1352,20 +1390,8 @@ fn convert_codex_item(
                 model.cloned(),
             ))
         }
-        "function_call_output" => {
-            let output = item.get("output").cloned().unwrap_or(Value::Null);
-            let output = normalize_tool_output(output);
-            let call_id = item
-                .get("call_id")
-                .and_then(|v| v.as_str())
-                .unwrap_or("")
-                .to_string();
-
-            let content = serde_json::json!([{
-                "type": "tool_result",
-                "tool_use_id": call_id,
-                "content": output
-            }]);
+        "function_call_output" | "custom_tool_call_output" => {
+            let content = build_tool_result_content(item);
 
             Some(build_codex_message(
                 uuid,
@@ -1405,31 +1431,6 @@ fn convert_codex_item(
                 Some("assistant"),
                 Some(content),
                 model.cloned(),
-            ))
-        }
-        "custom_tool_call_output" => {
-            let output = item.get("output").cloned().unwrap_or(Value::Null);
-            let output = normalize_tool_output(output);
-            let call_id = item
-                .get("call_id")
-                .and_then(|v| v.as_str())
-                .unwrap_or("")
-                .to_string();
-
-            let content = serde_json::json!([{
-                "type": "tool_result",
-                "tool_use_id": call_id,
-                "content": output
-            }]);
-
-            Some(build_codex_message(
-                uuid,
-                session_id,
-                timestamp,
-                "user",
-                Some("user"),
-                Some(content),
-                None,
             ))
         }
         "web_search_call" => {
@@ -2298,6 +2299,88 @@ mod tests {
             arr[0].get("content").and_then(Value::as_str),
             Some("Success. Updated files")
         );
+    }
+
+    #[test]
+    fn convert_tool_call_output_exit_code_1_marks_error() {
+        for item_type in &["custom_tool_call_output", "function_call_output"] {
+            let mut counter = 0u64;
+            let msg = convert_codex_item(
+                &json!({
+                    "type": item_type,
+                    "call_id": "call_1",
+                    "output": "{\"output\":\"command failed\",\"metadata\":{\"exit_code\":1}}"
+                }),
+                "session-1",
+                None,
+                "2026-02-19T12:00:01Z",
+                &mut counter,
+            )
+            .expect("tool call output should be converted");
+
+            let arr = msg
+                .content
+                .as_ref()
+                .and_then(Value::as_array)
+                .expect("content should be an array");
+            assert_eq!(arr[0].get("is_error").and_then(Value::as_bool), Some(true));
+        }
+    }
+
+    #[test]
+    fn convert_tool_call_output_exit_code_0_no_error() {
+        for item_type in &["custom_tool_call_output", "function_call_output"] {
+            let mut counter = 0u64;
+            let msg = convert_codex_item(
+                &json!({
+                    "type": item_type,
+                    "call_id": "call_1",
+                    "output": "{\"output\":\"done\",\"metadata\":{\"exit_code\":0}}"
+                }),
+                "session-1",
+                None,
+                "2026-02-19T12:00:01Z",
+                &mut counter,
+            )
+            .expect("item should be converted");
+
+            let arr = msg
+                .content
+                .as_ref()
+                .and_then(Value::as_array)
+                .expect("content should be an array");
+            assert!(arr[0].get("is_error").is_none());
+        }
+    }
+
+    #[test]
+    fn convert_tool_call_output_plain_text_no_error() {
+        for item_type in &["custom_tool_call_output", "function_call_output"] {
+            let mut counter = 0u64;
+            let msg = convert_codex_item(
+                &json!({
+                    "type": item_type,
+                    "call_id": "call_1",
+                    "output": "plain text output"
+                }),
+                "session-1",
+                None,
+                "2026-02-19T12:00:01Z",
+                &mut counter,
+            )
+            .expect("item should be converted");
+
+            let arr = msg
+                .content
+                .as_ref()
+                .and_then(Value::as_array)
+                .expect("content should be an array");
+            assert_eq!(
+                arr[0].get("content").and_then(Value::as_str),
+                Some("plain text output")
+            );
+            assert!(arr[0].get("is_error").is_none());
+        }
     }
 
     #[test]
