@@ -13,6 +13,7 @@ import { useCaptureExpandState } from "@/contexts/CaptureExpandContext";
 import { CONVERSATION_CARD_WIDTH, JUSTIFIED_PROSE } from "./conversationLayout";
 import { getMessageCollapse } from "./messageCollapse";
 import { ShowMoreToggle } from "./ShowMoreToggle";
+import { MarkdownCodeBlock } from "./MarkdownCodeBlock";
 
 // Tables show every row; a wide one scrolls inside its own box instead of
 // widening the conversation.
@@ -191,6 +192,7 @@ export const MessageContentDisplay: React.FC<MessageContentDisplayProps> = ({
                 skipHtml
                 components={{
                   table: ScrollableTable,
+                  pre: MarkdownCodeBlock,
                 }}
               >
                 {displayContent}

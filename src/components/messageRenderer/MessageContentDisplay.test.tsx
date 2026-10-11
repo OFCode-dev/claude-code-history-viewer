@@ -1,5 +1,5 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ExpandKeyProvider } from "@/contexts/CaptureExpandContext";
 import { useExpandRegistry } from "@/store/expandRegistryStore";
 import { englishT } from "@/test/utils/englishTranslator";
@@ -23,6 +23,7 @@ const paragraphs = (count: number) =>
 
 describe("MessageContentDisplay", () => {
   beforeEach(() => useExpandRegistry.getState().clearAll());
+  afterEach(() => vi.unstubAllGlobals());
 
   it.each(["assistant", "user"] as const)(
     "shows a %s message of up to 10,000 characters in full, without Show more",
@@ -67,5 +68,38 @@ describe("MessageContentDisplay", () => {
     const prose = container.querySelector("p")!.parentElement!;
     expect(prose.className).toContain("[&>p]:text-justify");
     expect(container.querySelector("pre")!.className).not.toContain("text-justify");
+  });
+
+  it("renders highlighted tokens and an accessible copy button for a fenced code block", () => {
+    const { container } = renderMessage('```ts\nconst greeting: string = "hello";\n```');
+
+    expect(container.querySelector("pre .token.keyword")).toHaveTextContent("const");
+    const copyButton = screen.getByRole("button", { name: englishT("copyButton.copy") });
+    expect(copyButton).toHaveAttribute("aria-label", englishT("copyButton.copy"));
+    expect(container.querySelector("pre")).toHaveStyle({ whiteSpace: "pre", overflowX: "auto", textAlign: "left" });
+  });
+
+  it("renders inline code without a copy button", () => {
+    const { container } = renderMessage("Use `const x = 1;` inline.");
+
+    expect(container.querySelector("code")).toBeInTheDocument();
+    expect(container.querySelector("pre")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: englishT("copyButton.copy") })).not.toBeInTheDocument();
+  });
+
+  it("copies exact code text without trailing newline when copy button is clicked", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal("navigator", { clipboard: { writeText } });
+
+    const codeSnippet = "const add = (a: number, b: number) => a + b;\n  add(1, 2);";
+    renderMessage(`\`\`\`ts\n${codeSnippet}\n\`\`\``);
+
+    const copyButton = screen.getByRole("button", { name: englishT("copyButton.copy") });
+    await act(async () => {
+      fireEvent.click(copyButton);
+    });
+
+    expect(writeText).toHaveBeenCalledWith(codeSnippet);
+    expect(writeText).toHaveBeenCalledTimes(1);
   });
 });
