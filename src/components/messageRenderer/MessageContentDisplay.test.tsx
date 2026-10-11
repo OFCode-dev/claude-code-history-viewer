@@ -6,6 +6,10 @@ import { englishT } from "@/test/utils/englishTranslator";
 import { MessageContentDisplay } from "./MessageContentDisplay";
 import { MESSAGE_PREVIEW_CHARS } from "./messageCollapse";
 
+vi.mock("@/contexts/theme", () => ({
+  useTheme: () => ({ isDarkMode: false }),
+}));
+
 vi.mock("react-i18next", async (importOriginal) => ({
   ...(await importOriginal<typeof import("react-i18next")>()),
   useTranslation: () => ({ t: englishT }),

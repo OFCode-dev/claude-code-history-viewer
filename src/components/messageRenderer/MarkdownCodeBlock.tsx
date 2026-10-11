@@ -1,31 +1,8 @@
-import React, { useEffect, useId, useState } from "react";
+import React, { useId } from "react";
 import { useTranslation } from "react-i18next";
 import { CodeHighlight } from "../common/CodeHighlight";
 import { useCopyButton } from "../../hooks/useCopyButton";
-
-// Prism needs the theme as a prop, so follow the root "dark" class.
-const useIsDarkMode = () => {
-  const [isDarkMode, setIsDarkMode] = useState(
-    () =>
-      typeof document !== "undefined" &&
-      document.documentElement.classList.contains("dark")
-  );
-
-  useEffect(() => {
-    if (typeof document === "undefined") return;
-    const root = document.documentElement;
-    const updateTheme = () => setIsDarkMode(root.classList.contains("dark"));
-    const observer = new MutationObserver(updateTheme);
-    observer.observe(root, {
-      attributes: true,
-      attributeFilter: ["class"],
-    });
-    updateTheme();
-    return () => observer.disconnect();
-  }, []);
-
-  return isDarkMode;
-};
+import { useTheme } from "@/contexts/theme";
 
 export const MarkdownCodeBlock: React.FC<React.HTMLAttributes<HTMLPreElement>> = ({
   children,
@@ -33,7 +10,7 @@ export const MarkdownCodeBlock: React.FC<React.HTMLAttributes<HTMLPreElement>> =
   const { t } = useTranslation();
   const { renderCopyButton } = useCopyButton();
   const copyId = useId();
-  const isDarkMode = useIsDarkMode();
+  const { isDarkMode } = useTheme();
   const child = React.Children.toArray(children)[0];
   const codeProps = React.isValidElement<{
     className?: string;
