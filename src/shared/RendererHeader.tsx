@@ -106,7 +106,9 @@ type RendererHeaderProps = {
   titleClassName?: string;
   rightContent?: React.ReactNode;
   /** One-line preview of the payload, shown only while collapsed. */
-  summary?: string;
+  summary?: React.ReactNode;
+  /** Native tooltip for a non-string summary; a string summary is its own tooltip. */
+  summaryTitle?: string;
 };
 
 const RendererHeader = ({
@@ -115,6 +117,7 @@ const RendererHeader = ({
   titleClassName,
   rightContent,
   summary,
+  summaryTitle,
 }: RendererHeaderProps) => {
   const { isOpen, toggle, hasError, enableToggle } = useContext(ContentContext);
   const { t } = useTranslation();
@@ -191,7 +194,7 @@ const RendererHeader = ({
               layout.monoText,
               "truncate min-w-0 flex-1 text-muted-foreground opacity-80",
             )}
-            title={summary}
+            title={summaryTitle ?? (typeof summary === "string" ? summary : undefined)}
           >
             {summary}
           </span>
