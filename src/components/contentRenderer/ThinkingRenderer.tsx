@@ -23,7 +23,8 @@ export const ThinkingRenderer = memo(function ThinkingRenderer({
   index = 0,
 }: Props) {
   const { t } = useTranslation();
-  const [isExpanded, setIsExpanded] = useCaptureExpandState(`thinking-${index}`, false);
+  // Open by default: the reasoning is often why a reply reads the way it does.
+  const [isExpanded, setIsExpanded] = useCaptureExpandState(`thinking-${index}`, true);
 
   // 검색 쿼리가 있고 내용에 매칭되면 자동으로 펼치기
   useEffect(() => {
@@ -41,6 +42,7 @@ export const ThinkingRenderer = memo(function ThinkingRenderer({
     <div className={cn("bg-thinking border border-thinking-border mt-2 overflow-hidden", layout.rounded)}>
       <button
         type="button"
+        aria-expanded={isExpanded}
         onClick={() => setIsExpanded(prev => !prev)}
         className={cn(
           "w-full flex items-center text-left",
