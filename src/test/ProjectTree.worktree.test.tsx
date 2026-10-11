@@ -4,7 +4,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { ClaudeProject, ClaudeSession } from "../types";
-import type { WorktreeGroupingResult, DirectoryGroupingResult } from "../utils/worktreeUtils";
+import type { WorktreeGroupingResult } from "../utils/worktreeUtils";
 
 // Mock i18n
 vi.mock("react-i18next", () => ({
@@ -129,25 +129,6 @@ describe("ProjectTree worktree grouping", () => {
       expect(result.groups[0].parent.name).toBe("parent");
       expect(result.groups[0].children).toHaveLength(1);
       expect(result.ungrouped).toHaveLength(1);
-    });
-
-    it("should have correct DirectoryGroupingResult structure", () => {
-      const result: DirectoryGroupingResult = {
-        groups: [
-          {
-            name: "client",
-            path: "/Users/jack/client",
-            displayPath: "~/client",
-            projects: [createMockProject({ name: "app1" }), createMockProject({ name: "app2" })],
-          },
-        ],
-        ungrouped: [],
-      };
-
-      expect(result.groups).toHaveLength(1);
-      expect(result.groups[0].name).toBe("client");
-      expect(result.groups[0].displayPath).toBe("~/client");
-      expect(result.groups[0].projects).toHaveLength(2);
     });
   });
 
