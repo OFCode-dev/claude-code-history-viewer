@@ -3,7 +3,7 @@ import { ListChecks, ArrowRight, Circle } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { getVariantStyles, layout } from "@/components/renderers";
-import { TASK_STATUS_CONFIG } from "@/components/toolResultRenderer/taskStatusConfig";
+import { TASK_STATUS_CONFIG, getTaskStatusLabelKey } from "@/components/toolResultRenderer/taskStatusConfig";
 import { ToolUseCard, ToolUsePropertyRow } from "./ToolUseCard";
 
 interface TaskUpdateToolInput {
@@ -25,16 +25,6 @@ interface Props {
 export const TaskUpdateToolRenderer = memo(function TaskUpdateToolRenderer({ toolId, input }: Props) {
   const { t } = useTranslation();
   const styles = getVariantStyles("task");
-
-  const getStatusLabel = (status: string) => {
-    const keyMap: Record<string, string> = {
-      pending: "taskOperation.pending",
-      in_progress: "taskOperation.inProgress",
-      completed: "taskOperation.completed",
-      deleted: "taskOperation.deleted",
-    };
-    return t(keyMap[status] ?? "taskOperation.pending");
-  };
 
   const statusInfo = input.status ? TASK_STATUS_CONFIG[input.status] : null;
   const defaultConfig = TASK_STATUS_CONFIG["pending"];
@@ -60,7 +50,7 @@ export const TaskUpdateToolRenderer = memo(function TaskUpdateToolRenderer({ too
             <ArrowRight className={cn(layout.iconSizeSmall, "text-muted-foreground")} />
             <div className={cn("flex items-center gap-1 px-1.5 py-0.5", layout.rounded, "bg-card border border-border")}>
               <StatusIcon className={cn(layout.iconSizeSmall, statusInfo.color)} />
-              <span className={cn(layout.bodyText, "font-medium", statusInfo.color)}>{getStatusLabel(input.status)}</span>
+              <span className={cn(layout.bodyText, "font-medium", statusInfo.color)}>{t(getTaskStatusLabelKey(input.status))}</span>
             </div>
           </ToolUsePropertyRow>
         )}

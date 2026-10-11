@@ -5,8 +5,8 @@
  * 직접 수정하지 마세요.
  *
  * 생성 명령: pnpm run generate:i18n-types
- * 생성 시간: 2026-10-11T11:13:28.762Z
- * 총 키 개수: 2099
+ * 생성 시간: 2026-10-11T13:02:50.576Z
+ * 총 키 개수: 2089
  * Namespace 수: 11
  */
 
@@ -1434,7 +1434,7 @@ export type ErrorKeys =
   | 'error.viewDetails';
 
 /**
- * message namespace의 번역 키 (176개)
+ * message namespace의 번역 키 (166개)
  * 파일: locales/{lang}/message.json
  */
 export type MessageKeys =
@@ -1486,21 +1486,11 @@ export type MessageKeys =
   | 'messageViewer.claude'
   | 'messageViewer.clearSearch'
   | 'messageViewer.codex'
-  | 'messageViewer.debugInfo.file'
   | 'messageViewer.debugInfo.firstMessage'
   | 'messageViewer.debugInfo.hasMore'
   | 'messageViewer.debugInfo.lastMessage'
   | 'messageViewer.debugInfo.loading'
-  | 'messageViewer.debugInfo.messages'
-  | 'messageViewer.debugInfo.no'
-  | 'messageViewer.debugInfo.noSearch'
-  | 'messageViewer.debugInfo.null'
   | 'messageViewer.debugInfo.offset'
-  | 'messageViewer.debugInfo.overlay'
-  | 'messageViewer.debugInfo.search'
-  | 'messageViewer.debugInfo.session'
-  | 'messageViewer.debugInfo.virtual'
-  | 'messageViewer.debugInfo.yes'
   | 'messageViewer.filterContent'
   | 'messageViewer.filterToolId'
   | 'messageViewer.filterType'
@@ -2966,21 +2956,11 @@ export type TranslationKey =
   | 'messageViewer.claude'
   | 'messageViewer.clearSearch'
   | 'messageViewer.codex'
-  | 'messageViewer.debugInfo.file'
   | 'messageViewer.debugInfo.firstMessage'
   | 'messageViewer.debugInfo.hasMore'
   | 'messageViewer.debugInfo.lastMessage'
   | 'messageViewer.debugInfo.loading'
-  | 'messageViewer.debugInfo.messages'
-  | 'messageViewer.debugInfo.no'
-  | 'messageViewer.debugInfo.noSearch'
-  | 'messageViewer.debugInfo.null'
   | 'messageViewer.debugInfo.offset'
-  | 'messageViewer.debugInfo.overlay'
-  | 'messageViewer.debugInfo.search'
-  | 'messageViewer.debugInfo.session'
-  | 'messageViewer.debugInfo.virtual'
-  | 'messageViewer.debugInfo.yes'
   | 'messageViewer.filterContent'
   | 'messageViewer.filterToolId'
   | 'messageViewer.filterType'

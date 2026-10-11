@@ -1,8 +1,8 @@
-import { memo, useState } from "react";
+import { memo } from "react";
 import {
   CheckCircle2,
   Bot,
-  ChevronDown, ChevronRight, PlayCircle, Timer, Cpu, Hammer,
+  PlayCircle, Timer, Cpu, Hammer,
   ExternalLink,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -11,31 +11,17 @@ import { Renderer } from "@/shared/RendererHeader";
 import { getVariantStyles, layout } from "../../renderers";
 import { Markdown } from "../../common/Markdown";
 import { getSubagentStyle } from "@/utils/agentStyles";
-import type { ToolResultLike, Props } from "./shared";
+import type { Props } from "./shared";
 import { str, isError } from "./shared";
 import { StatusBadge } from "./StatusBadge";
 import { ResultBlock } from "./ResultBlock";
 import { ToolIdBadge } from "./ToolIdBadge";
+import { CollapsibleSection } from "./CollapsibleSection";
+import { extractWorkflowResultText } from "./workflowParsing";
 import { useAppStore } from "../../../store/useAppStore";
 import { useSubagentForToolUse } from "../../subagents/useSubagentForToolUse";
 import { openSubagentKeepingFocus } from "../../subagents/subagentFocus";
 import { getSubagentLabel } from "@/utils/subagentLabel";
-
-function extractAgentResultText(results: ToolResultLike[]): string | null {
-  for (const r of results) {
-    const c = r.content;
-    if (typeof c === "string") return c;
-    if (Array.isArray(c)) {
-      for (const item of c) {
-        if (typeof item === "object" && item != null &&
-          (item as Record<string, unknown>).type === "text" &&
-          "text" in item
-        ) return String((item as Record<string, unknown>).text);
-      }
-    }
-  }
-  return null;
-}
 
 function formatDuration(ms: number): string {
   if (ms < 1000) return `${ms}ms`;
@@ -52,8 +38,6 @@ function formatTokens(n: number): string {
 
 export const AgentCard = memo(function AgentCard({ toolUse, toolResults }: Props) {
   const { t } = useTranslation();
-  const [isPromptOpen, setIsPromptOpen] = useState(false);
-  const [isResultOpen, setIsResultOpen] = useState(false);
 
   const toolId = (toolUse.id as string) || "";
   // The transcript this call spawned, when the session's subagents identify it.
@@ -72,14 +56,14 @@ export const AgentCard = memo(function AgentCard({ toolUse, toolResults }: Props
   const taskStyles = getVariantStyles("task");
 
   const hasResult = toolResults.length > 0;
-  const resultText = hasResult ? extractAgentResultText(toolResults) : null;
+  const resultText = hasResult ? extractWorkflowResultText(toolResults) : null;
   const first = toolResults[0];
   const totalDurationMs = first?.totalDurationMs as number | undefined;
   const totalTokens = first?.totalTokens as number | undefined;
   const totalToolUseCount = first?.totalToolUseCount as number | undefined;
 
   return (
-    <Renderer className={taskStyles.container} hasError={toolResults.length > 0 && toolResults.some(isError)} expandKey={`unified-${(toolUse.id as string) || ""}`}>
+    <Renderer className={taskStyles.container} hasError={toolResults.some(isError)} expandKey={`unified-${(toolUse.id as string) || ""}`}>
       <Renderer.Header
         title={t("renderers.agentTool.title", { defaultValue: "Agent" })}
         icon={<Bot className={cn(layout.iconSize, taskStyles.icon)} />}
@@ -147,36 +131,33 @@ export const AgentCard = memo(function AgentCard({ toolUse, toolResults }: Props
 
         {/* Prompt — collapsible markdown */}
         {prompt && (
-          <div className={cn("border mb-3", layout.rounded, "border-border overflow-hidden")}>
-            <button type="button" onClick={() => setIsPromptOpen(p => !p)}
-              className={cn("w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-muted/50 transition-colors bg-muted/20")}
-              aria-label={t("renderers.agentTool.togglePrompt", { defaultValue: "Toggle prompt" })}>
-              {isPromptOpen ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" /> : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />}
-              <PlayCircle className={cn("w-3.5 h-3.5", taskStyles.icon)} />
-              <span className={cn(layout.smallText, "font-medium text-foreground/80")}>{t("renderers.agentTool.prompt", { defaultValue: "Prompt" })}</span>
-              {!isPromptOpen && <span className={cn(layout.smallText, "text-muted-foreground truncate flex-1")}>— {prompt.split("\n")[0]?.slice(0, 80)}{(prompt.split("\n")[0]?.length ?? 0) > 80 ? "…" : ""}</span>}
-            </button>
-            {isPromptOpen && <div className="px-3 py-2 border-t border-border max-h-96 overflow-y-auto"><Markdown className="text-foreground/90">{prompt}</Markdown></div>}
-          </div>
+          <CollapsibleSection
+            className="mb-3"
+            icon={<PlayCircle className={cn("w-3.5 h-3.5", taskStyles.icon)} />}
+            label={t("renderers.agentTool.prompt", { defaultValue: "Prompt" })}
+            ariaLabel={t("renderers.agentTool.togglePrompt", { defaultValue: "Toggle prompt" })}
+            summary={<span className={cn(layout.smallText, "text-muted-foreground truncate flex-1")}>— {prompt.split("\n")[0]?.slice(0, 80)}{(prompt.split("\n")[0]?.length ?? 0) > 80 ? "…" : ""}</span>}
+          >
+            <div className="px-3 py-2 border-t border-border max-h-96 overflow-y-auto"><Markdown className="text-foreground/90">{prompt}</Markdown></div>
+          </CollapsibleSection>
         )}
 
         {/* Result — collapsible markdown with stats */}
         {hasResult && resultText ? (
-          <div className={cn("border", layout.rounded, "border-border overflow-hidden")}>
-            <button type="button" onClick={() => setIsResultOpen(p => !p)}
-              className={cn("w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-muted/50 transition-colors bg-muted/20")}
-              aria-label={t("renderers.agentTool.toggleResult", { defaultValue: "Toggle result" })}>
-              {isResultOpen ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" /> : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />}
-              <CheckCircle2 className="w-3.5 h-3.5 text-success" />
-              <span className={cn(layout.smallText, "font-medium text-foreground/80")}>{t("renderers.agentTool.result", { defaultValue: "Result" })}</span>
+          <CollapsibleSection
+            icon={<CheckCircle2 className="w-3.5 h-3.5 text-success" />}
+            label={t("renderers.agentTool.result", { defaultValue: "Result" })}
+            ariaLabel={t("renderers.agentTool.toggleResult", { defaultValue: "Toggle result" })}
+            right={
               <div className={cn("flex items-center gap-2 ml-auto", layout.smallText)}>
                 {totalDurationMs != null && <span className="inline-flex items-center gap-1 text-muted-foreground"><Timer className="w-3 h-3" />{formatDuration(totalDurationMs)}</span>}
                 {totalTokens != null && <span className="inline-flex items-center gap-1 text-muted-foreground"><Cpu className="w-3 h-3" />{formatTokens(totalTokens)}</span>}
                 {totalToolUseCount != null && <span className="inline-flex items-center gap-1 text-muted-foreground"><Hammer className="w-3 h-3" />{totalToolUseCount}</span>}
               </div>
-            </button>
-            {isResultOpen && <div className="px-3 py-2 border-t border-border max-h-[32rem] overflow-y-auto"><Markdown className="text-foreground/90">{resultText}</Markdown></div>}
-          </div>
+            }
+          >
+            <div className="px-3 py-2 border-t border-border max-h-[32rem] overflow-y-auto"><Markdown className="text-foreground/90">{resultText}</Markdown></div>
+          </CollapsibleSection>
         ) : (
           <ResultBlock results={toolResults} />
         )}

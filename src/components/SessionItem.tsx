@@ -6,4 +6,3 @@
  */
 
 export { SessionItem } from "./SessionItem/SessionItem";
-export type { SessionItemProps } from "./SessionItem/types";

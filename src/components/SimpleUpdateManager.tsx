@@ -40,7 +40,6 @@ export function SimpleUpdateManager({ updater }: SimpleUpdateManagerProps) {
   } = updateSettings;
 
   const [showUpToDate, setShowUpToDate] = useState(false);
-  const [showChecking, setShowChecking] = useState(false);
   const [showError, setShowError] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [isManualCheck, setIsManualCheck] = useState(false);
@@ -121,13 +120,7 @@ export function SimpleUpdateManager({ updater }: SimpleUpdateManagerProps) {
   }, [isSettingsLoaded, shouldRunAutoCheck, runCheckAndPersist]);
 
   // Show checking notification during manual check
-  useEffect(() => {
-    if (isChecking && isManualCheck) {
-      setShowChecking(true);
-    } else {
-      setShowChecking(false);
-    }
-  }, [isChecking, isManualCheck]);
+  const showChecking = isChecking && isManualCheck;
 
   // Handle manual check results
   useEffect(() => {
@@ -174,28 +167,24 @@ export function SimpleUpdateManager({ updater }: SimpleUpdateManagerProps) {
     updateSettings.skippedVersions,
   ]);
 
-  // Listen for manual update check events
-  useEffect(() => {
-    const handleManualCheck = () => {
-      if (isChecking) return;
+  const startManualCheck = useCallback(() => {
+    if (isChecking) return;
 
-      setLastCheckWasManual(true);
-      setIsManualCheck(true);
-      setShowError(false);
-      setShowUpToDate(false);
+    setLastCheckWasManual(true);
+    setIsManualCheck(true);
+    setShowError(false);
+    setShowUpToDate(false);
 
-      void runCheckAndPersist();
-    };
-
-    window.addEventListener("manual-update-check", handleManualCheck);
-    return () => {
-      window.removeEventListener("manual-update-check", handleManualCheck);
-    };
+    void runCheckAndPersist();
   }, [isChecking, runCheckAndPersist]);
 
-  const handleCloseUpdateModal = () => {
-    dismissUpdate();
-  };
+  // Listen for manual update check events
+  useEffect(() => {
+    window.addEventListener("manual-update-check", startManualCheck);
+    return () => {
+      window.removeEventListener("manual-update-check", startManualCheck);
+    };
+  }, [startManualCheck]);
 
   const handleRemindLater = async () => {
     try {
@@ -225,17 +214,14 @@ export function SimpleUpdateManager({ updater }: SimpleUpdateManagerProps) {
       <SimpleUpdateModal
         updater={updater}
         isVisible={hasUpdate}
-        onClose={handleCloseUpdateModal}
+        onClose={dismissUpdate}
         onRemindLater={handleRemindLater}
         onSkipVersion={handleSkipVersion}
       />
 
       {/* Checking notification (manual check) */}
       <UpdateCheckingNotification
-        onClose={() => {
-          setShowChecking(false);
-          setIsManualCheck(false);
-        }}
+        onClose={() => setIsManualCheck(false)}
         isVisible={showChecking}
       />
 
@@ -250,16 +236,7 @@ export function SimpleUpdateManager({ updater }: SimpleUpdateManagerProps) {
       <UpdateErrorNotification
         error={errorMessage}
         onClose={() => setShowError(false)}
-        onRetry={() => {
-          if (isChecking) return;
-
-          setLastCheckWasManual(true);
-          setIsManualCheck(true);
-          setShowError(false);
-          setShowUpToDate(false);
-
-          void runCheckAndPersist();
-        }}
+        onRetry={startManualCheck}
         isVisible={showError}
       />
     </>

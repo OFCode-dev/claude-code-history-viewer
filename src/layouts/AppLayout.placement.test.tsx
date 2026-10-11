@@ -21,7 +21,7 @@ vi.mock("@/contexts/platform", () => ({
   usePlatform: () => ({ platform: "web", isDesktop: false, isMobile: false }),
   DesktopOnly: () => null,
 }));
-vi.mock("@/components/MessageViewer", () => ({
+vi.mock("@/components/MessageViewer/MessageViewer", () => ({
   MessageViewer: () => <div data-testid="message-viewer">conversation</div>,
 }));
 vi.mock("@/layouts/Header/Header", () => ({ Header: () => <header /> }));

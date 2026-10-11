@@ -484,21 +484,7 @@ export const SystemMessageRenderer = memo(function SystemMessageRenderer({
   }
 
   // Handle regular content or empty
-  if (!hasRenderableContent && !subtype) {
-    // In dev mode, show a placeholder to indicate missing data
-    if (import.meta.env.DEV) {
-      return (
-        <div
-          className={`bg-warning/10 border border-warning/30 rounded-lg p-2 ${layout.smallText}`}
-        >
-          <span className="text-foreground">
-            [DEBUG] System message with no content or subtype
-          </span>
-        </div>
-      );
-    }
-    return null; // Don't render anything if completely empty
-  }
+  if (!hasRenderableContent && !subtype) return null;
 
   return (
     <div

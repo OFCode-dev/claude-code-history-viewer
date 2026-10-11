@@ -21,7 +21,7 @@ export const GrepCard = memo(function GrepCard({ toolUse, toolResults }: Props) 
   const scope = path ?? glob ?? "";
 
   return (
-    <Renderer className={styles.container} hasError={toolResults.length > 0 && toolResults.some(isError)} expandKey={`unified-${(toolUse.id as string) || ""}`}>
+    <Renderer className={styles.container} hasError={toolResults.some(isError)} expandKey={`unified-${(toolUse.id as string) || ""}`}>
       <Renderer.Header
         title="Grep"
         icon={<ToolIcon toolName="Grep" className={cn(layout.iconSize, styles.icon)} />}

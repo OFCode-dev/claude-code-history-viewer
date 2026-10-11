@@ -12,9 +12,6 @@ import { extractClaudeMessageContent, isClaudeUserMessage } from "../../../utils
 /**
  * Check if a message is an agent task launch (isAsync: true)
  */
-/**
- * Check if a message is an agent task launch (isAsync: true)
- */
 const isAgentTaskLaunchMessage = (
   message: ClaudeMessage
 ): message is ClaudeUserMessage & { toolUseResult: Record<string, unknown> } => {
@@ -28,10 +25,6 @@ const isAgentTaskLaunchMessage = (
   return result.isAsync === true && typeof result.agentId === "string";
 };
 
-/**
- * Check if a message is an agent task completion
- * Handles: status "completed"/"error", or synchronous completion (isAsync === false)
- */
 /**
  * Check if a message is an agent task completion
  * Handles: status "completed"/"error", or synchronous completion (isAsync === false)
@@ -57,23 +50,11 @@ const isAgentTaskCompletionMessage = (
 };
 
 /**
- * Check if a message is an agent task launch (alias for isAgentTaskLaunchMessage)
- */
-/**
- * Check if a message is an agent task launch (alias for isAgentTaskLaunchMessage)
- */
-const isAgentTaskMessage = (
-  message: ClaudeMessage
-): message is ClaudeUserMessage & { toolUseResult: Record<string, unknown> } => {
-  return isAgentTaskLaunchMessage(message);
-};
-
-/**
  * Extract agent task info from a message
  */
 const extractAgentTask = (message: ClaudeMessage): AgentTask | null => {
-  if (!isAgentTaskMessage(message)) return null;
-  // We know it's a user message with toolUseResult because isAgentTaskMessage checked it
+  if (!isAgentTaskLaunchMessage(message)) return null;
+  // We know it's a user message with toolUseResult because isAgentTaskLaunchMessage checked it
   const result = (message as { toolUseResult: Record<string, unknown> }).toolUseResult;
   return {
     agentId: String(result.agentId),

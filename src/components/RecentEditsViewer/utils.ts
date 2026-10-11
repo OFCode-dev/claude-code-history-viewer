@@ -66,14 +66,8 @@ export const getLanguageFromPath = (path: string): string => {
 /**
  * Format a timestamp to locale string
  */
-export const formatTimestamp = (timestamp: string): string => {
-  try {
-    const date = new Date(timestamp);
-    return date.toLocaleString();
-  } catch {
-    return timestamp;
-  }
-};
+export const formatTimestamp = (timestamp: string): string =>
+  new Date(timestamp).toLocaleString();
 
 /**
  * Clock time (`14:22`) for the chronological, per-edit grouping.
@@ -83,16 +77,12 @@ export const formatTimestamp = (timestamp: string): string => {
  * sequence.
  */
 export const formatClockTime = (timestamp: string): string => {
-  try {
-    const date = new Date(timestamp);
-    if (Number.isNaN(date.getTime())) return "";
-    return date.toLocaleTimeString(undefined, {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  } catch {
-    return "";
-  }
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleTimeString(undefined, {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 };
 
 /**
@@ -105,43 +95,39 @@ export const getCompactRelativeTime = (
   timestamp: string,
   t: (key: string, defaultValue: string, options?: { count: number }) => string
 ): string => {
-  try {
-    const date = new Date(timestamp);
-    if (Number.isNaN(date.getTime())) return "";
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return "";
 
-    // Clamp rather than let a negative diff fall through every threshold into
-    // the "now" branch. Clock skew and imported logs both produce timestamps in
-    // the future, and labelling tomorrow as "now" is worse than saying nothing
-    // useful: show the date instead.
-    const diffMs = Date.now() - date.getTime();
-    if (diffMs < 0) {
-      return date.toLocaleDateString(undefined, {
-        month: "numeric",
-        day: "numeric",
-      });
-    }
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 1) return t("recentEdits.timeNowShort", "now");
-    if (diffMins < 60)
-      return t("recentEdits.timeMinutesShort", "{{count}}m", {
-        count: diffMins,
-      });
-    if (diffHours < 24)
-      return t("recentEdits.timeHoursShort", "{{count}}h", {
-        count: diffHours,
-      });
-    if (diffDays < 7)
-      return t("recentEdits.timeDaysShort", "{{count}}d", { count: diffDays });
+  // Clamp rather than let a negative diff fall through every threshold into
+  // the "now" branch. Clock skew and imported logs both produce timestamps in
+  // the future, and labelling tomorrow as "now" is worse than saying nothing
+  // useful: show the date instead.
+  const diffMs = Date.now() - date.getTime();
+  if (diffMs < 0) {
     return date.toLocaleDateString(undefined, {
       month: "numeric",
       day: "numeric",
     });
-  } catch {
-    return "";
   }
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return t("recentEdits.timeNowShort", "now");
+  if (diffMins < 60)
+    return t("recentEdits.timeMinutesShort", "{{count}}m", {
+      count: diffMins,
+    });
+  if (diffHours < 24)
+    return t("recentEdits.timeHoursShort", "{{count}}h", {
+      count: diffHours,
+    });
+  if (diffDays < 7)
+    return t("recentEdits.timeDaysShort", "{{count}}d", { count: diffDays });
+  return date.toLocaleDateString(undefined, {
+    month: "numeric",
+    day: "numeric",
+  });
 };
 
 /**

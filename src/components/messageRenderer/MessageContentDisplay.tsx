@@ -2,7 +2,8 @@ import React, { useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import { Copy } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { CommandRenderer, ImageRenderer, TaskNotificationRenderer, hasTaskNotification } from "../contentRenderer";
+import { CommandRenderer, ImageRenderer, TaskNotificationRenderer } from "../contentRenderer";
+import { isTaskNotification } from "../MessageViewer/helpers/messageKinds";
 import { isImageUrl, isBase64Image } from "../../utils/messageUtils";
 import { TooltipButton } from "../../shared/TooltipButton";
 import { HighlightedText } from "../common";
@@ -62,7 +63,7 @@ export const MessageContentDisplay: React.FC<MessageContentDisplayProps> = ({
       .replace(/`[^`\n]*`/g, "");
 
     // Check for task-notification tags (agent task results)
-    if (hasTaskNotification(contentWithoutCode)) {
+    if (isTaskNotification(contentWithoutCode)) {
       return <TaskNotificationRenderer text={content} />;
     }
 
@@ -106,10 +107,6 @@ export const MessageContentDisplay: React.FC<MessageContentDisplayProps> = ({
         </>
       );
     }
-  }
-
-  if (typeof content !== "string") {
-    return null; // Or some other fallback for non-string content
   }
 
   if (messageType === "user") {

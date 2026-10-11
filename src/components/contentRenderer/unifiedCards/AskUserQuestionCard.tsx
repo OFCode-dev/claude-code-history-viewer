@@ -121,7 +121,7 @@ export const AskUserQuestionCard = memo(function AskUserQuestionCard({
   return (
     <Renderer
       className={styles.container}
-      hasError={toolResults.length > 0 && toolResults.some(isError)}
+      hasError={toolResults.some(isError)}
       expandKey={`unified-ask-${toolId}`}
       autoExpand={matchesSearch}
     >

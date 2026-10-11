@@ -1,5 +1,4 @@
 import type { MessageKind } from "./messageKinds";
-import { priorityForKind, type MinimapColorSource } from "./minimapLayout";
 
 /**
  * Kind -> CSS custom property. Values taken from the Messages panel's
@@ -38,14 +37,10 @@ export function minimapFailedColor(): string {
 }
 
 /**
- * `MinimapColorSource` built from the Messages panel's kind colors (Design
- * §5). PR 1's only implementation; a token-cost mode (issue #570) is a
- * plausible second one that reorders priority without touching this shape.
+ * CSS color for a kind, from the Messages panel's kind colors (Design §5), or
+ * null to leave the pixel unpainted.
  */
-export const kindColorSource: MinimapColorSource = {
-  colorForKind(kind: MessageKind): string | null {
-    const color = readCssVar(MINIMAP_KIND_CSS_VAR[kind]);
-    return color.length > 0 ? color : null;
-  },
-  priorityForKind,
-};
+export function colorForKind(kind: MessageKind): string | null {
+  const color = readCssVar(MINIMAP_KIND_CSS_VAR[kind]);
+  return color.length > 0 ? color : null;
+}

@@ -264,12 +264,6 @@ export const SessionBoard = () => {
         setActiveBrush({ type, value });
     }, [setActiveBrush]);
 
-    const handleBoardLeave = useCallback(() => {
-        if (!stickyBrush) {
-            setActiveBrush(null);
-        }
-    }, [stickyBrush, setActiveBrush]);
-
     const handleToggleSticky = useCallback(() => {
         setStickyBrush(!stickyBrush);
     }, [stickyBrush, setStickyBrush]);
@@ -342,14 +336,6 @@ export const SessionBoard = () => {
                     onZoomChange={setZoomLevel}
                     activeBrush={activeBrush}
                     onBrushChange={setActiveBrush}
-                    toolOptions={[]}
-                    fileOptions={[]}
-                    mcpServerOptions={[]}
-                    shellCommandOptions={[]}
-                    availableTools={[]}
-                    availableFiles={[]}
-                    availableMcpServers={[]}
-                    availableShellCommands={[]}
                     dateFilter={dateFilter}
                     setDateFilter={setDateFilter}
                 />
@@ -447,7 +433,6 @@ export const SessionBoard = () => {
                                     zoomLevel={zoomLevel}
                                     activeBrush={activeBrush}
                                     onHover={handleBoardHover}
-                                    onLeave={handleBoardLeave}
                                     onToggleSticky={handleToggleSticky}
                                     isSelected={selectedSession?.session_id === sessionId}
                                     onInteractionClick={handleInteractionClick}

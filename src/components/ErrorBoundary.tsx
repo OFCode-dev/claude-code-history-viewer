@@ -40,12 +40,6 @@ class ErrorBoundaryComponent extends Component<Props, State> {
   }
 
   handleReset = () => {
-    this.setState({
-      hasError: false,
-      error: null,
-      errorInfo: null,
-      copied: false,
-    });
     window.location.reload();
   };
 

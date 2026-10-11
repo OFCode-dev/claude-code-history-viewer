@@ -1,7 +1,7 @@
 import type { MessageKind } from "../MessageViewer/helpers/messageKinds";
 
 /** i18n key of the label each navigator row shows for its kind. */
-export const KIND_LABEL_KEYS = {
+const KIND_LABEL_KEYS = {
   prompt: "navigator.kind.prompt",
   command: "navigator.kind.command",
   "agent-update": "navigator.kind.agentUpdate",
@@ -13,5 +13,5 @@ export const KIND_LABEL_KEYS = {
 } as const satisfies Record<MessageKind, string>;
 
 export function getKindLabelKey(kind: MessageKind) {
-  return KIND_LABEL_KEYS[kind] ?? KIND_LABEL_KEYS.system;
+  return KIND_LABEL_KEYS[kind];
 }

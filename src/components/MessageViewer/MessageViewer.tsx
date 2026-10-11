@@ -61,6 +61,22 @@ import { TopStripChips } from "./components/TopStripChips";
 import { countHiddenMessageTypes } from "./helpers/topStripModel";
 import { ConversationTools, ConversationToolsToggle } from "./components/ConversationTools";
 import { openConversationTool, TOOL_FOCUS_ATTR } from "./components/conversationToolsActions";
+
+const SEARCH_FILTER_BUTTONS = [
+  ["content", "messageViewer.filterContent"],
+  ["toolId", "messageViewer.filterToolId"],
+] as const;
+
+const EXPORT_MENU_ITEMS = [
+  ["markdown", "session.export.markdown"],
+  ["json", "session.export.json"],
+  ["html", "session.export.html"],
+] as const;
+
+/** Every message uuid that belongs to a group, for O(1) membership checks. */
+const collectMemberUuids = (groups: Map<string, { messageUuids: Set<string> }>): Set<string> =>
+  new Set([...groups.values()].flatMap((group) => [...group.messageUuids]));
+
 export const MessageViewer: React.FC<MessageViewerProps> = ({
   messages,
   isLoading,
@@ -206,15 +222,6 @@ export const MessageViewer: React.FC<MessageViewerProps> = ({
   }, [sessionSearch.currentMatchIndex, sessionSearch.matches]);
 
   const currentMatchUuid = currentMatch?.messageUuid ?? null;
-  // ... (skip down to render loop)
-  // We need to apply the highlight logic in the map function
-
-  // ... inside map ...
-  // const isMessage = item.type === "message";
-  // const isMatch = isMessage && matchedUuids.has(item.message.uuid);
-  // const isTarget = isMessage && shouldHighlightTarget && targetMessageUuid === item.message.uuid;
-  // const isCurrentMatch = (isMessage && currentMatchUuid === item.message.uuid) || isTarget;
-
 
   // Deduplicate messages for grouping
   const uniqueMessages = useMemo(() => {
@@ -225,26 +232,10 @@ export const MessageViewer: React.FC<MessageViewerProps> = ({
   }, [displayMessages]);
 
   // Agent task grouping
-  const agentTaskGroups = useMemo(() => {
-    if (import.meta.env.DEV && uniqueMessages.length > 0) {
-      const start = performance.now();
-      const result = groupAgentTasks(uniqueMessages);
-      console.log(`[MessageViewer] groupAgentTasks: ${uniqueMessages.length} messages, ${(performance.now() - start).toFixed(1)}ms`);
-      return result;
-    }
-    return groupAgentTasks(uniqueMessages);
-  }, [uniqueMessages]);
+  const agentTaskGroups = useMemo(() => groupAgentTasks(uniqueMessages), [uniqueMessages]);
 
   // Pre-compute Set of all agent task member UUIDs for O(1) membership checks
-  const agentTaskMemberUuids = useMemo(() => {
-    const memberSet = new Set<string>();
-    for (const group of agentTaskGroups.values()) {
-      for (const uuid of group.messageUuids) {
-        memberSet.add(uuid);
-      }
-    }
-    return memberSet;
-  }, [agentTaskGroups]);
+  const agentTaskMemberUuids = useMemo(() => collectMemberUuids(agentTaskGroups), [agentTaskGroups]);
 
   // Agent progress grouping (group agent_progress messages by agentId)
   const agentProgressGroups = useMemo(() => {
@@ -252,15 +243,7 @@ export const MessageViewer: React.FC<MessageViewerProps> = ({
   }, [uniqueMessages]);
 
   // Pre-compute Set of all agent progress member UUIDs for O(1) membership checks
-  const agentProgressMemberUuids = useMemo(() => {
-    const memberSet = new Set<string>();
-    for (const group of agentProgressGroups.values()) {
-      for (const uuid of group.messageUuids) {
-        memberSet.add(uuid);
-      }
-    }
-    return memberSet;
-  }, [agentProgressGroups]);
+  const agentProgressMemberUuids = useMemo(() => collectMemberUuids(agentProgressGroups), [agentProgressGroups]);
 
   // Task operation grouping (group consecutive TaskCreate/TaskUpdate/etc. messages)
   const taskOperationGroups = useMemo(() => {
@@ -268,15 +251,7 @@ export const MessageViewer: React.FC<MessageViewerProps> = ({
   }, [uniqueMessages]);
 
   // Pre-compute Set of all task operation member UUIDs for O(1) membership checks
-  const taskOperationMemberUuids = useMemo(() => {
-    const memberSet = new Set<string>();
-    for (const group of taskOperationGroups.values()) {
-      for (const uuid of group.messageUuids) {
-        memberSet.add(uuid);
-      }
-    }
-    return memberSet;
-  }, [taskOperationGroups]);
+  const taskOperationMemberUuids = useMemo(() => collectMemberUuids(taskOperationGroups), [taskOperationGroups]);
 
   // Helper to get scroll element from OverlayScrollbars
   // Include scrollElementReady to force virtualizer update when ready
@@ -286,12 +261,7 @@ export const MessageViewer: React.FC<MessageViewerProps> = ({
   }, [scrollElementReady]);
 
   // OverlayScrollbars initialized callback (stable ref to avoid re-bindingclear)
-  const handleScrollbarsInitialized = useCallback(() => {
-    if (import.meta.env.DEV) {
-      console.log(`[MessageViewer] scrollElementReady via initialized event`);
-    }
-    setScrollElementReady(true);
-  }, []);
+  const handleScrollbarsInitialized = useCallback(() => setScrollElementReady(true), []);
 
   // Reserve a top scroll-margin equal to the sticky "all messages loaded"
   // header height so the first virtualized rows aren't hidden behind it as a
@@ -299,6 +269,14 @@ export const MessageViewer: React.FC<MessageViewerProps> = ({
   // Based on the loaded window, not the filtered rows: when the filter hides
   // every loaded message, "Load earlier" must stay reachable.
   const hasMessageListHeader = messages.length > 0 && !sessionSearch.query;
+  const loadMoreLabel = t("messageViewer.loadMoreMessages", {
+    count: Math.min(
+      pagination.pageSize || messages.length,
+      Math.max(pagination.totalCount - pagination.currentOffset, 0),
+    ),
+    current: messages.length,
+    total: pagination.totalCount,
+  });
   const isFilteredWindowEmpty =
     messages.length > 0 && displayMessages.length === 0 && !sessionSearch.query;
 
@@ -875,32 +853,22 @@ export const MessageViewer: React.FC<MessageViewerProps> = ({
 
         {/* Filter Toggle - Segmented control style */}
         <div className="shrink-0 flex items-center bg-muted/60 rounded-lg p-0.5 border border-border/60 order-2 lg:order-none">
-          <button
-            type="button"
-            onClick={() => onFilterTypeChange("content")}
-            className={cn(
-              "text-xs px-2.5 py-1 rounded-md transition-all duration-200 whitespace-nowrap",
-              sessionSearch.filterType === "content"
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-            title={t("messageViewer.filterType")}
-          >
-            {t("messageViewer.filterContent")}
-          </button>
-          <button
-            type="button"
-            onClick={() => onFilterTypeChange("toolId")}
-            className={cn(
-              "text-xs px-2.5 py-1 rounded-md transition-all duration-200 whitespace-nowrap",
-              sessionSearch.filterType === "toolId"
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-            title={t("messageViewer.filterType")}
-          >
-            {t("messageViewer.filterToolId")}
-          </button>
+          {SEARCH_FILTER_BUTTONS.map(([filterType, labelKey]) => (
+            <button
+              key={filterType}
+              type="button"
+              onClick={() => onFilterTypeChange(filterType)}
+              className={cn(
+                "text-xs px-2.5 py-1 rounded-md transition-all duration-200 whitespace-nowrap",
+                sessionSearch.filterType === filterType
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+              title={t("messageViewer.filterType")}
+            >
+              {t(labelKey)}
+            </button>
+          ))}
         </div>
 
         {/* Search Input - Glass morphism */}
@@ -959,7 +927,6 @@ export const MessageViewer: React.FC<MessageViewerProps> = ({
               <button
                 type="button"
                 onClick={onPrevMatch}
-                disabled={sessionSearch.matches.length === 0}
                 aria-label={t("messageViewer.prevMatch")}
                 title="Shift+Enter"
                 className={cn(
@@ -973,7 +940,6 @@ export const MessageViewer: React.FC<MessageViewerProps> = ({
               <button
                 type="button"
                 onClick={onNextMatch}
-                disabled={sessionSearch.matches.length === 0}
                 aria-label={t("messageViewer.nextMatch")}
                 title="Enter"
                 className={cn(
@@ -1033,15 +999,11 @@ export const MessageViewer: React.FC<MessageViewerProps> = ({
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => handleExport("markdown")}>
-                  {t("session.export.markdown")}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleExport("json")}>
-                  {t("session.export.json")}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleExport("html")}>
-                  {t("session.export.html")}
-                </DropdownMenuItem>
+                {EXPORT_MENU_ITEMS.map(([format, labelKey]) => (
+                  <DropdownMenuItem key={format} onClick={() => handleExport(format)}>
+                    {t(labelKey)}
+                  </DropdownMenuItem>
+                ))}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -1125,59 +1087,6 @@ export const MessageViewer: React.FC<MessageViewerProps> = ({
           }}
           events={{ initialized: handleScrollbarsInitialized }}
         >
-        {/* 디버깅 정보 */}
-        {import.meta.env.DEV && (
-          <div className="bg-muted/60 p-2 text-xs text-foreground border-b border-border space-y-1">
-            <div>
-              {t("messageViewer.debugInfo.messages", {
-                current: displayMessages.length,
-                total: messages.length,
-              })}{" "}
-              |{" "}
-              {t("messageViewer.debugInfo.search", {
-                query:
-                  sessionSearch.query ||
-                  t("messageViewer.debugInfo.noSearch", { defaultValue: "(none)" }),
-              })}
-            </div>
-            <div>
-              {t("messageViewer.debugInfo.session", {
-                sessionId: selectedSession?.session_id?.slice(-8),
-              })}{" "}
-              |{" "}
-              {t("messageViewer.debugInfo.file", {
-                fileName: selectedSession?.file_path
-                  ?.split(/[\\/]/)
-                  .pop()
-                  ?.slice(0, 20),
-              })}
-            </div>
-            <div>
-              {t("messageViewer.debugInfo.virtual", {
-                flat: flattenedMessages.length,
-                rows: virtualRows.length,
-                size: totalSize,
-                ready: scrollElementReady
-                  ? t("messageViewer.debugInfo.yes", { defaultValue: "Y" })
-                  : t("messageViewer.debugInfo.no", { defaultValue: "N" }),
-              })}
-            </div>
-            <div>
-              {t("messageViewer.debugInfo.overlay", {
-                scrollReady:
-                  scrollReadyForSessionId?.slice(-8) ??
-                  t("messageViewer.debugInfo.null", { defaultValue: "null" }),
-                current:
-                  selectedSession?.session_id?.slice(-8) ??
-                  t("messageViewer.debugInfo.null", { defaultValue: "null" }),
-                show:
-                  selectedSession?.session_id && scrollReadyForSessionId !== selectedSession?.session_id
-                    ? t("messageViewer.debugInfo.yes", { defaultValue: "Y" })
-                    : t("messageViewer.debugInfo.no", { defaultValue: "N" }),
-              })}
-            </div>
-          </div>
-        )}
         {/* 검색 결과 없음 */}
         {sessionSearch.query && (!sessionSearch.matches || sessionSearch.matches.length === 0) && !sessionSearch.isSearching && (
           <div className="max-w-4xl mx-auto flex flex-col items-center justify-center py-12 text-muted-foreground">
@@ -1207,26 +1116,12 @@ export const MessageViewer: React.FC<MessageViewerProps> = ({
                   "text-muted-foreground bg-muted/50 hover:bg-muted transition-colors",
                   "disabled:opacity-60 disabled:cursor-default",
                 )}
-                aria-label={t("messageViewer.loadMoreMessages", {
-                  count: Math.min(
-                    pagination.pageSize || messages.length,
-                    Math.max(pagination.totalCount - pagination.currentOffset, 0),
-                  ),
-                  current: messages.length,
-                  total: pagination.totalCount,
-                })}
+                aria-label={loadMoreLabel}
               >
                 {pagination.isLoadingMore && (
                   <LoadingSpinner size="sm" variant="muted" />
                 )}
-                {t("messageViewer.loadMoreMessages", {
-                  count: Math.min(
-                    pagination.pageSize || messages.length,
-                    Math.max(pagination.totalCount - pagination.currentOffset, 0),
-                  ),
-                  current: messages.length,
-                  total: pagination.totalCount,
-                })}
+                {loadMoreLabel}
               </button>
             ) : (
               <div className="text-sm text-muted-foreground">

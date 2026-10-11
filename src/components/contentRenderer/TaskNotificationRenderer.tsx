@@ -1,4 +1,3 @@
-/* eslint-disable react-refresh/only-export-components */
 /**
  * TaskNotificationRenderer - Mission Control style agent task dashboard
  *
@@ -24,7 +23,6 @@ import { layout, getVariantStyles } from "@/components/renderers";
 import { useCaptureExpandState } from "@/contexts/CaptureExpandContext";
 import {
   isFailedTaskStatus,
-  isTaskNotification,
   parseTaskNotifications,
   type TaskNotification,
 } from "@/components/MessageViewer/helpers/messageKinds";
@@ -456,8 +454,3 @@ export const TaskNotificationRenderer = memo(function TaskNotificationRenderer({
     </div>
   );
 });
-
-/**
- * Check if text contains task-notification tags
- */
-export const hasTaskNotification = (text: string): boolean => isTaskNotification(text);

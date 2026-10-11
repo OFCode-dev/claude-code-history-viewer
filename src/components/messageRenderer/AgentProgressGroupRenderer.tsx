@@ -5,7 +5,7 @@
  * showing only the latest status in the header.
  */
 
-import { memo, useMemo } from "react";
+import { memo } from "react";
 import {
   ChevronRight,
   Bot,
@@ -33,26 +33,29 @@ interface AgentProgressGroupRendererProps {
   agentId: string;
 }
 
+// The content blocks of the latest normalized message, when it has any
+const getLastContent = (data: ProgressData) => {
+  const lastMsg = data.normalizedMessages?.[data.normalizedMessages.length - 1];
+  const content = lastMsg?.message?.content;
+  return Array.isArray(content) ? content : null;
+};
+
+// The latest message's tool_use block, if it has one
+const getLastToolUse = (data: ProgressData) => {
+  const toolUse = getLastContent(data)?.find((c: { type?: string }) => c.type === "tool_use");
+  return toolUse && typeof toolUse === "object" && "name" in toolUse ? toolUse : null;
+};
+
 // Extract a summary from the latest message
 const getProgressSummary = (data: ProgressData): string => {
   // Try to get tool name from normalizedMessages
-  if (data.normalizedMessages && data.normalizedMessages.length > 0) {
-    const lastMsg = data.normalizedMessages[data.normalizedMessages.length - 1];
-    if (lastMsg?.message?.content) {
-      const content = lastMsg.message.content;
-      if (Array.isArray(content)) {
-        const toolUse = content.find((c: { type?: string }) => c.type === "tool_use");
-        if (toolUse && typeof toolUse === "object" && "name" in toolUse) {
-          return String(toolUse.name);
-        }
-        const text = content.find((c: { type?: string }) => c.type === "text");
-        if (text && typeof text === "object" && "text" in text) {
-          const textContent = String(text.text);
-          // Truncate long text
-          return textContent.length > 60 ? textContent.slice(0, 60) + "..." : textContent;
-        }
-      }
-    }
+  const toolUse = getLastToolUse(data);
+  if (toolUse) return String(toolUse.name);
+  const text = getLastContent(data)?.find((c: { type?: string }) => c.type === "text");
+  if (text && typeof text === "object" && "text" in text) {
+    const textContent = String(text.text);
+    // Truncate long text
+    return textContent.length > 60 ? textContent.slice(0, 60) + "..." : textContent;
   }
 
   // Fallback to prompt summary
@@ -66,20 +69,12 @@ const getProgressSummary = (data: ProgressData): string => {
 
 // Get icon for the current action
 const getActionIcon = (data: ProgressData) => {
-  if (data.normalizedMessages && data.normalizedMessages.length > 0) {
-    const lastMsg = data.normalizedMessages[data.normalizedMessages.length - 1];
-    if (lastMsg?.message?.content) {
-      const content = lastMsg.message.content;
-      if (Array.isArray(content)) {
-        const toolUse = content.find((c: { type?: string }) => c.type === "tool_use");
-        if (toolUse && typeof toolUse === "object" && "name" in toolUse) {
-          const toolName = String(toolUse.name).toLowerCase();
-          if (toolName.includes("edit") || toolName.includes("write")) return FileEdit;
-          if (toolName.includes("read") || toolName.includes("glob") || toolName.includes("grep")) return FileSearch;
-          if (toolName.includes("bash")) return Terminal;
-        }
-      }
-    }
+  const toolUse = getLastToolUse(data);
+  if (toolUse) {
+    const toolName = String(toolUse.name).toLowerCase();
+    if (toolName.includes("edit") || toolName.includes("write")) return FileEdit;
+    if (toolName.includes("read") || toolName.includes("glob") || toolName.includes("grep")) return FileSearch;
+    if (toolName.includes("bash")) return Terminal;
   }
   return Bot;
 };
@@ -133,10 +128,7 @@ export const AgentProgressGroupRenderer = memo(function AgentProgressGroupRender
   const isRunning = !isCompleted && !hasError;
 
   // Get summary from latest entry
-  const summary = useMemo(() => {
-    if (!latestData) return "";
-    return getProgressSummary(latestData);
-  }, [latestData]);
+  const summary = latestData ? getProgressSummary(latestData) : "";
 
   const ActionIcon = latestData ? getActionIcon(latestData) : Bot;
 

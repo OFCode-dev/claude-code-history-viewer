@@ -113,7 +113,7 @@ vi.mock("@/components/ProjectTree", () => ({
   ),
 }));
 
-vi.mock("@/components/MessageViewer", () => ({
+vi.mock("@/components/MessageViewer/MessageViewer", () => ({
   MessageViewer: () => <div>message-viewer</div>,
 }));
 
@@ -129,7 +129,7 @@ vi.mock("@/components/TokenStatsViewer", () => ({
   TokenStatsViewer: () => <div>token-stats</div>,
 }));
 
-vi.mock("@/components/AnalyticsDashboard", () => ({
+vi.mock("@/components/AnalyticsDashboard/AnalyticsDashboard", () => ({
   AnalyticsDashboard: () => <div>analytics</div>,
 }));
 

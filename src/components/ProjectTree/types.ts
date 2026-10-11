@@ -56,7 +56,7 @@ export interface SessionListProps {
   onLoadMoreSessions?: () => void;
   formatTimeAgo: (date: string) => string;
   /** `pane`: standalone column (no tree indentation, virtual list fills `listHeight`). */
-  variant?: "default" | "main" | "worktree" | "pane";
+  variant?: "default" | "pane";
   /** Available height for the virtual list when `variant="pane"`. */
   listHeight?: number;
 }

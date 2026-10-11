@@ -38,7 +38,6 @@ export const DailyTrendChart: React.FC<DailyTrendChartProps> = ({ dailyData }) =
   return (
     <div className="space-y-3">
       {/* Bar Chart */}
-      {/* Bar Chart */}
       <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
         {dailyData.map((stat) => {
           const isToday = stat.date === today;

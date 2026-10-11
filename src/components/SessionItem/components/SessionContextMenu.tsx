@@ -96,18 +96,15 @@ export const SessionContextMenu: React.FC<SessionContextMenuProps> = ({
     const raf = requestAnimationFrame(() => {
       armed = true;
     });
-    const handleScroll = () => {
+    const close = () => {
       if (armed) onClose();
     };
-    const handleResize = () => {
-      if (armed) onClose();
-    };
-    document.addEventListener("scroll", handleScroll, { capture: true, passive: true });
-    window.addEventListener("resize", handleResize);
+    document.addEventListener("scroll", close, { capture: true, passive: true });
+    window.addEventListener("resize", close);
     return () => {
       cancelAnimationFrame(raf);
-      document.removeEventListener("scroll", handleScroll, { capture: true });
-      window.removeEventListener("resize", handleResize);
+      document.removeEventListener("scroll", close, { capture: true });
+      window.removeEventListener("resize", close);
     };
   }, [onClose]);
 

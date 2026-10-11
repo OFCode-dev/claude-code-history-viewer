@@ -17,7 +17,7 @@ export const WriteCard = memo(function WriteCard({ toolUse, toolResults }: Props
 
 
   return (
-    <Renderer className={styles.container} hasError={toolResults.length > 0 && toolResults.some(isError)} expandKey={`unified-${(toolUse.id as string) || ""}`}>
+    <Renderer className={styles.container} hasError={toolResults.some(isError)} expandKey={`unified-${(toolUse.id as string) || ""}`}>
       <Renderer.Header
         title="Write"
         icon={<ToolIcon toolName="Write" className={cn(layout.iconSize, styles.icon)} />}

@@ -136,29 +136,15 @@ export interface GrowthMetrics {
 }
 
 /**
- * Calculate day-over-day growth rates for tokens and messages
- */
-export const calculateDailyGrowth = (dailyStats: DailyStats[]): GrowthMetrics => {
-  if (dailyStats.length < 2) {
-    return { tokenGrowth: 0, messageGrowth: 0 };
-  }
-
-  const lastDayStats = dailyStats[dailyStats.length - 1];
-  const prevDayStats = dailyStats[dailyStats.length - 2];
-
-  if (!lastDayStats || !prevDayStats) {
-    return { tokenGrowth: 0, messageGrowth: 0 };
-  }
-
-  return {
-    tokenGrowth: calculateGrowthRate(lastDayStats.total_tokens, prevDayStats.total_tokens),
-    messageGrowth: calculateGrowthRate(lastDayStats.message_count, prevDayStats.message_count),
-  };
-};
-
-/**
- * Extract growth metrics from project summary
+ * Extract day-over-day growth metrics from project summary
  */
 export const extractProjectGrowth = (projectSummary: ProjectStatsSummary): GrowthMetrics => {
-  return calculateDailyGrowth(projectSummary.daily_stats);
+  const [prev, last] = projectSummary.daily_stats.slice(-2);
+  if (!prev || !last) {
+    return { tokenGrowth: 0, messageGrowth: 0 };
+  }
+  return {
+    tokenGrowth: calculateGrowthRate(last.total_tokens, prev.total_tokens),
+    messageGrowth: calculateGrowthRate(last.message_count, prev.message_count),
+  };
 };

@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   MINIMAP_FAILED_CSS_VAR,
   MINIMAP_KIND_CSS_VAR,
-  kindColorSource,
+  colorForKind,
   minimapFailedColor,
 } from "./kindColorSource";
 import { MINIMAP_KIND_PRIORITY } from "./minimapLayout";
@@ -24,7 +24,7 @@ function stubComputedStyle(vars: Record<string, string>) {
   );
 }
 
-describe("kindColorSource", () => {
+describe("colorForKind", () => {
   afterEach(() => {
     vi.restoreAllMocks();
   });
@@ -49,28 +49,23 @@ describe("kindColorSource", () => {
     const vars: Record<string, string> = { "--info": "oklch(0.45 0.12 240)" };
     const spy = stubComputedStyle(vars);
 
-    expect(kindColorSource.colorForKind("prompt")).toBe("oklch(0.45 0.12 240)");
+    expect(colorForKind("prompt")).toBe("oklch(0.45 0.12 240)");
     expect(spy).toHaveBeenCalledTimes(1);
 
     // Change the value between calls (a theme switch) with no re-mount.
     vars["--info"] = "oklch(0.75 0.16 240)";
-    expect(kindColorSource.colorForKind("prompt")).toBe("oklch(0.75 0.16 240)");
+    expect(colorForKind("prompt")).toBe("oklch(0.75 0.16 240)");
     expect(spy).toHaveBeenCalledTimes(2);
   });
 
   it("trims the resolved value", () => {
     stubComputedStyle({ "--info": "  oklch(0.45 0.12 240)  " });
-    expect(kindColorSource.colorForKind("prompt")).toBe("oklch(0.45 0.12 240)");
+    expect(colorForKind("prompt")).toBe("oklch(0.45 0.12 240)");
   });
 
   it("returns null when the custom property resolves empty", () => {
     stubComputedStyle({});
-    expect(kindColorSource.colorForKind("reply")).toBeNull();
-  });
-
-  it("delegates priority to the Design §4 table", () => {
-    expect(kindColorSource.priorityForKind("prompt")).toBe(MINIMAP_KIND_PRIORITY.prompt);
-    expect(kindColorSource.priorityForKind("system")).toBe(MINIMAP_KIND_PRIORITY.system);
+    expect(colorForKind("reply")).toBeNull();
   });
 
   it("minimapFailedColor reads the destructive token at call time", () => {

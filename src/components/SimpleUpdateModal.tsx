@@ -36,8 +36,7 @@ function resolveReleaseName(updateInfo: UseUpdaterReturn['state']['updateInfo'])
   return (
     getTrimmedString(updateInfo.rawJson?.releaseName) ??
     getTrimmedString(updateInfo.rawJson?.name) ??
-    getTrimmedString(updateInfo.rawJson?.title) ??
-    null
+    getTrimmedString(updateInfo.rawJson?.title)
   );
 }
 
@@ -48,8 +47,7 @@ function resolveReleaseNotes(updateInfo: UseUpdaterReturn['state']['updateInfo']
     getTrimmedString(updateInfo.body) ??
     getTrimmedString(updateInfo.rawJson?.notes) ??
     getTrimmedString(updateInfo.rawJson?.releaseNotes) ??
-    getTrimmedString(updateInfo.rawJson?.changelog) ??
-    null
+    getTrimmedString(updateInfo.rawJson?.changelog)
   );
 }
 

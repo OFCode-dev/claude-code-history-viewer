@@ -208,18 +208,10 @@ export const SessionList: React.FC<SessionListProps> = ({
   const enterSessionSelectionMode = useAppStore((s) => s.enterSessionSelectionMode);
   const handleSessionSelectionClick = useAppStore((s) => s.handleSessionSelectionClick);
 
-  const isWorktree = variant === "worktree";
-  const isMain = variant === "main";
   const isPane = variant === "pane";
-  const borderClass = isPane
-    ? ""
-    : isWorktree
-      ? "border-l border-success/30"
-      : isMain
-        ? "border-l border-accent/30"
-        : "border-l-2 border-accent/20";
+  const borderClass = isPane ? "" : "border-l-2 border-accent/20";
 
-  const containerClass = isPane ? "px-2" : isWorktree || isMain ? "ml-4 pl-2" : "ml-6 pl-3";
+  const containerClass = isPane ? "px-2" : "ml-6 pl-3";
 
   // Filter and sort sessions
   const filteredAndSortedSessions = useMemo(() => {
@@ -439,7 +431,7 @@ export const SessionList: React.FC<SessionListProps> = ({
   if (isLoading) {
     return (
       <div className={cn(containerClass, borderClass, "space-y-2 py-2")}>
-        {[1, 2, isWorktree || isMain ? 0 : 3].filter(Boolean).map((i) => (
+        {[1, 2, 3].map((i) => (
           <div key={i} className="flex items-center gap-2.5 py-2 px-3">
             <Skeleton variant="circular" className="w-5 h-5" />
             <div className="flex-1 space-y-1.5">
@@ -454,7 +446,7 @@ export const SessionList: React.FC<SessionListProps> = ({
 
   if (sessions.length === 0 && !hasMoreSessions) {
     return (
-      <div className={cn(containerClass, "py-2 text-2xs text-muted-foreground", isPane ? "" : isWorktree || isMain ? "ml-5" : "ml-7")}>
+      <div className={cn(containerClass, "py-2 text-2xs text-muted-foreground", isPane ? "" : "ml-7")}>
         {t("components:session.notFound", "No sessions")}
       </div>
     );
@@ -463,7 +455,7 @@ export const SessionList: React.FC<SessionListProps> = ({
   // 세션 수가 적으면 기존 방식 유지
   if (!useVirtualScroll) {
     return (
-      <div className={cn(containerClass, borderClass, (isWorktree || isMain) && "py-1.5")}>
+      <div className={cn(containerClass, borderClass)}>
         {controls}
         {selectionBar}
 
@@ -498,7 +490,7 @@ export const SessionList: React.FC<SessionListProps> = ({
 
   // 세션 수가 많으면 virtual scroll 적용
   return (
-    <div className={cn(containerClass, borderClass, (isWorktree || isMain) && "py-1.5")}>
+    <div className={cn(containerClass, borderClass)}>
       {controls}
       {selectionBar}
 

@@ -18,18 +18,16 @@ type DiffMode =
 type Props = {
   oldText: string;
   newText: string;
-  diffMode?: DiffMode;
   title?: string;
 };
 
 export const AdvancedTextDiff = ({
   oldText,
   newText,
-  diffMode = "lines",
   title,
 }: Props) => {
   const { t } = useTranslation();
-  const [currentMode, setCurrentMode] = useState<DiffMode>(diffMode);
+  const [currentMode, setCurrentMode] = useState<DiffMode>("lines");
   const [isExpanded, setIsExpanded] = useCaptureExpandState("diff", false);
 
   const defaultTitle = title || t("advancedTextDiff.textChanges");
@@ -48,8 +46,6 @@ export const AdvancedTextDiff = ({
         return Diff.diffWordsWithSpace(oldText, newText);
       case "sentences":
         return Diff.diffSentences(oldText, newText);
-      default:
-        return Diff.diffWords(oldText, newText);
     }
   };
 
@@ -80,26 +76,17 @@ export const AdvancedTextDiff = ({
       title = t("advancedTextDiff.unchanged");
     }
 
-    // 긴 텍스트는 줄바꿈 허용
-    const content =
-      currentMode === "lines" || currentMode === "trimmedLines"
-        ? part.value
-        : part.value;
-
     return (
       <span
         key={index}
         className={`${baseClasses} ${colorClasses} px-1 rounded`}
         title={title}
         style={{
-          whiteSpace:
-            currentMode === "lines" || currentMode === "trimmedLines"
-              ? "pre-wrap"
-              : "pre-wrap",
+          whiteSpace: "pre-wrap",
           wordBreak: "break-word",
         }}
       >
-        {content}
+        {part.value}
       </span>
     );
   };

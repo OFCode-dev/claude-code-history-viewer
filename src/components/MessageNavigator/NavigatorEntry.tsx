@@ -79,7 +79,7 @@ export const NavigatorEntry = React.memo<NavigatorEntryProps>(({
     [registerRef, measureRef, entry.uuid]
   );
 
-  const kindStyle = KIND_STYLES[entry.kind] ?? KIND_STYLES.system;
+  const kindStyle = KIND_STYLES[entry.kind];
   const KindIcon = kindStyle.icon;
   const kindLabel = t(getKindLabelKey(entry.kind));
   const isFailed = isFailedTaskStatus(entry.status);

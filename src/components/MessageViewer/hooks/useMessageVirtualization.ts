@@ -50,8 +50,6 @@ interface UseMessageVirtualizationReturn {
   uuidToIndexMap: Map<string, number>;
   virtualRows: VirtualItem[];
   totalSize: number;
-  /** Scroll to a specific message by UUID */
-  scrollToMessage: (uuid: string) => void;
   /** Get index for a UUID (handles group member -> leader resolution) */
   getScrollIndex: (uuid: string) => number | null;
   /** Offset that row transforms should subtract from `virtualRow.start`. */
@@ -80,25 +78,8 @@ export const useMessageVirtualization = ({
 
   // Flatten message tree with group information
   const flattenedMessages = useMemo(
-    () => {
-      if (import.meta.env.DEV && messages.length > 0) {
-        const start = performance.now();
-        const result = flattenMessageTree({
-          messages,
-          agentTaskGroups,
-          agentTaskMemberUuids,
-          agentProgressGroups,
-          agentProgressMemberUuids,
-          taskOperationGroups,
-          taskOperationMemberUuids,
-          hiddenMessageIds: effectiveHiddenIds,
-        });
-        if (import.meta.env.DEV) {
-          console.debug(`[useMessageVirtualization] flattenMessageTree: ${messages.length} → ${result.length} items (${effectiveHiddenIds.length} hidden), ${(performance.now() - start).toFixed(1)}ms`);
-        }
-        return result;
-      }
-      return flattenMessageTree({
+    () =>
+      flattenMessageTree({
         messages,
         agentTaskGroups,
         agentTaskMemberUuids,
@@ -107,8 +88,7 @@ export const useMessageVirtualization = ({
         taskOperationGroups,
         taskOperationMemberUuids,
         hiddenMessageIds: effectiveHiddenIds,
-      });
-    },
+      }),
     [
       messages,
       agentTaskGroups,
@@ -203,24 +183,12 @@ export const useMessageVirtualization = ({
     ]
   );
 
-  // Scroll to message by UUID
-  const scrollToMessage = useCallback(
-    (uuid: string) => {
-      const index = getScrollIndex(uuid);
-      if (index !== null) {
-        virtualizer.scrollToIndex(index, { align: "center" });
-      }
-    },
-    [getScrollIndex, virtualizer]
-  );
-
   return {
     virtualizer,
     flattenedMessages,
     uuidToIndexMap,
     virtualRows: virtualizer.getVirtualItems(),
     totalSize: virtualizer.getTotalSize(),
-    scrollToMessage,
     getScrollIndex,
     rowTranslateOffset: scrollMargin,
   };
