@@ -25,9 +25,11 @@ export type MessageKind =
 
 export interface TaskNotification {
   taskId?: string;
+  toolUseId?: string;
   status?: string;
   summary?: string;
   result?: string;
+  event?: string;
 }
 
 export interface MessageKindInfo {
@@ -89,9 +91,11 @@ export function parseTaskNotifications(text: string): TaskNotification[] {
     const body = match[1] ?? "";
     return {
       taskId: readTag(body, "task-id"),
+      toolUseId: readTag(body, "tool-use-id"),
       status: readTag(body, "status"),
       summary: readTag(body, "summary"),
       result: readTag(body, "result"),
+      event: readTag(body, "event"),
     };
   });
 }
