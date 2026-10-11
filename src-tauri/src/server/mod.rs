@@ -350,7 +350,7 @@ pub fn build_router(
         .route("/auth/logout", post(auth_logout_handler))
         .merge(protected_api);
 
-    let mut app = Router::new()
+    let app = Router::new()
         .route("/health", get(health_handler))
         .nest("/api", api)
         .with_state(state)
@@ -363,7 +363,7 @@ pub fn build_router(
     // Serve React SPA build output as static files.
     // For unknown paths, fall back to index.html with HTTP 200 so client-side routing works.
     let spa_index: SpaIndex;
-    if let Some(dist) = dist_dir {
+    let spa = if let Some(dist) = dist_dir {
         // External mode: serve from filesystem (development / override)
         let index_html = std::fs::read_to_string(format!("{dist}/index.html"))
             .expect("Failed to read dist/index.html — is --dist correct?");
@@ -380,9 +380,9 @@ pub fn build_router(
             async move { spa_index_response(index) }
         });
         let serve_dir = ServeDir::new(dist);
-        app = app
+        Router::new()
             .route("/", spa_root)
-            .fallback_service(serve_dir.fallback(spa_fallback));
+            .fallback_service(serve_dir.fallback(spa_fallback))
     } else {
         // Embedded mode: serve from rust-embed compiled assets (production default)
         spa_index = SpaIndex::Embedded {
@@ -390,7 +390,7 @@ pub fn build_router(
         };
         let index_for_root = spa_index.clone();
         let base_path_for_assets = base_path.clone();
-        app = app
+        Router::new()
             .route(
                 "/",
                 get(move || {
@@ -401,8 +401,11 @@ pub fn build_router(
             .fallback(get(move |req| {
                 let base_path = base_path_for_assets.clone();
                 async move { embedded_asset_handler(req, base_path) }
-            }));
-    }
+            }))
+    };
+
+    // Cache headers apply to the frontend only, never to /api or /health.
+    let app = app.merge(spa.layer(middleware::from_fn(static_cache_control)));
 
     if base_path == "/" {
         app
@@ -503,10 +506,34 @@ fn inject_base_path(index_html: &str, base_path: &str) -> String {
 }
 
 fn spa_index_response(index: SpaIndex) -> Response {
-    match index {
+    let mut response = match index {
         SpaIndex::Html(html) => Html((*html).clone()).into_response(),
         SpaIndex::Embedded { base_path } => embedded_index_response(base_path),
+    };
+    response
+        .headers_mut()
+        .insert(header::CACHE_CONTROL, HeaderValue::from_static("no-cache"));
+    response
+}
+
+/// Hashed Vite output under `assets/` is immutable; everything else (index.html,
+/// SPA fallbacks, favicon, errors) must be revalidated so a redeploy shows up at once.
+async fn static_cache_control(request: Request, next: Next) -> Response {
+    let is_asset = request.uri().path().starts_with("/assets/");
+    let mut response = next.run(request).await;
+    if !response.headers().contains_key(header::CACHE_CONTROL) {
+        let value = if is_asset
+            && (response.status().is_success() || response.status() == StatusCode::NOT_MODIFIED)
+        {
+            "public, max-age=31536000, immutable"
+        } else {
+            "no-cache"
+        };
+        response
+            .headers_mut()
+            .insert(header::CACHE_CONTROL, HeaderValue::from_static(value));
     }
+    response
 }
 
 // ---------------------------------------------------------------------------
@@ -653,14 +680,8 @@ fn embedded_asset_handler(req: Request, base_path: String) -> Response {
             .first_or_octet_stream()
             .to_string();
         (Body::from(file.data.into_owned()), mime)
-    } else if let Some(index) = embedded_index_body(&base_path) {
-        (index, "text/html".to_string())
     } else {
-        return (
-            StatusCode::NOT_FOUND,
-            "index.html not found in embedded assets",
-        )
-            .into_response();
+        return spa_index_response(SpaIndex::Embedded { base_path });
     };
 
     Response::builder()
@@ -1496,5 +1517,58 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(blocked.status(), StatusCode::FORBIDDEN);
+    }
+
+    #[tokio::test]
+    async fn static_files_carry_cache_control_headers() {
+        let dist = tempfile::tempdir().expect("dist dir");
+        std::fs::write(
+            dist.path().join("index.html"),
+            "<html><head></head><body>test</body></html>",
+        )
+        .unwrap();
+        std::fs::create_dir(dist.path().join("assets")).unwrap();
+        std::fs::write(dist.path().join("assets/index-abc123.js"), "1;").unwrap();
+        std::fs::write(dist.path().join("favicon.ico"), [0_u8]).unwrap();
+
+        for base_path in ["/", "/viewer"] {
+            let prefix = if base_path == "/" { "" } else { base_path };
+            let app = build_router(
+                test_state(None),
+                "127.0.0.1",
+                3727,
+                Some(dist.path().to_str().unwrap()),
+                base_path,
+            );
+            for (path, expected) in [
+                ("/", "no-cache"),
+                ("/sessions/unknown", "no-cache"),
+                ("/assets/missing.js", "no-cache"),
+                ("/favicon.ico", "no-cache"),
+                (
+                    "/assets/index-abc123.js",
+                    "public, max-age=31536000, immutable",
+                ),
+            ] {
+                let uri = format!("{prefix}{path}");
+                let response = app
+                    .clone()
+                    .oneshot(
+                        Request::builder()
+                            .method(Method::GET)
+                            .uri(&uri)
+                            .body(Body::empty())
+                            .unwrap(),
+                    )
+                    .await
+                    .unwrap();
+                assert_eq!(response.status(), StatusCode::OK, "{uri}");
+                assert_eq!(
+                    response.headers().get(header::CACHE_CONTROL).unwrap(),
+                    expected,
+                    "{uri}"
+                );
+            }
+        }
     }
 }
