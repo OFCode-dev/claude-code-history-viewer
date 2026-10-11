@@ -207,14 +207,10 @@ export interface AppStoreState {
   navigatorMode: import("./navigatorSlice").NavigatorMode;
   pendingPositionRestore: import("./navigatorSlice").PendingPositionRestore | null;
 
-  // Panel layout state (explorer / sessions pane collapse, focus mode)
+  // Panel layout state (the four collapsible areas besides the navigator)
   isExplorerCollapsed: boolean;
   isSessionsPaneCollapsed: boolean;
-  isReadingMode: boolean;
-  readingRestoreDock: boolean;
-  readingProfile: import("./layoutSlice").ReadingProfile;
-  hoverReveal: import("./layoutSlice").HoverRevealSetting;
-  revealed: import("./layoutSlice").RevealedPanel | null;
+  isConversationToolsCollapsed: boolean;
   layoutAnnouncement: import("./layoutSlice").LayoutAnnouncement | null;
 
   // Minimap state
@@ -447,15 +443,10 @@ export interface AppStoreActions {
   setExplorerCollapsed: (collapsed: boolean) => void;
   toggleSessionsPaneCollapsed: () => void;
   setSessionsPaneCollapsed: (collapsed: boolean) => void;
-  toggleReadingMode: () => void;
-  setReadingPin: (group: import("./layoutSlice").PanelGroup, pinned: boolean) => void;
-  revealPanel: (
-    group: import("./layoutSlice").PanelGroup,
-    source: import("./layoutSlice").RevealSource,
-    quick?: boolean
-  ) => boolean;
-  concealPanel: (group?: import("./layoutSlice").PanelGroup) => void;
-  setHoverReveal: (value: import("./layoutSlice").HoverRevealSetting) => void;
+  toggleConversationToolsCollapsed: () => void;
+  setConversationToolsCollapsed: (collapsed: boolean) => void;
+  collapseAll: () => void;
+  expandAll: () => void;
   announceLayout: (text: string) => void;
   clearLayoutAnnouncement: (id: number) => void;
 

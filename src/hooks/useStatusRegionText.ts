@@ -6,7 +6,7 @@ const REPEAT_GAP_MS = 60;
 
 /**
  * Text for the app's polite status region, shared by loading states and
- * layout announcements (reading mode, pins). Whichever changed last owns
+ * layout announcements (collapse all, expand all). Whichever changed last owns
  * the region. A cleared announcement leaves the region empty instead of
  * bringing back an older loading message, and an announcement whose words
  * equal the current text is emptied first so it is announced again.

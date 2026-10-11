@@ -1,8 +1,10 @@
 // src/components/ProjectTree/components/CollapsedExplorerRail.tsx
 import React from "react";
-import { BarChart3, Folder, PanelLeft } from "lucide-react";
+import { BarChart3, PanelLeft } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
+import { railButtonClass, railClass, railCountClass } from "@/components/ui/rail";
+import { AREA_TOGGLE_ATTR } from "@/layouts/areaToggleAttr";
 import { SubagentsRailButton } from "@/components/SessionsPane/SubagentsRailButton";
 
 interface CollapsedExplorerRailProps {
@@ -17,7 +19,7 @@ interface CollapsedExplorerRailProps {
 }
 
 /**
- * The folded explorer: expand, global statistics and the project count, and,
+ * The folded explorer: expand, global statistics, the project count and,
  * while the explorer lists sessions inline, the way to its subagent list.
  */
 export const CollapsedExplorerRail: React.FC<CollapsedExplorerRailProps> = ({
@@ -38,18 +40,16 @@ export const CollapsedExplorerRail: React.FC<CollapsedExplorerRailProps> = ({
       aria-label={t("project.explorer")}
       tabIndex={-1}
       data-menu-boundary
-      className={cn(
-        "flex h-full w-12 shrink-0 flex-col items-center gap-2 border-r border-border/50 bg-sidebar py-2",
-        isResizing && "select-none"
-      )}
+      className={cn(railClass, "border-r border-border/50", isResizing && "select-none")}
     >
       {onExpand && (
         <button
           type="button"
           onClick={onExpand}
+          {...{ [AREA_TOGGLE_ATTR]: "" }}
           aria-label={t("project.expandSidebar")}
           title={t("project.expandSidebar")}
-          className="flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          className={railButtonClass}
         >
           <PanelLeft className="size-4" aria-hidden="true" />
         </button>
@@ -60,23 +60,15 @@ export const CollapsedExplorerRail: React.FC<CollapsedExplorerRailProps> = ({
         aria-pressed={isViewingGlobalStats}
         aria-label={t("project.globalStats")}
         title={t("project.globalStats")}
-        className={cn(
-          "flex size-8 items-center justify-center rounded-md transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-          isViewingGlobalStats
-            ? "bg-accent/15 text-accent"
-            : "text-muted-foreground hover:bg-muted/70 hover:text-foreground"
-        )}
+        className={cn(railButtonClass, isViewingGlobalStats && "bg-accent/15 text-accent")}
       >
         <BarChart3 className="size-4" aria-hidden="true" />
       </button>
-      <div className="mt-1 flex flex-col items-center gap-1 text-muted-foreground" title={countLabel}>
-        <Folder className="size-3.5" aria-hidden="true" />
-        <span className="text-2xs tabular-nums" aria-hidden="true">
-          {projectCount}
-        </span>
-        <span className="sr-only">{countLabel}</span>
-      </div>
-      {showSubagents && onExpand && <SubagentsRailButton onExpand={onExpand} className="mt-1" />}
+      <span className={railCountClass} title={countLabel} aria-hidden="true">
+        {projectCount}
+      </span>
+      <span className="sr-only">{countLabel}</span>
+      {showSubagents && onExpand && <SubagentsRailButton onExpand={onExpand} />}
     </aside>
   );
 };

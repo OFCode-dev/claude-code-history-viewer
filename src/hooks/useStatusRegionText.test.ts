@@ -19,8 +19,8 @@ describe("useStatusRegionText", () => {
     const { result, rerender } = setup("Loading messages");
     expect(result.current).toBe("Loading messages");
 
-    rerender({ status: "Loading messages", announcement: { text: "Reading mode on.", id: 1 } });
-    expect(result.current).toBe("Reading mode on.");
+    rerender({ status: "Loading messages", announcement: { text: "All panels collapsed.", id: 1 } });
+    expect(result.current).toBe("All panels collapsed.");
 
     // Cleared after a while: the old loading message must not be read again.
     rerender({ status: "Loading messages", announcement: null });
@@ -41,8 +41,8 @@ describe("useStatusRegionText", () => {
 
   it("lets a new loading status take the region", () => {
     const { result, rerender } = setup();
-    rerender({ status: "", announcement: { text: "Reading mode off.", id: 1 } });
-    rerender({ status: "Scanning projects", announcement: { text: "Reading mode off.", id: 1 } });
+    rerender({ status: "", announcement: { text: "All panels expanded.", id: 1 } });
+    rerender({ status: "Scanning projects", announcement: { text: "All panels expanded.", id: 1 } });
     expect(result.current).toBe("Scanning projects");
   });
 });

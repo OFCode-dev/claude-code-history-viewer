@@ -1,5 +1,7 @@
 # Auto-hiding panels and reading mode: final design spec
 
+> **Superseded** on 2026-10-11 by [ADR 0002](../../docs/adr/0002-one-layout-collapsible-bars.md): one layout with thin collapsible bars; reading mode is now "collapse all".
+
 Status: **approved by the owner on 2026-10-10** ("verify it is the best UX with an orchestra, then treat it as approved and build it"). Owner decisions resolved: (a) full width, no reading-width cap; (b) default hover reveal Standard. Four adversarial reviews fed into it: two from Claude, one from Gemini and one from Codex. Branch `feature/ui-refresh` at `9b15af24`. Every code fact in §1 was checked at that commit. Objection IDs such as S1 or C8 refer to the Objection log at the end.
 
 ---

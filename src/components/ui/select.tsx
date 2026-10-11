@@ -3,8 +3,6 @@ import * as SelectPrimitive from "@radix-ui/react-select";
 import { Check, ChevronDown, ChevronUp } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { useAutoHideOwnerProps } from "@/components/AutoHide/autoHideHolds";
-import { AutoHideLayerHold } from "@/components/AutoHide/AutoHideHoldContext";
 
 const Select = SelectPrimitive.Root;
 
@@ -76,14 +74,10 @@ SelectScrollDownButton.displayName =
 const SelectContent = React.forwardRef<
   React.ComponentRef<typeof SelectPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof SelectPrimitive.Content>
->(({ className, children, position = "popper", ...props }, ref) => {
-  // Opened from an auto-hidden panel, a select belongs to it and holds it open.
-  const ownerProps = useAutoHideOwnerProps();
-  return (
+>(({ className, children, position = "popper", ...props }, ref) => (
   <SelectPrimitive.Portal>
     <SelectPrimitive.Content
       ref={ref}
-      {...ownerProps}
       className={cn(
         "relative z-50 max-h-96 min-w-[8rem] overflow-hidden",
         "rounded-md border bg-popover text-popover-foreground shadow-md",
@@ -99,7 +93,6 @@ const SelectContent = React.forwardRef<
       position={position}
       {...props}
     >
-      <AutoHideLayerHold />
       <SelectScrollUpButton />
       <SelectPrimitive.Viewport
         className={cn(
@@ -113,8 +106,7 @@ const SelectContent = React.forwardRef<
       <SelectScrollDownButton />
     </SelectPrimitive.Content>
   </SelectPrimitive.Portal>
-  );
-});
+));
 SelectContent.displayName = SelectPrimitive.Content.displayName;
 
 const SelectLabel = React.forwardRef<

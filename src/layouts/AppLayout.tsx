@@ -41,26 +41,7 @@ import { SessionsPane } from "@/components/SessionsPane/SessionsPane";
 import { formatTimeAgo } from "@/utils/time";
 import { useStatusRegionText } from "@/hooks/useStatusRegionText";
 import { supportsSessionBoard } from "@/layouts/sessionBoard";
-import { effectiveGroupMode } from "@/store/slices/layoutSlice";
-import { AutoHideRegion } from "@/components/AutoHide/AutoHideRegion";
-import { PinToggle } from "@/components/AutoHide/PinToggle";
-import { PromptSeekButtons } from "@/components/PromptSeek/PromptSeekButtons";
-import { panelShortcut } from "@/components/AutoHide/shortcuts";
-import { useAutoHidePanel } from "@/components/AutoHide/useAutoHidePanel";
-import {
-  concealAfterSessionChosen,
-  revealForSkipLink,
-} from "@/components/AutoHide/panelActions";
-import {
-  overlayWidth,
-  READING_COLUMN_ATTR,
-  splitLeftOverlay,
-  useReadingColumnWidth,
-} from "@/components/AutoHide/overlayWidth";
-import {
-  LEFT_OVERLAY_FLOOR_WIDE_PX,
-  OVERLAY_FLOOR_NARROW_PX,
-} from "@/components/AutoHide/constants";
+import { changeLayout } from "@/layouts/collapsibleAreas";
 import {
   AppErrorType,
   type ClaudeMessage,
@@ -174,10 +155,6 @@ export const AppLayout: React.FC<AppLayoutProps> = (props) => {
   const isRecentEditsDockOpen = useAppStore((s) => s.isRecentEditsDockOpen);
   const isSessionsPaneCollapsed = useAppStore((s) => s.isSessionsPaneCollapsed);
   const toggleSessionsPaneCollapsed = useAppStore((s) => s.toggleSessionsPaneCollapsed);
-  // Reading mode: each panel group follows the reading profile instead of
-  // the normal layout, which it never writes.
-  const isReadingMode = useAppStore((s) => s.isReadingMode);
-  const readingProfile = useAppStore((s) => s.readingProfile);
   const layoutAnnouncement = useAppStore((s) => s.layoutAnnouncement);
   const clearLayoutAnnouncement = useAppStore((s) => s.clearLayoutAnnouncement);
   const {
@@ -252,10 +229,6 @@ export const AppLayout: React.FC<AppLayoutProps> = (props) => {
   // Called before the early returns below, as hook order must not vary.
   const isXlUp = useIsXlUp();
   const isLgUp = useIsLgUp();
-  const readingActive = isReadingMode && !isMobile;
-  const leftMode = effectiveGroupMode({ isReadingMode, readingProfile }, "left", isMobile);
-  const rightMode = effectiveGroupMode({ isReadingMode, readingProfile }, "right", isMobile);
-  useAutoHidePanel(readingActive);
   // A breadcrumb reveal on mobile needs the explorer drawer (and its tree) open.
   useOpenDrawerOnExplorerReveal(isMobile, setIsMobileSidebarOpen);
   // Sessions get their own column from `lg` up; below that they stay inline in
@@ -282,28 +255,11 @@ export const AppLayout: React.FC<AppLayoutProps> = (props) => {
     maxWidth: 520,
     storageKey: "sessions-pane-width",
   });
-  // The reading column the side overlays must leave room in.
-  const readingColumnWidth = useReadingColumnWidth(
-    readingActive,
-    `${selectedSession?.session_id ?? ""}|${computed.isMessagesView}|${isViewingGlobalStats}`
-  );
-  const leftOverlayWidth = overlayWidth(
-    sidebarWidth + (showSessionsPane ? sessionsPaneWidth : 0),
-    readingColumnWidth,
-    isLgUp ? LEFT_OVERLAY_FLOOR_WIDE_PX : OVERLAY_FLOOR_NARROW_PX
-  );
-  const leftOverlaySplit = splitLeftOverlay(
-    leftOverlayWidth,
-    sidebarWidth,
-    showSessionsPane ? sessionsPaneWidth : null
-  );
-  const rightOverlayWidth = overlayWidth(navigatorWidth, readingColumnWidth, OVERLAY_FLOOR_NARROW_PX);
-
-  // Choosing a session closes a sticky (touch) left overlay, like the drawer.
-  const handlePanelSessionSelect = (session: ClaudeSession) => {
-    handleSessionSelect(session);
-    concealAfterSessionChosen();
-  };
+  // Folding or unfolding an area keeps the reader on the same message and
+  // hands focus from the pressed toggle to its counterpart.
+  const toggleExplorer = () => changeLayout(handleToggleSidebar);
+  const toggleSessionsPane = () => changeLayout(toggleSessionsPaneCollapsed);
+  const toggleNavigatorPanel = () => changeLayout(toggleNavigator);
 
   // Layout announcements share the status region, then make way again.
   useEffect(() => {
@@ -481,12 +437,6 @@ export const AppLayout: React.FC<AppLayoutProps> = (props) => {
           {!isMobile && (
             <a
               href="#project-explorer"
-              onClick={(event) => {
-                // Auto-hidden: reveal the panel, then focus the target in it.
-                if (leftMode !== "autohide") return;
-                event.preventDefault();
-                revealForSkipLink("left", "project-explorer");
-              }}
               className="absolute left-2 top-[-40px] z-[700] rounded-md border border-border bg-card px-3 py-2 text-sm font-medium text-foreground transition-all focus:top-2"
             >
               {t("common.a11y.skipToProjects", {
@@ -497,11 +447,6 @@ export const AppLayout: React.FC<AppLayoutProps> = (props) => {
           {showSessionsPane && (
             <a
               href="#sessions-pane"
-              onClick={(event) => {
-                if (leftMode !== "autohide") return;
-                event.preventDefault();
-                revealForSkipLink("left", "sessions-pane");
-              }}
               className="absolute left-[13rem] top-[-40px] z-[700] rounded-md border border-border bg-card px-3 py-2 text-sm font-medium text-foreground transition-all focus:top-2"
             >
               {t("common.a11y.skipToSessions", { defaultValue: "Skip to sessions" })}
@@ -535,16 +480,9 @@ export const AppLayout: React.FC<AppLayoutProps> = (props) => {
             in the tab order pointing at an id that was not in the document
             (#518). Same treatment the recent-edits link above already has.
           */}
-          {/* In reading mode the navigator is always reachable: pinned open,
-              or revealed by the link itself. */}
-          {!isMobile && isTranscriptView && (isNavigatorOpen || rightMode !== "normal") && selectedSession && (
+          {!isMobile && isTranscriptView && isNavigatorOpen && selectedSession && (
             <a
               href="#message-navigator"
-              onClick={(event) => {
-                if (rightMode !== "autohide") return;
-                event.preventDefault();
-                revealForSkipLink("right", "message-navigator");
-              }}
               className="absolute left-[35rem] top-[-40px] z-[700] rounded-md border border-border bg-card px-3 py-2 text-sm font-medium text-foreground transition-all focus:top-2"
             >
               {t("common.a11y.skipToNavigator", {
@@ -608,18 +546,10 @@ export const AppLayout: React.FC<AppLayoutProps> = (props) => {
           </Sheet>
         )}
 
-        {/* Main Content. Clipped, not a scroll container: overlays slide out
-            of their gutters and focus() must never scroll it sideways. */}
-        <div className="relative flex-1 flex min-h-0 overflow-clip">
-          {/* Explorer and sessions: one group in reading mode */}
+        {/* Main Content */}
+        <div className="flex-1 flex min-h-0 overflow-hidden">
+          {/* Desktop explorer and sessions: each folds to its rail in flow */}
           {!isMobile && (
-          <AutoHideRegion
-            group="left"
-            mode={leftMode}
-            label={t("readingMode.group.left")}
-            shortcut={panelShortcut("left")}
-            overlayWidth={leftMode === "autohide" ? leftOverlayWidth : undefined}
-          >
             <div className="hidden md:block">
               <ProjectTree
                 projects={projects}
@@ -629,7 +559,7 @@ export const AppLayout: React.FC<AppLayoutProps> = (props) => {
                 selectedProject={selectedProject}
                 selectedSession={selectedSession}
                 onProjectSelect={handleProjectSelect}
-                onSessionSelect={handlePanelSessionSelect}
+                onSessionSelect={handleSessionSelect}
                 onSessionHover={handleSessionHover}
                 onLoadMoreSessions={loadMoreSessions}
                 onGlobalStatsClick={handleGlobalStatsClick}
@@ -637,26 +567,18 @@ export const AppLayout: React.FC<AppLayoutProps> = (props) => {
                 isLoadingMoreSessions={isLoadingMoreSessions}
                 isViewingGlobalStats={isViewingGlobalStats}
                 inlineSessions={!showSessionsPane}
-                width={
-                  leftMode === "autohide"
-                    ? leftOverlaySplit.explorer
-                    : leftMode === "pinned" || !isSidebarCollapsed
-                      ? sidebarWidth
-                      : undefined
-                }
+                width={isSidebarCollapsed ? undefined : sidebarWidth}
                 isResizing={isSidebarResizing}
-                // Overlays cannot be resized; pinned and normal panels keep their sash.
-                onResizeStart={leftMode === "autohide" ? undefined : handleSidebarResizeStart}
+                onResizeStart={handleSidebarResizeStart}
                 onHideProject={hideProject}
                 onUnhideProject={unhideProject}
                 isProjectHidden={isProjectHidden}
-                // Rails belong to the normal layout only.
-                isCollapsed={leftMode === "normal" && isSidebarCollapsed}
-                onToggleCollapse={leftMode === "normal" ? handleToggleSidebar : undefined}
-                headerAccessory={leftMode === "normal" ? undefined : <PinToggle group="left" />}
+                isCollapsed={isSidebarCollapsed}
+                onToggleCollapse={toggleExplorer}
                 asideId="project-explorer"
               />
             </div>
+          )}
 
           {showSessionsPane && (
             <SessionsPane
@@ -667,22 +589,16 @@ export const AppLayout: React.FC<AppLayoutProps> = (props) => {
               selectedSession={selectedSession}
               isLoading={isLoadingSessions}
               isLoadingMoreSessions={isLoadingMoreSessions}
-              onSessionSelect={handlePanelSessionSelect}
+              onSessionSelect={handleSessionSelect}
               onSessionHover={handleSessionHover}
               onLoadMoreSessions={loadMoreSessions}
               formatTimeAgo={formatTimeAgo}
-              width={
-                leftMode === "autohide"
-                  ? (leftOverlaySplit.sessions ?? sessionsPaneWidth)
-                  : sessionsPaneWidth
-              }
+              width={sessionsPaneWidth}
               isResizing={isSessionsPaneResizing}
-              onResizeStart={leftMode === "autohide" ? undefined : handleSessionsPaneResizeStart}
-              isCollapsed={leftMode === "normal" && isSessionsPaneCollapsed}
-              onToggleCollapse={leftMode === "normal" ? toggleSessionsPaneCollapsed : undefined}
+              onResizeStart={handleSessionsPaneResizeStart}
+              isCollapsed={isSessionsPaneCollapsed}
+              onToggleCollapse={toggleSessionsPane}
             />
-          )}
-          </AutoHideRegion>
           )}
 
           {/* Main Content Area */}
@@ -894,11 +810,8 @@ export const AppLayout: React.FC<AppLayoutProps> = (props) => {
                   </div>
                 </OverlayScrollbarsComponent>
               ) : selectedSession ? (
-                <div className="relative flex h-full overflow-clip">
-                  <div
-                    className="flex-1 min-w-0 overflow-x-hidden"
-                    {...{ [READING_COLUMN_ATTR]: "" }}
-                  >
+                <div className="flex h-full overflow-hidden">
+                  <div className="flex-1 min-w-0 overflow-x-hidden">
                     <MessageViewer
                       messages={messages}
                       isLoading={isLoading}
@@ -916,34 +829,19 @@ export const AppLayout: React.FC<AppLayoutProps> = (props) => {
                       }
                     />
                   </div>
-                  <AutoHideRegion
-                    group="right"
-                    mode={rightMode}
-                    label={t("readingMode.group.right")}
-                    shortcut={panelShortcut("right")}
-                    overlayWidth={rightMode === "autohide" ? rightOverlayWidth : undefined}
-                    gutterAccessory={<PromptSeekButtons variant="gutter" />}
-                  >
-                    <div className="hidden md:block">
-                      <MessageNavigator
-                        messages={messages}
-                        width={rightMode === "autohide" ? rightOverlayWidth : navigatorWidth}
-                        isResizing={isNavigatorResizing}
-                        onResizeStart={
-                          rightMode === "autohide" ? undefined : handleNavigatorResizeStart
-                        }
-                        isCollapsed={rightMode === "normal" && !isNavigatorOpen}
-                        onToggleCollapse={rightMode === "normal" ? toggleNavigator : undefined}
-                        headerAccessory={
-                          rightMode === "normal" ? undefined : <PinToggle group="right" />
-                        }
-                        // Auto-hidden, the gutter under the handle carries them;
-                        // on phones, the navigator button does.
-                        showPromptSeek={rightMode !== "autohide" && !isMobile}
-                        asideId="message-navigator"
-                      />
-                    </div>
-                  </AutoHideRegion>
+                  <div className="hidden md:block">
+                    <MessageNavigator
+                      messages={messages}
+                      width={navigatorWidth}
+                      isResizing={isNavigatorResizing}
+                      onResizeStart={handleNavigatorResizeStart}
+                      isCollapsed={!isNavigatorOpen}
+                      onToggleCollapse={toggleNavigatorPanel}
+                      // On phones the navigator button carries them.
+                      showPromptSeek={!isMobile}
+                      asideId="message-navigator"
+                    />
+                  </div>
                   {/*
                     Outermost on the right, after the navigator rather than
                     before it. The navigator is an outline OF the transcript, so

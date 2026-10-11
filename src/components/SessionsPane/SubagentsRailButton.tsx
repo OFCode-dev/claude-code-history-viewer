@@ -31,9 +31,10 @@ export function SubagentsRailButton({ onExpand, className }: SubagentsRailButton
       title={label}
       data-subagents-rail-button=""
       className={cn(
-        "flex w-8 flex-col items-center gap-0.5 rounded-lg py-1 text-muted-foreground transition-colors",
+        // Rail width: 24 px, 44 px on touch; the ring is inset so the rail cannot clip it.
+        "flex w-6 flex-col items-center gap-0.5 rounded-md py-1 text-muted-foreground transition-colors pointer-coarse:w-11",
         "hover:bg-muted/70 hover:text-foreground",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
         className
       )}
     >

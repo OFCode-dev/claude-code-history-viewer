@@ -1,7 +1,6 @@
 /**
  * Where the previous / next prompt buttons sit: directly under (or beside)
  * whichever control opens the prompts navigator, one pair at a time.
- * The reading-mode gutter placement is covered with the auto-hide adapter.
  */
 import { render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";

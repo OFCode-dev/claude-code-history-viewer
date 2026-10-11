@@ -61,7 +61,6 @@ import {
 import {
   type LayoutSlice,
   createLayoutSlice,
-  migrateLegacyFocusMode,
 } from "./slices/layoutSlice";
 import {
   type MinimapSlice,
@@ -129,30 +128,26 @@ export type AppStore = ProjectSlice &
 // Store Creation
 // ============================================================================
 
-export const useAppStore = create<AppStore>()((...args) => {
-  // Before any slice reads storage, so they all start from migrated values.
-  migrateLegacyFocusMode();
-  return {
-    ...createProjectSlice(...args),
-    ...createMessageSlice(...args),
-    ...createSearchSlice(...args),
-    ...createAnalyticsSlice(...args),
-    ...createSettingsSlice(...args),
-    ...createGlobalStatsSlice(...args),
-    ...createMetadataSlice(...args),
-    ...createCaptureModeSlice(...args),
-    ...createBoardSlice(...args),
-    ...createFilterSlice(...args),
-    ...createNavigationSlice(...args),
-    ...createWatcherSlice(...args),
-    ...createNavigatorSlice(...args),
-    ...createLayoutSlice(...args),
-    ...createMinimapSlice(...args),
-    ...createRecentEditsPanelSlice(...args),
-    ...createProviderSlice(...args),
-    ...createArchiveSlice(...args),
-    ...createSessionPickerSlice(...args),
-    ...createServerSlice(...args),
-    ...createSessionSelectionSlice(...args),
-  };
-});
+export const useAppStore = create<AppStore>()((...args) => ({
+  ...createProjectSlice(...args),
+  ...createMessageSlice(...args),
+  ...createSearchSlice(...args),
+  ...createAnalyticsSlice(...args),
+  ...createSettingsSlice(...args),
+  ...createGlobalStatsSlice(...args),
+  ...createMetadataSlice(...args),
+  ...createCaptureModeSlice(...args),
+  ...createBoardSlice(...args),
+  ...createFilterSlice(...args),
+  ...createNavigationSlice(...args),
+  ...createWatcherSlice(...args),
+  ...createNavigatorSlice(...args),
+  ...createLayoutSlice(...args),
+  ...createMinimapSlice(...args),
+  ...createRecentEditsPanelSlice(...args),
+  ...createProviderSlice(...args),
+  ...createArchiveSlice(...args),
+  ...createSessionPickerSlice(...args),
+  ...createServerSlice(...args),
+  ...createSessionSelectionSlice(...args),
+}));

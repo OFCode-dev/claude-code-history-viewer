@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import type { ExplorerSort } from "../../../utils/explorerModel";
+import { AREA_TOGGLE_ATTR } from "@/layouts/areaToggleAttr";
 import { ExplorerIconButton } from "./ExplorerIconButton";
 
 interface ExplorerHeaderProps {
@@ -21,8 +22,6 @@ interface ExplorerHeaderProps {
   onToggleCollapse?: () => void;
   /** Mobile drawer: close it. */
   onClose?: () => void;
-  /** Reading mode: the pin toggle, in place of the rail button. */
-  accessory?: React.ReactNode;
 }
 
 const SORT_OPTIONS: Array<{ value: ExplorerSort; labelKey: string }> = [
@@ -30,30 +29,31 @@ const SORT_OPTIONS: Array<{ value: ExplorerSort; labelKey: string }> = [
   { value: "recent", labelKey: "project.sort.recent" },
 ];
 
-/** 36px header: collapse (or the reading-mode pin), title, sort and collapse-all. */
+/** 36px header: collapse, title, sort and collapse-all. */
 export const ExplorerHeader: React.FC<ExplorerHeaderProps> = ({
   sort,
   onSortChange,
   onCollapseAll,
   onToggleCollapse,
   onClose,
-  accessory,
 }) => {
   const { t } = useTranslation();
 
   return (
     <div className="flex h-9 shrink-0 items-center gap-0.5 pl-1.5 pr-1.5">
       {onToggleCollapse ? (
-        <ExplorerIconButton label={t("project.collapseSidebar")} onClick={onToggleCollapse}>
+        <ExplorerIconButton
+          label={t("project.collapseSidebar")}
+          onClick={onToggleCollapse}
+          {...{ [AREA_TOGGLE_ATTR]: "" }}
+        >
           <PanelLeftClose aria-hidden="true" />
         </ExplorerIconButton>
       ) : onClose ? (
         <ExplorerIconButton label={t("common.close")} onClick={onClose}>
           <X aria-hidden="true" />
         </ExplorerIconButton>
-      ) : (
-        accessory ?? null
-      )}
+      ) : null}
       <span className="min-w-0 flex-1 truncate pl-1 text-2xs font-semibold uppercase tracking-widest text-muted-foreground">
         {t("project.explorer")}
       </span>

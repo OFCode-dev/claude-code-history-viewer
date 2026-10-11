@@ -83,7 +83,6 @@ export const ProjectTree: React.FC<ProjectTreeProps> = ({
   isProjectHidden,
   isCollapsed = false,
   onToggleCollapse,
-  headerAccessory,
   asideId = "project-explorer",
   onClose,
 }) => {
@@ -321,7 +320,6 @@ export const ProjectTree: React.FC<ProjectTreeProps> = ({
           onCollapseAll={collapseAllGroups}
           onToggleCollapse={onToggleCollapse}
           onClose={onClose}
-          accessory={headerAccessory}
         />
         <GlobalStatsRow isActive={isViewingGlobalStats} onClick={handleGlobalStatsClick} />
         <ExplorerSearch value={searchTerm} onChange={setSearchTerm} filters={filters} />

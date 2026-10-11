@@ -3,32 +3,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ReadingModeButton } from "./ReadingModeButton";
 import { HistoryNavButtons } from "./HistoryNavButtons";
-
-const { store } = vi.hoisted(() => ({
-  store: {
-    isReadingMode: false,
-    readingProfile: { left: "autohide", right: "autohide", top: "autohide" },
-    isExplorerCollapsed: false,
-    isSessionsPaneCollapsed: false,
-    isNavigatorOpen: true,
-    toggleReadingMode: vi.fn(),
-    announceLayout: vi.fn(),
-  },
-}));
-
-vi.mock("@/store/useAppStore", () => {
-  const useAppStore = (selector: (state: typeof store) => unknown) => selector(store);
-  useAppStore.getState = () => store;
-  return { useAppStore };
-});
+import { useAppStore } from "@/store/useAppStore";
 
 vi.mock("@/contexts/platform", () => ({
   usePlatform: () => ({ isMobile: false }),
 }));
 
-vi.mock("sonner", () => ({ toast: vi.fn() }));
-
-vi.mock("react-i18next", () => ({
+vi.mock("react-i18next", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("react-i18next")>()),
   useTranslation: () => ({
     t: (key: string) => key,
   }),
@@ -88,55 +70,69 @@ describe("HistoryNavButtons", () => {
 });
 
 describe("ReadingModeButton", () => {
+  const original = useAppStore.getState();
+
+  function renderButton() {
+    return render(
+      <TooltipProvider>
+        <ReadingModeButton />
+      </TooltipProvider>,
+    );
+  }
+  const button = () => screen.getByRole("button", { name: "header.readingMode.label" });
+  const state = () => useAppStore.getState();
+
   beforeEach(() => {
-    store.isReadingMode = false;
-    store.toggleReadingMode.mockClear();
-    store.announceLayout.mockClear();
     localStorage.clear();
+    useAppStore.setState({
+      isExplorerCollapsed: false,
+      isSessionsPaneCollapsed: false,
+      isConversationToolsCollapsed: false,
+      isNavigatorOpen: true,
+      layoutAnnouncement: null,
+    });
   });
 
-  it("toggles reading mode and reports its state", () => {
-    const { rerender } = render(
-      <TooltipProvider>
-        <ReadingModeButton />
-      </TooltipProvider>,
-    );
-
-    const button = screen.getByRole("button", { name: "header.readingMode.label" });
-    expect(button).toHaveAttribute("aria-pressed", "false");
-    expect(button).toHaveAttribute("aria-keyshortcuts", "Control+Shift+F");
-    fireEvent.click(button);
-    expect(store.toggleReadingMode).toHaveBeenCalledTimes(1);
-
-    store.isReadingMode = true;
-    rerender(
-      <TooltipProvider>
-        <ReadingModeButton />
-      </TooltipProvider>,
-    );
-    expect(screen.getByRole("button", { name: "header.readingMode.label" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
+  afterEach(() => {
+    useAppStore.setState({
+      isExplorerCollapsed: original.isExplorerCollapsed,
+      isSessionsPaneCollapsed: original.isSessionsPaneCollapsed,
+      isConversationToolsCollapsed: original.isConversationToolsCollapsed,
+      isNavigatorOpen: original.isNavigatorOpen,
+      layoutAnnouncement: null,
+    });
   });
 
-  it("announces later entries; the very first one shows the hint instead", async () => {
-    const { toast } = await import("sonner");
-    vi.mocked(toast).mockClear();
-    render(
-      <TooltipProvider>
-        <ReadingModeButton />
-      </TooltipProvider>,
-    );
-    const button = screen.getByRole("button", { name: "header.readingMode.label" });
+  it("collapses all four areas, is then pressed, and expands all four again", () => {
+    renderButton();
+    expect(button()).toHaveAttribute("aria-pressed", "false");
+    expect(button()).toHaveAttribute("aria-keyshortcuts", "Control+Shift+F");
 
-    fireEvent.click(button);
-    expect(toast).toHaveBeenCalledTimes(1);
-    expect(store.announceLayout).not.toHaveBeenCalled();
+    fireEvent.click(button());
+    expect(state().isExplorerCollapsed).toBe(true);
+    expect(state().isSessionsPaneCollapsed).toBe(true);
+    expect(state().isConversationToolsCollapsed).toBe(true);
+    expect(state().isNavigatorOpen).toBe(false);
+    expect(button()).toHaveAttribute("aria-pressed", "true");
+    expect(state().layoutAnnouncement?.text).toBe("readingMode.announce.collapsed");
 
-    fireEvent.click(button);
-    expect(toast).toHaveBeenCalledTimes(1);
-    expect(store.announceLayout).toHaveBeenCalledWith("readingMode.announce.on");
+    fireEvent.click(button());
+    expect(state().isExplorerCollapsed).toBe(false);
+    expect(state().isNavigatorOpen).toBe(true);
+    expect(button()).toHaveAttribute("aria-pressed", "false");
+    expect(state().layoutAnnouncement?.text).toBe("readingMode.announce.expanded");
+  });
+
+  it("collapses the rest when only some areas are folded (no earlier combination is restored)", () => {
+    useAppStore.setState({ isExplorerCollapsed: true, isNavigatorOpen: false });
+    renderButton();
+    expect(button()).toHaveAttribute("aria-pressed", "false");
+
+    fireEvent.click(button());
+    expect(button()).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(button());
+    expect(state().isExplorerCollapsed).toBe(false);
+    expect(state().isNavigatorOpen).toBe(true);
   });
 });
 

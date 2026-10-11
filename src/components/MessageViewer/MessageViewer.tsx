@@ -33,7 +33,6 @@ import {
   findFirstVisibleMessageRow,
   registerTranscript,
   scrollRowIntoTopView,
-  setTopOverlayClearance,
   usePositionRestore,
   useViewportAnchorPublisher,
 } from "./hooks/useReadingPosition";
@@ -58,18 +57,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import type { ExportFormat } from "@/types/export";
 import { useIsMobile } from "@/hooks/useIsMobile";
-import { effectiveGroupMode } from "@/store/slices/layoutSlice";
-import { AutoHideRegion } from "@/components/AutoHide/AutoHideRegion";
-import { PinToggle } from "@/components/AutoHide/PinToggle";
-import { TopStripChips, type ChipTarget } from "@/components/AutoHide/TopStripChips";
-import { countHiddenMessageTypes } from "@/components/AutoHide/topStripModel";
-import { panelShortcut } from "@/components/AutoHide/shortcuts";
-import {
-  concealPanel,
-  PANEL_FOCUS_ATTR,
-  revealPanel,
-  sourceFromActivation,
-} from "@/components/AutoHide/panelActions";
+import { TopStripChips } from "./components/TopStripChips";
+import { countHiddenMessageTypes } from "./helpers/topStripModel";
+import { ConversationTools, ConversationToolsToggle } from "./components/ConversationTools";
+import { openConversationTool, TOOL_FOCUS_ATTR } from "./components/conversationToolsActions";
 export const MessageViewer: React.FC<MessageViewerProps> = ({
   messages,
   isLoading,
@@ -83,11 +74,9 @@ export const MessageViewer: React.FC<MessageViewerProps> = ({
   onOpenBoard,
 }) => {
   const { t } = useTranslation();
-  // Reading mode: the toolbar and filter row hide in a strip at the top.
+  // The toolbar and filter row fold to a strip; below 768 px they always show.
   const isMobile = useIsMobile();
-  const topMode = useAppStore((s) => effectiveGroupMode(s, "top", isMobile));
-  const isReadingMode = topMode !== "normal";
-  const hoverReveal = useAppStore((s) => s.hoverReveal);
+  const isToolsCollapsed = useAppStore((s) => s.isConversationToolsCollapsed) && !isMobile;
   const scrollContainerRef = useRef<OverlayScrollbarsComponentRef>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const virtualHeaderRef = useRef<HTMLDivElement>(null);
@@ -746,8 +735,7 @@ export const MessageViewer: React.FC<MessageViewerProps> = ({
     // targetRequestId: a repeated jump to the same message scrolls again.
   }, [targetMessageUuid, targetRequestId, scrollElementReady, flattenedMessages, messages, virtualizer, clearTargetMessage, ensureMessageLoaded, getScrollElement]);
 
-  // The mounted transcript, for reading-mode layout switches (keep the
-  // reader's place) and the gutters (forward the wheel).
+  // The mounted transcript, for layout changes that keep the reader's place.
   const flattenedRef = useRef(flattenedMessages);
   flattenedRef.current = flattenedMessages;
   const uuidToIndexRef = useRef(uuidToIndexMap);
@@ -755,7 +743,6 @@ export const MessageViewer: React.FC<MessageViewerProps> = ({
   useEffect(
     () =>
       registerTranscript({
-        getViewport: getScrollElement,
         captureRow: () => {
           const viewport = getScrollElement();
           if (!viewport) return null;
@@ -776,32 +763,14 @@ export const MessageViewer: React.FC<MessageViewerProps> = ({
     [getScrollElement, virtualizer]
   );
 
-  // Search resets for each session, so its overlay closes with the session.
-  useEffect(() => {
-    if (useAppStore.getState().revealed?.group === "top") concealPanel("top", "handle");
-  }, [selectedSession?.session_id]);
-
-  // While the tools overlay is open, jump and search targets land below it.
-  const handleTopOverlayHeight = useCallback((height: number) => {
-    setTopOverlayClearance(height);
-  }, []);
-  useEffect(() => () => setTopOverlayClearance(0), []);
-
   const hiddenMessageTypeCount = useMemo(
     () => countHiddenMessageTypes(messageFilter, hasParallelTasks),
     [messageFilter, hasParallelTasks]
   );
-  const handleChipActivate = useCallback(
-    (target: ChipTarget, event: React.MouseEvent<HTMLButtonElement>) => {
-      revealPanel("top", sourceFromActivation(event, hoverReveal), { focus: target });
-    },
-    [hoverReveal]
-  );
 
   // Capture mode replaces the capture button with its own toolbar: hand
-  // focus to that toolbar instead of losing it (and close the tools overlay).
+  // focus to that toolbar instead of losing it.
   const handleEnterCaptureMode = useCallback(() => {
-    concealPanel("top", "handle");
     enterCaptureMode();
     requestAnimationFrame(() => {
       document.querySelector<HTMLElement>("[data-capture-toolbar] button")?.focus();
@@ -825,8 +794,7 @@ export const MessageViewer: React.FC<MessageViewerProps> = ({
         onNextMatch?.();
       }
     } else if (e.key === "Escape") {
-      // Clears and keeps focus; an empty field lets the press go on (it
-      // then closes the reading-mode tools overlay).
+      // Clears and keeps focus; an empty field leaves the press to others.
       if (!searchQuery) return;
       e.preventDefault();
       handleClearSearch();
@@ -882,7 +850,7 @@ export const MessageViewer: React.FC<MessageViewerProps> = ({
       onNextMatch={() => onNextMatch?.()}
       isDialogue={messageFilter.dialogue}
       hiddenTypeCount={hiddenMessageTypeCount}
-      onActivate={handleChipActivate}
+      onActivate={openConversationTool}
     />
   );
 
@@ -893,14 +861,7 @@ export const MessageViewer: React.FC<MessageViewerProps> = ({
 
   return (
     <div className="relative flex-1 h-full flex flex-col overflow-clip">
-      <AutoHideRegion
-        group="top"
-        mode={topMode}
-        label={t("readingMode.group.top")}
-        shortcut={panelShortcut("top")}
-        chips={chips}
-        onOverlayHeightChange={handleTopOverlayHeight}
-      >
+      <ConversationTools collapsed={isToolsCollapsed} chips={chips}>
       {/* Search Toolbar - Editorial aesthetic */}
       <div
         role="search"
@@ -950,7 +911,7 @@ export const MessageViewer: React.FC<MessageViewerProps> = ({
           )} />
           <input
             ref={searchInputRef}
-            {...{ [PANEL_FOCUS_ATTR]: "search" }}
+            {...{ [TOOL_FOCUS_ATTR]: "search" }}
             type="text"
             value={searchQuery}
             onChange={handleSearchInput}
@@ -1086,7 +1047,13 @@ export const MessageViewer: React.FC<MessageViewerProps> = ({
           </div>
         )}
 
-        {isReadingMode && <PinToggle group="top" />}
+        {/* Last in the row, at its right end: the strip's expand button
+            sits in the same place, so the toggle does not move. */}
+        {!isMobile && (
+          <div className="ml-auto flex shrink-0 items-center">
+            <ConversationToolsToggle expanded />
+          </div>
+        )}
       </div>
 
       {/* Filter Toolbar */}
@@ -1097,7 +1064,7 @@ export const MessageViewer: React.FC<MessageViewerProps> = ({
           hasParallelTasks={hasParallelTasks}
         />
       )}
-      </AutoHideRegion>
+      </ConversationTools>
       {!isCaptureMode && sessionSearch.query && sessionSearch.hiddenMatchCount > 0 && (
         <FilterHiddenNotice
           variant="searchMatches"
@@ -1121,7 +1088,6 @@ export const MessageViewer: React.FC<MessageViewerProps> = ({
 
       <div
         className="relative flex-1 min-h-0"
-        data-transcript-area=""
         style={showMinimapStrip ? { paddingRight: MINIMAP_WIDTH_PX } : undefined}
       >
         {/* Current prompt while reading inside a long turn */}

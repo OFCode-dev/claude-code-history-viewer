@@ -1,17 +1,13 @@
 /**
- * Esc closes one layer per press (spec §4.3): every custom layer that acts
- * on Esc claims the press with preventDefault and leaves a claimed press
- * alone, and fields that hold a value clear first, letting an empty field's
- * press reach the reading-mode overlay behind it.
+ * Esc closes one layer per press: every custom layer that acts on Esc claims
+ * the press with preventDefault and leaves a claimed press alone.
  */
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { ProjectContextMenu } from "@/components/ProjectContextMenu";
 import { ExplorerSearch } from "@/components/ProjectTree/components/ExplorerSearch";
 import type { ExplorerFilters } from "@/components/ProjectTree/hooks/useExplorerFilters";
-import { AutoHideOwnerProvider } from "@/components/AutoHide/AutoHideHoldContext";
 import type { ClaudeProject } from "@/types";
-import { useAppStore } from "@/store/useAppStore";
 
 vi.mock("react-i18next", async (importOriginal) => ({
   ...(await importOriginal<typeof import("react-i18next")>()),
@@ -92,47 +88,9 @@ describe("custom layers claim Esc", () => {
 describe("explorer filter field", () => {
   const filters = {} as unknown as ExplorerFilters;
 
-  function Field({ value, onChange, inOverlay }: { value: string; onChange: (v: string) => void; inOverlay: boolean }) {
-    return (
-      <AutoHideOwnerProvider group={inOverlay ? "left" : null}>
-        <ExplorerSearch value={value} onChange={onChange} filters={filters} />
-      </AutoHideOwnerProvider>
-    );
-  }
-
-  it("in a reading-mode overlay: clears and keeps focus, then lets an empty press through", () => {
+  it("clears on Esc, claims the press and leaves the field", () => {
     const onChange = vi.fn();
-    const { rerender } = render(<Field value="abc" onChange={onChange} inOverlay />);
-    const input = screen.getByRole("textbox");
-    input.focus();
-
-    const first = fireEvent.keyDown(input, { key: "Escape" });
-    expect(onChange).toHaveBeenCalledWith("");
-    expect(first).toBe(false); // default prevented
-    expect(document.activeElement).toBe(input);
-
-    rerender(<Field value="" onChange={onChange} inOverlay />);
-    expect(fireEvent.keyDown(input, { key: "Escape" })).toBe(true);
-  });
-
-  it("with the panel pinned in reading mode: also clears and keeps focus", () => {
-    useAppStore.setState({ isReadingMode: true });
-    try {
-      const onChange = vi.fn();
-      render(<Field value="abc" onChange={onChange} inOverlay={false} />);
-      const input = screen.getByRole("textbox");
-      input.focus();
-      expect(fireEvent.keyDown(input, { key: "Escape" })).toBe(false);
-      expect(onChange).toHaveBeenCalledWith("");
-      expect(document.activeElement).toBe(input);
-    } finally {
-      useAppStore.setState({ isReadingMode: false });
-    }
-  });
-
-  it("in the normal layout: clears and leaves the field, as before", () => {
-    const onChange = vi.fn();
-    render(<Field value="abc" onChange={onChange} inOverlay={false} />);
+    render(<ExplorerSearch value="abc" onChange={onChange} filters={filters} />);
     const input = screen.getByRole("textbox");
     input.focus();
     expect(fireEvent.keyDown(input, { key: "Escape" })).toBe(false);

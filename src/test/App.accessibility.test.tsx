@@ -72,15 +72,12 @@ const { useAppStoreMock } = vi.hoisted(() => {
     toggleExplorerCollapsed: vi.fn(),
     isSessionsPaneCollapsed: false,
     toggleSessionsPaneCollapsed: vi.fn(),
-    toggleReadingMode: vi.fn(),
-    isReadingMode: false,
-    readingProfile: { left: "autohide", right: "autohide", top: "autohide" },
-    revealed: null,
-    hoverReveal: "standard",
+    isConversationToolsCollapsed: false,
+    setConversationToolsCollapsed: vi.fn(),
+    collapseAll: vi.fn(),
+    expandAll: vi.fn(),
     layoutAnnouncement: null as null | { text: string; id: number },
     clearLayoutAnnouncement: vi.fn(),
-    revealPanel: vi.fn(() => true),
-    concealPanel: vi.fn(),
     activeProviders: [],
     setSelectedSession: vi.fn(),
     fontScale: 100,
@@ -306,7 +303,6 @@ describe("App accessibility smoke", () => {
     vi.clearAllMocks();
     resetComputedMock();
     Object.assign(useAppStoreMock.getState(), {
-      isReadingMode: false,
       isNavigatorOpen: true,
       layoutAnnouncement: null,
     });
@@ -393,34 +389,12 @@ describe("App accessibility smoke", () => {
     }
   });
 
-  describe("reading mode", () => {
-    beforeEach(() => {
-      Object.assign(useAppStoreMock.getState(), { isReadingMode: true, isNavigatorOpen: false });
+  it("announces collapse all / expand all in the status region", () => {
+    Object.assign(useAppStoreMock.getState(), {
+      layoutAnnouncement: { text: "All panels collapsed.", id: 1 },
     });
-
-    it("wraps each hidden group in a labelled region with its handle", () => {
-      render(<App />);
-      for (const group of ["left", "right"]) {
-        const name = `readingMode.group.${group}`;
-        expect(screen.getByRole("region", { name })).toBeInTheDocument();
-        expect(screen.getByRole("button", { name })).toHaveAttribute("aria-expanded", "false");
-      }
-    });
-
-    it("offers the navigator skip link while it is hidden, and reveals it from the keyboard", () => {
-      render(<App />);
-      const link = screen.getByRole("link", { name: "Skip to message navigator" });
-      link.click();
-      expect(useAppStoreMock.getState().revealPanel).toHaveBeenCalledWith("right", "keyboard", false);
-    });
-
-    it("announces layout changes in the status region", () => {
-      Object.assign(useAppStoreMock.getState(), {
-        layoutAnnouncement: { text: "Reading mode on.", id: 1 },
-      });
-      render(<App />);
-      expect(screen.getByRole("status")).toHaveTextContent("Reading mode on.");
-    });
+    render(<App />);
+    expect(screen.getByRole("status")).toHaveTextContent("All panels collapsed.");
   });
 
   it("replays a WebUI message link from browser history", async () => {

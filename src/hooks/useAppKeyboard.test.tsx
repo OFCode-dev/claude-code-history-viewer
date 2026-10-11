@@ -1,6 +1,13 @@
 import { render, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useAppStore } from "@/store/useAppStore";
+import { areAllCollapsed } from "@/store/slices/layoutSlice";
+import { AREA_TOGGLE_ATTR } from "@/layouts/areaToggleAttr";
+import {
+  CONVERSATION_TOOLS_ID,
+  CONVERSATION_TOOLS_PANEL_ID,
+  TOOL_FOCUS_ATTR,
+} from "@/components/MessageViewer/components/conversationToolsActions";
 import { useAppKeyboard } from "./useAppKeyboard";
 
 const { platform } = vi.hoisted(() => ({ platform: { isMobile: false } }));
@@ -12,8 +19,6 @@ vi.mock("@/contexts/modal", () => ({
 vi.mock("@/contexts/platform", () => ({
   usePlatform: () => platform,
 }));
-
-vi.mock("sonner", () => ({ toast: vi.fn() }));
 
 vi.mock("react-i18next", async (importOriginal) => ({
   ...(await importOriginal<typeof import("react-i18next")>()),
@@ -38,50 +43,57 @@ function press(key: string, init: KeyboardEventInit = {}, target: EventTarget = 
 const ctrlShift = (key: string, init: KeyboardEventInit = {}, target: EventTarget = window) =>
   press(key, { ctrlKey: true, shiftKey: true, ...init }, target);
 
-/** The DOM the shortcuts act on: the three regions, main and the search field. */
-function Layout({ withRight = true, withSessions = false }: { withRight?: boolean; withSessions?: boolean }) {
+const toggle = { [AREA_TOGGLE_ATTR]: "" };
+
+/** The four areas as the layout renders them, each in its current form. */
+function Layout({ withSessions = false }: { withSessions?: boolean }) {
+  const explorerCollapsed = useAppStore((s) => s.isExplorerCollapsed);
+  const sessionsCollapsed = useAppStore((s) => s.isSessionsPaneCollapsed);
+  const navigatorOpen = useAppStore((s) => s.isNavigatorOpen);
+  const toolsCollapsed = useAppStore((s) => s.isConversationToolsCollapsed);
   return (
     <>
-      <section id="autohide-region-left">
-        <button type="button" id="autohide-handle-left">left handle</button>
-        <div id="autohide-overlay-left">
-          <aside id="project-explorer" tabIndex={-1}>
+      <aside id="project-explorer" tabIndex={-1}>
+        {explorerCollapsed ? (
+          <button type="button" {...toggle}>expand explorer</button>
+        ) : (
+          <>
+            <button type="button" {...toggle}>collapse explorer</button>
             <div role="treeitem" tabIndex={-1} aria-selected="false">other</div>
             <div role="treeitem" tabIndex={-1} aria-selected="true">selected project</div>
-          </aside>
-          {withSessions && (
-            <aside id="sessions-pane" tabIndex={-1}>
-              <div data-session-list="">
-                <button type="button" data-session-open="" tabIndex={-1}>other session</button>
-                <button type="button" data-session-open="" aria-current="true" tabIndex={0}>
-                  selected session
-                </button>
-              </div>
-            </aside>
+          </>
+        )}
+      </aside>
+      {withSessions && (
+        <aside id="sessions-pane" tabIndex={-1}>
+          {sessionsCollapsed ? (
+            <button type="button" {...toggle}>expand sessions</button>
+          ) : (
+            <div data-session-list="">
+              <button type="button" data-session-open="" tabIndex={-1}>other session</button>
+              <button type="button" data-session-open="" aria-current="true" tabIndex={0}>
+                selected session
+              </button>
+            </div>
           )}
-        </div>
-      </section>
+        </aside>
+      )}
       <main id="main-content" tabIndex={-1}>
-        <section id="autohide-region-top">
-          <button type="button" id="autohide-handle-top">top handle</button>
-          <div id="autohide-overlay-top">
-            <input aria-label="search" data-autohide-focus="search" defaultValue="" />
+        <div id={CONVERSATION_TOOLS_ID}>
+          {toolsCollapsed && <button type="button" {...toggle}>expand tools</button>}
+          <div id={CONVERSATION_TOOLS_PANEL_ID} hidden={toolsCollapsed}>
+            <input aria-label="search" {...{ [TOOL_FOCUS_ATTR]: "search" }} defaultValue="" />
           </div>
-        </section>
+        </div>
         <button type="button">transcript button</button>
       </main>
-      {withRight && (
-        <section id="autohide-region-right">
-          <button type="button" id="autohide-handle-right">right handle</button>
-          <div id="autohide-overlay-right">
-            <aside id="message-navigator" tabIndex={-1}>
-              <div role="listbox">
-                <button type="button" role="option" tabIndex={0}>current prompt</button>
-              </div>
-            </aside>
-          </div>
-        </section>
-      )}
+      <aside id="message-navigator" tabIndex={-1}>
+        {navigatorOpen ? (
+          <button type="button" role="option" tabIndex={0}>current prompt</button>
+        ) : (
+          <button type="button" {...toggle}>expand navigator</button>
+        )}
+      </aside>
     </>
   );
 }
@@ -99,11 +111,11 @@ beforeEach(() => {
   useAppStore.setState(
     {
       ...initialState,
-      isReadingMode: false,
-      readingProfile: { left: "autohide", right: "autohide", top: "autohide" },
-      revealed: null,
       isExplorerCollapsed: false,
+      isSessionsPaneCollapsed: false,
+      isConversationToolsCollapsed: false,
       isNavigatorOpen: true,
+      layoutAnnouncement: null,
       sessionSearch: { ...initialState.sessionSearch, query: "" },
     },
     true
@@ -115,47 +127,63 @@ afterEach(() => {
   document.body.innerHTML = "";
 });
 
-function enterReadingMode() {
-  useAppStore.setState({ isReadingMode: true });
-}
+const allCollapsed = () => areAllCollapsed(useAppStore.getState());
 
-describe("Mod+Shift+F: reading mode", () => {
-  it("toggles reading mode with Ctrl+Shift+F", () => {
+describe("Mod+Shift+F: collapse all / expand all", () => {
+  it("collapses all four areas, then expands all four, and announces each", () => {
     renderHook(() => useAppKeyboard());
     const event = ctrlShift("F");
-    expect(useAppStore.getState().isReadingMode).toBe(true);
     expect(event.defaultPrevented).toBe(true);
+    expect(allCollapsed()).toBe(true);
+    expect(useAppStore.getState().layoutAnnouncement?.text).toBe("readingMode.announce.collapsed");
+
     ctrlShift("F");
-    expect(useAppStore.getState().isReadingMode).toBe(false);
+    const state = useAppStore.getState();
+    expect(state.isExplorerCollapsed || state.isSessionsPaneCollapsed).toBe(false);
+    expect(state.isConversationToolsCollapsed).toBe(false);
+    expect(state.isNavigatorOpen).toBe(true);
+    expect(state.layoutAnnouncement?.text).toBe("readingMode.announce.expanded");
+  });
+
+  it("collapses everything while any one area is still open", () => {
+    useAppStore.setState({
+      isExplorerCollapsed: true,
+      isSessionsPaneCollapsed: true,
+      isNavigatorOpen: false,
+      isConversationToolsCollapsed: false,
+    });
+    renderHook(() => useAppKeyboard());
+    ctrlShift("F");
+    expect(allCollapsed()).toBe(true);
   });
 
   it("ignores key repeat", () => {
     renderHook(() => useAppKeyboard());
     ctrlShift("F", { repeat: true });
-    expect(useAppStore.getState().isReadingMode).toBe(false);
+    expect(allCollapsed()).toBe(false);
   });
 
   it("is ignored while typing in a field", () => {
     renderHook(() => useAppKeyboard());
     const { getByRole } = render(<input type="text" aria-label="query" />);
     ctrlShift("F", {}, getByRole("textbox"));
-    expect(useAppStore.getState().isReadingMode).toBe(false);
+    expect(allCollapsed()).toBe(false);
   });
 
   it("does nothing below 768 px", () => {
     platform.isMobile = true;
     renderHook(() => useAppKeyboard());
     ctrlShift("F");
-    expect(useAppStore.getState().isReadingMode).toBe(false);
+    expect(allCollapsed()).toBe(false);
   });
 
-  it("moves focus out of a panel that is about to hide", () => {
+  it("moves focus from a folded panel to that panel's expand button", () => {
     renderHook(() => useAppKeyboard());
     const { getByText } = render(<Layout />);
     const row = getByText("selected project");
     row.focus();
     ctrlShift("F", {}, row);
-    expect(document.activeElement?.id).toBe("main-content");
+    expect(document.activeElement).toBe(getByText("expand explorer"));
   });
 
   it("leaves focus alone when it is not in a panel", () => {
@@ -169,45 +197,7 @@ describe("Mod+Shift+F: reading mode", () => {
 });
 
 describe("Mod+Shift+E: explorer and sessions", () => {
-  it("reveals the hidden left panel from the keyboard and focuses the selected row", () => {
-    enterReadingMode();
-    renderHook(() => useAppKeyboard());
-    const { getByText } = render(<Layout />);
-    const before = getByText("transcript button");
-    before.focus();
-
-    ctrlShift("E", {}, before);
-    expect(useAppStore.getState().revealed).toMatchObject({ group: "left", source: "keyboard" });
-    flushFrames();
-    expect(document.activeElement).toBe(getByText("selected project"));
-
-    // Pressed again: closes, and focus returns to where it was.
-    ctrlShift("E", {}, document.activeElement ?? window);
-    expect(useAppStore.getState().revealed).toBeNull();
-    expect(document.activeElement).toBe(before);
-  });
-
-  it("lands on the selected session row first when the sessions are listed", () => {
-    enterReadingMode();
-    renderHook(() => useAppKeyboard());
-    const { getByText } = render(<Layout withSessions />);
-    ctrlShift("E");
-    flushFrames();
-    expect(document.activeElement).toBe(getByText("selected session"));
-  });
-
-  it("focuses the row of a pinned panel without revealing anything", () => {
-    enterReadingMode();
-    useAppStore.getState().setReadingPin("left", true);
-    renderHook(() => useAppKeyboard());
-    const { getByText } = render(<Layout />);
-    ctrlShift("E");
-    flushFrames();
-    expect(useAppStore.getState().revealed).toBeNull();
-    expect(document.activeElement).toBe(getByText("selected project"));
-  });
-
-  it("unfolds the explorer rail first in the normal layout", () => {
+  it("unfolds the explorer rail and focuses the selected row", () => {
     useAppStore.setState({ isExplorerCollapsed: true });
     renderHook(() => useAppKeyboard());
     const { getByText } = render(<Layout />);
@@ -217,34 +207,31 @@ describe("Mod+Shift+E: explorer and sessions", () => {
     expect(document.activeElement).toBe(getByText("selected project"));
   });
 
-  it("also unfolds the sessions rail that holds the selected session", () => {
+  it("also unfolds the sessions rail and lands on the selected session first", () => {
     useAppStore.setState({
       isExplorerCollapsed: true,
       isSessionsPaneCollapsed: true,
       selectedSession: { session_id: "s1" } as never,
     });
     renderHook(() => useAppKeyboard());
-    render(
-      <>
-        <Layout />
-        <aside id="sessions-pane" />
-      </>,
-    );
+    const { getByText } = render(<Layout withSessions />);
     ctrlShift("E");
+    flushFrames();
     expect(useAppStore.getState().isExplorerCollapsed).toBe(false);
     expect(useAppStore.getState().isSessionsPaneCollapsed).toBe(false);
+    expect(document.activeElement).toBe(getByText("selected session"));
   });
 
   it("falls back to the physical key on a non-Latin layout", () => {
-    enterReadingMode();
+    useAppStore.setState({ isExplorerCollapsed: true });
     renderHook(() => useAppKeyboard());
     render(<Layout />);
     ctrlShift("У", { code: "KeyE" });
-    expect(useAppStore.getState().revealed?.group).toBe("left");
+    expect(useAppStore.getState().isExplorerCollapsed).toBe(false);
   });
 
   it("is ignored inside a dialog or a menu", () => {
-    enterReadingMode();
+    useAppStore.setState({ isExplorerCollapsed: true });
     renderHook(() => useAppKeyboard());
     const { getByText } = render(
       <div role="dialog">
@@ -252,45 +239,34 @@ describe("Mod+Shift+E: explorer and sessions", () => {
       </div>,
     );
     ctrlShift("E", {}, getByText("in dialog"));
-    expect(useAppStore.getState().revealed).toBeNull();
+    expect(useAppStore.getState().isExplorerCollapsed).toBe(true);
   });
 
   it("ignores IME composition", () => {
-    enterReadingMode();
+    useAppStore.setState({ isExplorerCollapsed: true });
     renderHook(() => useAppKeyboard());
     render(<Layout />);
     ctrlShift("E", { isComposing: true });
-    expect(useAppStore.getState().revealed).toBeNull();
-  });
-
-  it("an explicit open replaces another overlay", () => {
-    enterReadingMode();
-    renderHook(() => useAppKeyboard());
-    render(<Layout />);
-    ctrlShift("E");
-    ctrlShift("M");
-    expect(useAppStore.getState().revealed).toMatchObject({ group: "right", source: "keyboard" });
+    expect(useAppStore.getState().isExplorerCollapsed).toBe(true);
   });
 });
 
 describe("Mod+Shift+M: prompts", () => {
-  it("reveals the hidden navigator and focuses the current prompt row", () => {
-    enterReadingMode();
+  it("folds and unfolds the navigator", () => {
     renderHook(() => useAppKeyboard());
-    const { getByText } = render(<Layout />);
     ctrlShift("M");
-    flushFrames();
-    expect(useAppStore.getState().revealed?.group).toBe("right");
-    expect(document.activeElement).toBe(getByText("current prompt"));
+    expect(useAppStore.getState().isNavigatorOpen).toBe(false);
+    ctrlShift("M");
+    expect(useAppStore.getState().isNavigatorOpen).toBe(true);
   });
 
-  it("does nothing in reading mode when no navigator is shown", () => {
-    enterReadingMode();
+  it("hands focus from a folded navigator row to its expand button", () => {
     renderHook(() => useAppKeyboard());
-    render(<Layout withRight={false} />);
-    ctrlShift("M");
-    expect(useAppStore.getState().revealed).toBeNull();
-    expect(useAppStore.getState().isNavigatorOpen).toBe(true);
+    const { getByText } = render(<Layout />);
+    const row = getByText("current prompt");
+    row.focus();
+    ctrlShift("M", {}, row);
+    expect(document.activeElement).toBe(getByText("expand navigator"));
   });
 
   it("below 768 px swallows the chord (browser profile menu) and changes nothing", () => {
@@ -299,43 +275,32 @@ describe("Mod+Shift+M: prompts", () => {
     expect(ctrlShift("M").defaultPrevented).toBe(true);
     expect(useAppStore.getState().isNavigatorOpen).toBe(true);
   });
-
-  it("toggles the navigator rail in the normal layout", () => {
-    renderHook(() => useAppKeyboard());
-    ctrlShift("M");
-    expect(useAppStore.getState().isNavigatorOpen).toBe(false);
-  });
 });
 
 describe("Mod+F: conversation search", () => {
-  it("reveals the tools and selects the search field; a repeat keeps them open", () => {
-    enterReadingMode();
+  it("expands collapsed tools and selects the search field; then passes to browser find", () => {
+    useAppStore.setState({ isConversationToolsCollapsed: true });
     renderHook(() => useAppKeyboard());
     const { getByLabelText } = render(<Layout />);
     const input = getByLabelText("search") as HTMLInputElement;
 
     expect(press("f", { ctrlKey: true }).defaultPrevented).toBe(true);
-    flushFrames();
-    expect(useAppStore.getState().revealed?.group).toBe("top");
+    expect(useAppStore.getState().isConversationToolsCollapsed).toBe(false);
     expect(document.activeElement).toBe(input);
 
     input.value = "query";
     input.setSelectionRange(5, 5);
     expect(press("f", { ctrlKey: true }, input).defaultPrevented).toBe(true);
-    flushFrames();
-    expect(useAppStore.getState().revealed?.group).toBe("top");
     expect([input.selectionStart, input.selectionEnd]).toEqual([0, 5]);
 
     // Fully selected: the press goes to browser find.
     expect(press("f", { ctrlKey: true }, input).defaultPrevented).toBe(false);
-    expect(useAppStore.getState().revealed?.group).toBe("top");
   });
 
-  it("focuses the field directly in the normal layout", () => {
+  it("focuses the field directly when the tools are open", () => {
     renderHook(() => useAppKeyboard());
     const { getByLabelText } = render(<Layout />);
     press("f", { ctrlKey: true });
-    expect(useAppStore.getState().revealed).toBeNull();
     expect(document.activeElement).toBe(getByLabelText("search"));
   });
 
@@ -357,8 +322,8 @@ describe("Mod+G and F3: search matches", () => {
     return { goToNextMatch, goToPrevMatch };
   }
 
-  it("steps through matches without revealing anything", () => {
-    enterReadingMode();
+  it("steps through matches without expanding the collapsed tools", () => {
+    useAppStore.setState({ isConversationToolsCollapsed: true });
     const { goToNextMatch, goToPrevMatch } = withSearch("needle");
     renderHook(() => useAppKeyboard());
     render(<Layout />);
@@ -370,7 +335,7 @@ describe("Mod+G and F3: search matches", () => {
 
     expect(goToNextMatch).toHaveBeenCalledTimes(2);
     expect(goToPrevMatch).toHaveBeenCalledTimes(2);
-    expect(useAppStore.getState().revealed).toBeNull();
+    expect(useAppStore.getState().isConversationToolsCollapsed).toBe(true);
   });
 
   it("leaves the keys to the browser when no search is active", () => {
@@ -389,7 +354,8 @@ describe("modifier matching", () => {
     press("f", { ctrlKey: true, shiftKey: false, altKey: true });
     press("F", { shiftKey: true });
     for (const key of ["e", "f", "m", "g"]) press(key);
-    expect(useAppStore.getState().isReadingMode).toBe(false);
+    expect(allCollapsed()).toBe(false);
+    expect(useAppStore.getState().isNavigatorOpen).toBe(true);
   });
 
   it("uses Cmd on macOS, where Ctrl does nothing", () => {
@@ -398,17 +364,17 @@ describe("modifier matching", () => {
     );
     renderHook(() => useAppKeyboard());
     ctrlShift("F");
-    expect(useAppStore.getState().isReadingMode).toBe(false);
+    expect(allCollapsed()).toBe(false);
     press("F", { metaKey: true, shiftKey: true });
-    expect(useAppStore.getState().isReadingMode).toBe(true);
+    expect(allCollapsed()).toBe(true);
   });
 
   it("uses Ctrl elsewhere, where Cmd does nothing", () => {
     vi.spyOn(navigator, "userAgent", "get").mockReturnValue("Mozilla/5.0 (X11; Linux x86_64)");
     renderHook(() => useAppKeyboard());
     press("F", { metaKey: true, shiftKey: true });
-    expect(useAppStore.getState().isReadingMode).toBe(false);
+    expect(allCollapsed()).toBe(false);
     press("F", { ctrlKey: true, shiftKey: true, metaKey: true });
-    expect(useAppStore.getState().isReadingMode).toBe(false);
+    expect(allCollapsed()).toBe(false);
   });
 });

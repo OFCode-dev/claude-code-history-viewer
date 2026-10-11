@@ -1,35 +1,18 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { create } from "zustand";
 import { createNavigatorSlice, type NavigatorSlice } from "./navigatorSlice";
 import {
-  createRecentEditsPanelSlice,
-  RECENT_EDITS_DOCK_OPEN_KEY,
-  type RecentEditsPanelSlice,
-} from "./recentEditsPanelSlice";
-import {
+  areAllCollapsed,
+  CONVERSATION_TOOLS_COLLAPSED_KEY,
   createLayoutSlice,
-  effectiveGroupMode,
   EXPLORER_COLLAPSED_KEY,
-  FOCUS_MODE_KEY,
-  HOVER_REVEAL_KEY,
-  migrateLegacyFocusMode,
-  READING_MODE_KEY,
-  READING_PROFILE_KEY,
+  OBSOLETE_LAYOUT_KEYS,
   SESSIONS_PANE_COLLAPSED_KEY,
   type LayoutSlice,
 } from "./layoutSlice";
 import type { FullAppStore } from "./types";
 
-type TestStore = LayoutSlice & NavigatorSlice & RecentEditsPanelSlice;
-
-function storageSnapshot(): Record<string, string | null> {
-  const snapshot: Record<string, string | null> = {};
-  for (let index = 0; index < localStorage.length; index += 1) {
-    const key = localStorage.key(index);
-    if (key != null) snapshot[key] = localStorage.getItem(key);
-  }
-  return snapshot;
-}
+type TestStore = LayoutSlice & NavigatorSlice;
 
 function makeStore() {
   return create<TestStore>()((set, get, api) => ({
@@ -39,11 +22,6 @@ function makeStore() {
       api as never,
     ),
     ...createLayoutSlice(
-      set as never,
-      get as unknown as () => FullAppStore,
-      api as never,
-    ),
-    ...createRecentEditsPanelSlice(
       set as never,
       get as unknown as () => FullAppStore,
       api as never,
@@ -88,233 +66,106 @@ describe("layoutSlice", () => {
     });
   });
 
-  describe("reading mode", () => {
-    it("leaves the normal layout untouched on the way in and out", () => {
+  describe("conversation tools collapse", () => {
+    it("starts expanded and persists the collapsed state", () => {
       const store = makeStore();
-      // A mixed normal layout: sessions pane folded, navigator closed.
-      store.getState().setSessionsPaneCollapsed(true);
-      store.getState().setNavigatorOpen(false);
-      const before = storageSnapshot();
-      expect(Object.keys(before).length).toBeGreaterThan(0);
+      expect(store.getState().isConversationToolsCollapsed).toBe(false);
 
-      store.getState().toggleReadingMode();
-      let state = store.getState();
-      expect(state.isReadingMode).toBe(true);
-      expect(state.isExplorerCollapsed).toBe(false);
-      expect(state.isSessionsPaneCollapsed).toBe(true);
-      expect(state.isNavigatorOpen).toBe(false);
+      store.getState().toggleConversationToolsCollapsed();
 
-      store.getState().toggleReadingMode();
-      state = store.getState();
-      expect(state.isReadingMode).toBe(false);
-      expect(state.isExplorerCollapsed).toBe(false);
-      expect(state.isSessionsPaneCollapsed).toBe(true);
-      expect(state.isNavigatorOpen).toBe(false);
-      // Only the reading-mode record itself was written.
-      const after = storageSnapshot();
-      delete after[READING_MODE_KEY];
-      expect(after).toEqual(before);
+      expect(store.getState().isConversationToolsCollapsed).toBe(true);
+      expect(localStorage.getItem(CONVERSATION_TOOLS_COLLAPSED_KEY)).toBe("true");
+      expect(makeStore().getState().isConversationToolsCollapsed).toBe(true);
+
+      store.getState().setConversationToolsCollapsed(false);
+      expect(makeStore().getState().isConversationToolsCollapsed).toBe(false);
     });
 
-    it("closes the recent-edits dock on entry and reopens it on exit", () => {
-      const store = makeStore();
-      store.getState().setRecentEditsDockOpen(true);
-
-      store.getState().toggleReadingMode();
-      expect(store.getState().isRecentEditsDockOpen).toBe(false);
-      expect(store.getState().readingRestoreDock).toBe(true);
-
-      store.getState().toggleReadingMode();
-      expect(store.getState().isRecentEditsDockOpen).toBe(true);
-      expect(store.getState().readingRestoreDock).toBe(false);
-    });
-
-    it("keeps a dock the person opened during reading mode", () => {
-      const store = makeStore();
-      store.getState().toggleReadingMode();
-      store.getState().setRecentEditsDockOpen(true);
-
-      store.getState().toggleReadingMode();
-      expect(store.getState().isRecentEditsDockOpen).toBe(true);
-    });
-
-    it("does not reopen a dock that was closed on entry", () => {
-      const store = makeStore();
-      store.getState().toggleReadingMode();
-      store.getState().toggleReadingMode();
-      expect(store.getState().isRecentEditsDockOpen).toBe(false);
-    });
-
-    it("survives a reload, dock memory included", () => {
-      const store = makeStore();
-      store.getState().setRecentEditsDockOpen(true);
-      store.getState().toggleReadingMode();
-
-      const reloaded = makeStore();
-      expect(reloaded.getState().isReadingMode).toBe(true);
-      expect(reloaded.getState().readingRestoreDock).toBe(true);
-      expect(reloaded.getState().isRecentEditsDockOpen).toBe(false);
-
-      reloaded.getState().toggleReadingMode();
-      expect(reloaded.getState().isRecentEditsDockOpen).toBe(true);
-    });
-
-    it("rejects malformed stored values and falls back to the defaults", () => {
-      localStorage.setItem(READING_MODE_KEY, '{"on":"yes"}');
-      localStorage.setItem(READING_PROFILE_KEY, '{"left":"floating","right":"pinned"}');
-      localStorage.setItem(HOVER_REVEAL_KEY, "fast");
-      let state = makeStore().getState();
-      expect(state.isReadingMode).toBe(false);
-      expect(state.readingProfile).toEqual({ left: "autohide", right: "pinned", top: "autohide" });
-      expect(state.hoverReveal).toBe("standard");
-
-      localStorage.setItem(READING_MODE_KEY, "not json");
-      localStorage.setItem(READING_PROFILE_KEY, "[1,2]");
-      state = makeStore().getState();
-      expect(state.isReadingMode).toBe(false);
-      expect(state.readingProfile).toEqual({ left: "autohide", right: "autohide", top: "autohide" });
-    });
-
-    it("never reveals anything outside reading mode", () => {
-      const store = makeStore();
-      expect(store.getState().revealPanel("left", "click")).toBe(false);
-      expect(store.getState().revealed).toBeNull();
-    });
-
-    it("drops the overlay on entry and exit", () => {
-      const store = makeStore();
-      store.getState().toggleReadingMode();
-      store.getState().revealPanel("left", "click");
-      store.getState().toggleReadingMode();
-      expect(store.getState().revealed).toBeNull();
+    it("still works for this page load when storage throws", () => {
+      const setItem = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+        throw new Error("quota");
+      });
+      try {
+        const store = makeStore();
+        store.getState().setConversationToolsCollapsed(true);
+        expect(store.getState().isConversationToolsCollapsed).toBe(true);
+      } finally {
+        setItem.mockRestore();
+      }
     });
   });
 
-  describe("focus-mode migration", () => {
-    it("applies the old snapshot to the normal layout and continues in reading mode", () => {
-      localStorage.setItem(
-        FOCUS_MODE_KEY,
-        JSON.stringify({ explorerCollapsed: false, sessionsPaneCollapsed: true, navigatorOpen: true }),
-      );
-      // Focus mode had folded everything.
-      localStorage.setItem(EXPLORER_COLLAPSED_KEY, "true");
-      localStorage.setItem(SESSIONS_PANE_COLLAPSED_KEY, "true");
-      localStorage.setItem("navigator-open", "false");
-      localStorage.setItem(RECENT_EDITS_DOCK_OPEN_KEY, "true");
+  describe("collapse all / expand all", () => {
+    it("collapses all four areas and persists each one", () => {
+      const store = makeStore();
+      expect(areAllCollapsed(store.getState())).toBe(false);
 
-      migrateLegacyFocusMode();
-      const state = makeStore().getState();
+      store.getState().collapseAll();
 
-      expect(localStorage.getItem(FOCUS_MODE_KEY)).toBeNull();
-      expect(state.isExplorerCollapsed).toBe(false);
+      const state = store.getState();
+      expect(state.isExplorerCollapsed).toBe(true);
       expect(state.isSessionsPaneCollapsed).toBe(true);
+      expect(state.isNavigatorOpen).toBe(false);
+      expect(state.isConversationToolsCollapsed).toBe(true);
+      expect(areAllCollapsed(state)).toBe(true);
+      expect(areAllCollapsed(makeStore().getState())).toBe(true);
+    });
+
+    it("expands all four areas, with no memory of an earlier combination", () => {
+      const store = makeStore();
+      store.getState().setExplorerCollapsed(true);
+      store.getState().collapseAll();
+      store.getState().expandAll();
+
+      const state = store.getState();
+      expect(state.isExplorerCollapsed).toBe(false);
+      expect(state.isSessionsPaneCollapsed).toBe(false);
       expect(state.isNavigatorOpen).toBe(true);
-      expect(state.isReadingMode).toBe(true);
-      expect(state.readingRestoreDock).toBe(true);
-      expect(state.isRecentEditsDockOpen).toBe(false);
+      expect(state.isConversationToolsCollapsed).toBe(false);
     });
 
-    it("discards a malformed snapshot without entering reading mode", () => {
-      localStorage.setItem(FOCUS_MODE_KEY, '{"explorerCollapsed":"yes"}');
-      migrateLegacyFocusMode();
-      expect(localStorage.getItem(FOCUS_MODE_KEY)).toBeNull();
-      expect(makeStore().getState().isReadingMode).toBe(false);
-    });
-
-    it("does nothing when there is no snapshot", () => {
-      migrateLegacyFocusMode();
-      expect(localStorage.getItem(READING_MODE_KEY)).toBeNull();
+    it("counts as all collapsed only when every area is", () => {
+      const store = makeStore();
+      store.getState().collapseAll();
+      store.getState().setNavigatorOpen(true);
+      expect(areAllCollapsed(store.getState())).toBe(false);
     });
   });
 
-  describe("pins", () => {
-    it("edits the reading profile and survives exit, re-entry and reload", () => {
+  describe("obsolete reading-mode keys", () => {
+    it("are removed when the store is created; the layout keys stay", () => {
+      for (const key of OBSOLETE_LAYOUT_KEYS) localStorage.setItem(key, "{}");
+      localStorage.setItem(EXPLORER_COLLAPSED_KEY, "true");
+
       const store = makeStore();
-      store.getState().toggleReadingMode();
-      store.getState().setReadingPin("right", true);
-      expect(store.getState().readingProfile.right).toBe("pinned");
 
-      store.getState().toggleReadingMode();
-      store.getState().toggleReadingMode();
-      expect(store.getState().readingProfile.right).toBe("pinned");
-      expect(makeStore().getState().readingProfile.right).toBe("pinned");
-
-      store.getState().setReadingPin("right", false);
-      expect(makeStore().getState().readingProfile.right).toBe("autohide");
+      expect(OBSOLETE_LAYOUT_KEYS.map((key) => localStorage.getItem(key))).toEqual(
+        OBSOLETE_LAYOUT_KEYS.map(() => null)
+      );
+      expect(store.getState().isExplorerCollapsed).toBe(true);
     });
 
-    it("pinning the open group drops its overlay", () => {
-      const store = makeStore();
-      store.getState().toggleReadingMode();
-      store.getState().revealPanel("left", "hover");
-      store.getState().setReadingPin("left", true);
-      expect(store.getState().revealed).toBeNull();
-      expect(store.getState().revealPanel("left", "click")).toBe(false);
+    it("lists exactly the keys reading mode and focus mode wrote", () => {
+      expect([...OBSOLETE_LAYOUT_KEYS].sort()).toEqual(
+        [
+          "focus-mode-restore",
+          "panel-hover-reveal",
+          "reading-mode",
+          "reading-mode-hint-seen",
+          "reading-profile",
+        ].sort()
+      );
     });
 
-    it("never changes the normal layout", () => {
-      const store = makeStore();
-      store.getState().toggleReadingMode();
-      store.getState().setReadingPin("left", true);
-      store.getState().toggleReadingMode();
-      expect(store.getState().isExplorerCollapsed).toBe(false);
-    });
-  });
-
-  describe("one overlay at a time", () => {
-    it("lets an explicit open replace another overlay", () => {
-      const store = makeStore();
-      store.getState().toggleReadingMode();
-      expect(store.getState().revealPanel("left", "hover")).toBe(true);
-      expect(store.getState().revealPanel("right", "keyboard")).toBe(true);
-      expect(store.getState().revealed).toEqual({ group: "right", source: "keyboard", quick: false });
-    });
-
-    it("never lets a hover replace an open overlay", () => {
-      const store = makeStore();
-      store.getState().toggleReadingMode();
-      store.getState().revealPanel("left", "keyboard");
-      expect(store.getState().revealPanel("right", "hover")).toBe(false);
-      expect(store.getState().revealed?.group).toBe("left");
-    });
-
-    it("never lets a hover downgrade the source of the open overlay", () => {
-      const store = makeStore();
-      store.getState().toggleReadingMode();
-      store.getState().revealPanel("left", "sticky");
-      expect(store.getState().revealPanel("left", "hover")).toBe(true);
-      expect(store.getState().revealed).toMatchObject({ group: "left", source: "sticky" });
-    });
-
-    it("conceals only the named group", () => {
-      const store = makeStore();
-      store.getState().toggleReadingMode();
-      store.getState().revealPanel("top", "click");
-      store.getState().concealPanel("left");
-      expect(store.getState().revealed?.group).toBe("top");
-      store.getState().concealPanel("top");
-      expect(store.getState().revealed).toBeNull();
-    });
-  });
-
-  describe("hover reveal setting", () => {
-    it("persists the choice", () => {
-      const store = makeStore();
-      expect(store.getState().hoverReveal).toBe("standard");
-      store.getState().setHoverReveal("slow");
-      expect(makeStore().getState().hoverReveal).toBe("slow");
-      store.getState().setHoverReveal("off");
-      expect(makeStore().getState().hoverReveal).toBe("off");
-    });
-  });
-
-  describe("effectiveGroupMode", () => {
-    it("is normal outside reading mode and below 768 px", () => {
-      const profile = { left: "autohide", right: "pinned", top: "autohide" } as const;
-      expect(effectiveGroupMode({ isReadingMode: false, readingProfile: profile }, "left", false)).toBe("normal");
-      expect(effectiveGroupMode({ isReadingMode: true, readingProfile: profile }, "left", true)).toBe("normal");
-      expect(effectiveGroupMode({ isReadingMode: true, readingProfile: profile }, "left", false)).toBe("autohide");
-      expect(effectiveGroupMode({ isReadingMode: true, readingProfile: profile }, "right", false)).toBe("pinned");
+    it("does not throw when storage is unavailable", () => {
+      const removeItem = vi.spyOn(Storage.prototype, "removeItem").mockImplementation(() => {
+        throw new Error("denied");
+      });
+      try {
+        expect(() => makeStore()).not.toThrow();
+      } finally {
+        removeItem.mockRestore();
+      }
     });
   });
 

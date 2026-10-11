@@ -34,7 +34,6 @@ const INTENTIONAL_UNTRANSLATED_KEY_PATTERNS = [
   /^error\.copyTemplate\.separator$/,
   /^messageViewer\.(codex|opencode)$/,
   /^progressRenderer\.types\.bash$/,
-  /^readingMode\.handle\.tooltip$/,
   /^rendererLabels\.glob$/,
   /^terminalExecutionResultRenderer\.(stderr|stdout)$/,
   /^settingsManager\.mcp\.(argsPlaceholder|serverNamePlaceholder)$/,

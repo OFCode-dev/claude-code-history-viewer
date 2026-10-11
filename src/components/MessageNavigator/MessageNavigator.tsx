@@ -19,6 +19,8 @@ import { NavigatorPromptRow } from "./NavigatorPromptRow";
 import { buildPromptEntries, buildPromptListRows, type PromptListRow } from "./promptEntries";
 import { useNavigatorEntries } from "./useNavigatorEntries";
 import { PromptSeekButtons } from "../PromptSeek/PromptSeekButtons";
+import { railButtonClass, railClass, railCountClass } from "../ui/rail";
+import { AREA_TOGGLE_ATTR } from "../../layouts/areaToggleAttr";
 
 // Height estimation constants for virtual scrolling
 const ESTIMATED_CHARS_PER_LINE = 40; // Conservative estimate for small text
@@ -38,17 +40,15 @@ interface MessageNavigatorProps {
   messages: ClaudeMessage[];
   width?: number;
   isResizing: boolean;
-  /** Omitted where the panel cannot be resized (the reading-mode overlay). */
+  /** Omitted where the panel cannot be resized (the mobile sheet). */
   onResizeStart?: (e: React.MouseEvent<HTMLElement>) => void;
   isCollapsed: boolean;
-  /** Omitted in reading mode, which has no rail. */
+  /** Omitted where the panel has no rail (the mobile sheet). */
   onToggleCollapse?: () => void;
-  /** Reading mode: the pin toggle, at the end of the header. */
-  headerAccessory?: React.ReactNode;
   /**
    * Previous / next prompt buttons beside the panel toggle (under it on the
-   * rail). Off where another toggle carries them (the reading-mode gutter)
-   * or where there is none (the mobile sheet).
+   * rail). Off where there is no toggle (the mobile sheet, whose opening
+   * button carries them).
    */
   showPromptSeek?: boolean;
   asideId?: string;
@@ -65,7 +65,6 @@ export const MessageNavigator: React.FC<MessageNavigatorProps> = ({
   onResizeStart,
   isCollapsed,
   onToggleCollapse,
-  headerAccessory,
   showPromptSeek = false,
   asideId = "message-navigator",
 }) => {
@@ -357,42 +356,25 @@ export const MessageNavigator: React.FC<MessageNavigatorProps> = ({
         role="complementary"
         aria-label={t("navigator.title")}
         tabIndex={-1}
-        className={cn(
-          "flex-shrink-0 bg-sidebar border-l border-border/50 flex h-full",
-          isResizing && "select-none"
-        )}
-        style={{ width: "48px" }}
+        className={cn(railClass, "border-l border-border/50", isResizing && "select-none")}
       >
-        <div className="flex-1 flex flex-col items-center py-3 gap-2 relative">
-          {/* Left accent border */}
-          <div className="absolute left-0 inset-y-0 w-[2px] bg-gradient-to-b from-accent/40 via-accent/60 to-accent/40" />
+        <button
+          type="button"
+          onClick={onToggleCollapse}
+          {...{ [AREA_TOGGLE_ATTR]: "" }}
+          className={railButtonClass}
+          title={t("navigator.toggle")}
+          aria-label={t("navigator.toggle")}
+        >
+          <PanelRight className="size-4" aria-hidden="true" />
+        </button>
 
-          {/* Expand Button */}
-          <button
-            onClick={onToggleCollapse}
-            className={cn(
-              "w-8 h-8 rounded-lg flex items-center justify-center",
-              "bg-accent/10 text-accent hover:bg-accent/20 transition-colors"
-            )}
-            title={t("navigator.toggle")}
-            aria-label={t("navigator.toggle")}
-          >
-            <PanelRight className="w-4 h-4" />
-          </button>
+        {showPromptSeek && <PromptSeekButtons variant="rail" />}
 
-          {showPromptSeek && <PromptSeekButtons variant="rail" />}
-
-          <div className="w-6 h-px bg-accent/20" />
-
-          {/* Prompt count */}
-          <div className="flex flex-col items-center gap-1" title={promptCountLabel}>
-            <ListTree aria-hidden className="w-4 h-4 text-muted-foreground" />
-            <span aria-hidden className="text-2xs font-mono text-muted-foreground">
-              {promptEntries.length}
-            </span>
-            <span className="sr-only">{promptCountLabel}</span>
-          </div>
-        </div>
+        <span className={railCountClass} title={promptCountLabel} aria-hidden="true">
+          {promptEntries.length}
+        </span>
+        <span className="sr-only">{promptCountLabel}</span>
       </aside>
     );
   }
@@ -470,14 +452,15 @@ export const MessageNavigator: React.FC<MessageNavigatorProps> = ({
         {showPromptSeek && <PromptSeekButtons variant="header" />}
         {onToggleCollapse && (
           <button
+            type="button"
             onClick={onToggleCollapse}
+            {...{ [AREA_TOGGLE_ATTR]: "" }}
             className="p-0.5 rounded hover:bg-accent/10 text-muted-foreground hover:text-foreground transition-colors"
             aria-label={t("navigator.toggle")}
           >
             <PanelRightClose className="w-3.5 h-3.5" />
           </button>
         )}
-        {headerAccessory}
       </div>
 
       {/* Filter input */}
@@ -489,8 +472,7 @@ export const MessageNavigator: React.FC<MessageNavigatorProps> = ({
             value={filterText}
             onChange={(e) => setFilterText(e.target.value)}
             onKeyDown={(e) => {
-              // Esc clears a filter; an empty one lets the press go on
-              // (to close the reading-mode overlay, for one).
+              // Esc clears a filter; an empty one leaves the press to others.
               if (e.key !== "Escape" || !filterText) return;
               e.preventDefault();
               setFilterText("");

@@ -1,6 +1,6 @@
 # 0001 — Auto-hide exists only inside reading mode
 
-- **Status**: accepted
+- **Status**: superseded by [0002](0002-one-layout-collapsible-bars.md)
 - **Date**: 2026-10-10
 - **Spec**: `specs/20261010-reading-mode-autohide/spec.md`
 

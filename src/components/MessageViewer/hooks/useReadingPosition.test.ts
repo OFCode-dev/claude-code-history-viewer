@@ -13,6 +13,8 @@ import {
   ANCHOR_THROTTLE_MS,
   CONVERSATION_TOP_CLEARANCE_PX,
   findFirstVisibleMessageRow,
+  keepReadingPlace,
+  registerTranscript,
   scrollRowIntoTopView,
   usePositionRestore,
   useViewportAnchorPublisher,
@@ -228,5 +230,43 @@ describe("scrollRowIntoTopView", () => {
     scrollRowIntoTopView(virtualizer, null, 3);
 
     expect(scrollToIndex).toHaveBeenCalledWith(3, { align: "start", behavior: "auto" });
+  });
+});
+
+describe("keepReadingPlace", () => {
+  it("puts the first visible row back where it was, once, after the change committed", () => {
+    const row = { uuid: "m7", offset: -40 };
+    const order: string[] = [];
+    const scrollRowTo = vi.fn(() => order.push("restore"));
+    const unregister = registerTranscript({
+      captureRow: () => {
+        order.push("capture");
+        return row;
+      },
+      scrollRowTo,
+    });
+
+    keepReadingPlace(() => {
+      order.push("change");
+    });
+    unregister();
+
+    expect(order).toEqual(["capture", "change", "restore"]);
+    expect(scrollRowTo).toHaveBeenCalledTimes(1);
+    expect(scrollRowTo).toHaveBeenCalledWith(row);
+  });
+
+  it("still applies the change when no conversation is showing", () => {
+    const change = vi.fn();
+    keepReadingPlace(change);
+    expect(change).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not scroll when nothing was visible", () => {
+    const scrollRowTo = vi.fn();
+    const unregister = registerTranscript({ captureRow: () => null, scrollRowTo });
+    keepReadingPlace(() => {});
+    unregister();
+    expect(scrollRowTo).not.toHaveBeenCalled();
   });
 });

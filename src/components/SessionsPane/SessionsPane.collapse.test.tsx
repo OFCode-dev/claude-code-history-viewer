@@ -122,13 +122,13 @@ describe("SessionsPane collapse", () => {
     expect(screen.getByTestId("session-list")).toBeInTheDocument();
   });
 
-  it("renders a rail with the session count and an expand button when collapsed", () => {
+  it("renders a 24 px rail with the session count and an expand button when collapsed", () => {
     const onToggleCollapse = vi.fn();
     const { container } = renderPane({ isCollapsed: true, onToggleCollapse });
 
     const pane = screen.getByRole("complementary", { name: "session.pane.title" });
     expect(pane).toHaveAttribute("id", "sessions-pane");
-    expect(pane).toHaveStyle({ width: "48px" });
+    expect(pane).toHaveClass("w-6", "pointer-coarse:w-11");
     expect(screen.queryByTestId("session-list")).not.toBeInTheDocument();
     expect(screen.getByText("session.count:7")).toBeInTheDocument();
     // No resize handle on the rail.
@@ -177,16 +177,15 @@ describe("SessionsPane collapse", () => {
     expect(screen.getByTestId("session-list")).toHaveAttribute("data-list-height", "490");
   });
 
-  it("moves focus to the expand button after collapsing from the keyboard, and back", () => {
+  it("marks both toggles so the layout can hand focus from one to the other", () => {
     const { rerender } = renderPane({ onToggleCollapse: vi.fn() });
-    const collapse = screen.getByRole("button", { name: "session.pane.collapse" });
-    collapse.focus();
-
+    expect(screen.getByRole("button", { name: "session.pane.collapse" })).toHaveAttribute(
+      "data-area-toggle"
+    );
     rerender(paneElement({ isCollapsed: true, onToggleCollapse: vi.fn() }));
-    expect(document.activeElement).toBe(screen.getByRole("button", { name: "session.pane.expand" }));
-
-    rerender(paneElement({ isCollapsed: false, onToggleCollapse: vi.fn() }));
-    expect(document.activeElement).toBe(screen.getByRole("button", { name: "session.pane.collapse" }));
+    expect(screen.getByRole("button", { name: "session.pane.expand" })).toHaveAttribute(
+      "data-area-toggle"
+    );
   });
 
   it("draws a focus ring on the collapse and expand buttons", () => {

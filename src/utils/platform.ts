@@ -25,6 +25,18 @@ export const isWindows = (): boolean =>
 export const isActionModifier = (e: { metaKey: boolean; ctrlKey: boolean }): boolean =>
   isMacOS() ? e.metaKey : e.ctrlKey;
 
+/**
+ * Mod (Cmd on macOS, Ctrl elsewhere), optionally Shift, plus a letter, as
+ * `aria-keyshortcuts` spells it and as people read it.
+ */
+export function modShortcut(letter: string, shift: boolean): { aria: string; label: string } {
+  const mac = isMacOS();
+  return {
+    aria: `${mac ? "Meta" : "Control"}${shift ? "+Shift" : ""}+${letter}`,
+    label: mac ? `⌘${shift ? "⇧" : ""}${letter}` : `Ctrl+${shift ? "Shift+" : ""}${letter}`,
+  };
+}
+
 /** True when running inside the Tauri desktop shell. */
 export const isTauri = (): boolean =>
   typeof window !== "undefined" && window.__TAURI_INTERNALS__ != null;

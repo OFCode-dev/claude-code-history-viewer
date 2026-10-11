@@ -5,7 +5,8 @@
  * - previous / next prompt: one pair, under whichever control opens the
  *   prompts navigator.
  *
- * The real explorer, sessions pane, navigator and reading-mode regions render;
+ * The real explorer, sessions pane and navigator render (expanded or folded
+ * to their 24 px rails);
  * only the conversation and the app chrome around them are stubbed.
  */
 import { act, render, screen } from "@testing-library/react";
@@ -105,7 +106,6 @@ interface LayoutCase {
   isSidebarCollapsed?: boolean;
   isSessionsPaneCollapsed?: boolean;
   isNavigatorOpen?: boolean;
-  readingMode?: "autohide" | "pinned";
   isMobileSidebarOpen?: boolean;
 }
 
@@ -114,13 +114,6 @@ function renderLayout(layout: LayoutCase) {
   const isMobile = layout.width < 768;
   useAppStore.setState({
     isSessionsPaneCollapsed: layout.isSessionsPaneCollapsed ?? false,
-    isReadingMode: layout.readingMode != null,
-    readingProfile: {
-      left: layout.readingMode ?? "autohide",
-      right: layout.readingMode ?? "autohide",
-      top: "autohide",
-    },
-    revealed: null,
   });
   const noop = () => {};
   const props = {
@@ -236,10 +229,7 @@ afterEach(() => {
     selectedSession: original.selectedSession,
     subagentSessions: original.subagentSessions,
     messages: original.messages,
-    isReadingMode: false,
     isSessionsPaneCollapsed: original.isSessionsPaneCollapsed,
-    readingProfile: original.readingProfile,
-    revealed: null,
   });
   useViewportAnchorStore.getState().reset();
 });
@@ -273,20 +263,31 @@ describe("AppLayout: one home for subagents and for prompt seeking", () => {
     [{ width: 900 }, "list in #project-explorer", "header"],
     [{ width: 900, isSidebarCollapsed: true }, "rail button in #project-explorer", "header"],
     [{ width: 900, isNavigatorOpen: false }, "list in #project-explorer", "rail"],
-    [{ width: 1440, readingMode: "autohide" as const }, "list in #sessions-pane", "gutter"],
-    [
-      { width: 1440, readingMode: "autohide" as const, isSessionsPaneCollapsed: true },
-      "list in #sessions-pane",
-      "gutter",
-    ],
-    [{ width: 1440, readingMode: "pinned" as const }, "list in #sessions-pane", "header"],
-    [{ width: 900, readingMode: "autohide" as const }, "list in #project-explorer", "gutter"],
     [{ width: 390, isMobileSidebarOpen: true }, "list in #project-explorer", "floating"],
   ])("%o: subagents %s, prompt seek in the %s", (layout, subagents, seek) => {
     renderLayout(layout);
     act(() => {});
     expect(subagentHome()).toBe(subagents);
     expect(seekHome()).toBe(seek);
+  });
+
+  it("all folded: three 24 px rails (44 px on touch), each keeping its accessories", () => {
+    renderLayout({
+      width: 1440,
+      isSidebarCollapsed: true,
+      isSessionsPaneCollapsed: true,
+      isNavigatorOpen: false,
+    });
+    act(() => {});
+    for (const id of ["project-explorer", "sessions-pane", "message-navigator"]) {
+      const rail = document.getElementById(id)!;
+      expect(rail).toHaveClass("w-6", "pointer-coarse:w-11");
+      expect(rail.querySelector("[data-area-toggle]")).not.toBeNull();
+    }
+    expect(subagentHome()).toBe("rail button in #sessions-pane");
+    const [pair] = seekPairs();
+    expect(pair!.closest("aside")?.id).toBe("message-navigator");
+    expect(pair).toHaveAttribute("data-prompt-seek", "rail");
   });
 
   it("phones with the drawer closed: no subagent list on screen, prompt seek by the navigator button", () => {

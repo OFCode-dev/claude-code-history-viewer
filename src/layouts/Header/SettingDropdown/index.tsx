@@ -20,7 +20,6 @@ import { LanguageMenuGroup } from "./LanguageMenuGroup";
 import { FilterMenuGroup } from "./FilterMenuGroup";
 import { ViewMenuGroup } from "./ViewMenuGroup";
 import { FontMenuGroup } from "./FontMenuGroup";
-import { LayoutMenuGroup } from "./LayoutMenuGroup";
 import { AccessibilityMenuGroup } from "./AccessibilityMenuGroup";
 
 interface SettingDropdownProps {
@@ -101,9 +100,6 @@ export const SettingDropdown = ({
 
           <DropdownMenuSeparator />
           <FontMenuGroup />
-
-          <DropdownMenuSeparator />
-          <LayoutMenuGroup />
 
           <DropdownMenuSeparator />
           <AccessibilityMenuGroup />

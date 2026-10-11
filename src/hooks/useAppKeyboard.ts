@@ -2,18 +2,16 @@ import { useEffect } from "react";
 import { useModal } from "@/contexts/modal";
 import { usePlatform } from "@/contexts/platform";
 import { useAppStore } from "@/store/useAppStore";
-import { effectiveGroupMode } from "@/store/slices/layoutSlice";
 import { isEditableTarget, isInArrowKeyWidget } from "@/utils/editableTarget";
 import { isActionModifier, isMacOS } from "@/utils/platform";
 import { jumpToAdjacentPrompt } from "@/utils/promptNavigation";
+import { changeLayout } from "@/layouts/collapsibleAreas";
 import {
-  focusGroupPrimary,
   getConversationSearchInput,
-  panelDomIds,
-  revealPanel,
-  togglePanel,
-} from "@/components/AutoHide/panelActions";
-import { useReadingModeToggle } from "@/components/AutoHide/useLayoutSwitches";
+  openConversationTool,
+} from "@/components/MessageViewer/components/conversationToolsActions";
+import { SESSION_OPEN_ATTR } from "@/components/SessionItem/sessionRowFocus";
+import { useCollapseAll } from "./useCollapseAll";
 
 /** Panel shortcuts never act behind a dialog or inside a menu. */
 const DIALOG_OR_MENU_SELECTOR =
@@ -47,32 +45,59 @@ function shouldPassFindToBrowser(input: HTMLInputElement, target: EventTarget | 
 }
 
 /**
- * Normal layout: unfold whichever rail holds the target of Mod+Shift+E, the
- * explorer and, when a session is selected and the sessions pane is shown,
- * that pane (the selected session row lives there).
+ * Mod+Shift+E: unfold whichever rail holds the target, the explorer and,
+ * when a session is selected and the sessions pane is shown, that pane (the
+ * selected session row lives there).
  */
 function unfoldLeftRails(): void {
   const state = useAppStore.getState();
-  if (state.isExplorerCollapsed) state.setExplorerCollapsed(false);
   const sessionsPaneShown = document.getElementById("sessions-pane") != null;
-  if (state.selectedSession && sessionsPaneShown && state.isSessionsPaneCollapsed) {
-    state.setSessionsPaneCollapsed(false);
-  }
+  const unfoldSessions =
+    state.selectedSession != null && sessionsPaneShown && state.isSessionsPaneCollapsed;
+  if (!state.isExplorerCollapsed && !unfoldSessions) return;
+  changeLayout(() => {
+    if (state.isExplorerCollapsed) state.setExplorerCollapsed(false);
+    if (unfoldSessions) state.setSessionsPaneCollapsed(false);
+  });
 }
 
-/** After the layout has rendered (a rail may first have to unfold). */
+/** After the unfolded panels have rendered and laid out their rows. */
 function afterRender(callback: () => void): void {
   requestAnimationFrame(() => requestAnimationFrame(callback));
 }
 
 /**
+ * The selected session row (sessions pane first, else inline in the tree),
+ * then the selected tree row, then the first row, then the explorer itself.
+ */
+function focusSelectedRow(): void {
+  const selectors = [
+    `#sessions-pane [${SESSION_OPEN_ATTR}][aria-current="true"]`,
+    `#project-explorer [${SESSION_OPEN_ATTR}][aria-current="true"]`,
+    '#project-explorer [role="treeitem"][aria-selected="true"]',
+    '#project-explorer [role="treeitem"][tabindex="0"]',
+    '#project-explorer [role="treeitem"]',
+    "#project-explorer",
+  ];
+  for (const selector of selectors) {
+    const target = document.querySelector<HTMLElement>(selector);
+    if (target) {
+      target.focus({ preventScroll: true });
+      target.scrollIntoView?.({ block: "nearest" });
+      return;
+    }
+  }
+}
+
+/**
  * Global keyboard shortcuts for the app.
  * - Mod+K: open global search
- * - Mod+Shift+F: reading mode on or off (desktop only, not while typing)
- * - Mod+Shift+E: explorer and sessions (reading mode: toggle its overlay)
- * - Mod+Shift+M: prompts navigator (reading mode: toggle its overlay)
- * - Mod+F: focus the conversation search (reading mode: reveal it)
- * - Mod+G / F3, with Shift for previous: next search match, revealing nothing
+ * - Mod+Shift+F: reading mode, i.e. collapse all areas, or expand all when
+ *   all are collapsed (desktop only, not while typing)
+ * - Mod+Shift+E: unfold explorer and sessions, focus the selected row
+ * - Mod+Shift+M: prompts navigator open or folded
+ * - Mod+F: focus the conversation search (expanding the tools if collapsed)
+ * - Mod+G / F3, with Shift for previous: next search match, expanding nothing
  * - Alt+Up / Alt+Down: previous / next prompt of the open conversation
  *   (ignored while typing in a field, inside dialogs and menus or other
  *   widgets that use the arrow keys, and when a widget already handled it)
@@ -84,7 +109,7 @@ export function useAppKeyboard() {
   const { openModal } = useModal();
   const { isMobile } = usePlatform();
   const toggleNavigator = useAppStore((s) => s.toggleNavigator);
-  const toggleReadingMode = useReadingModeToggle();
+  const collapseOrExpandAll = useCollapseAll();
 
   useEffect(() => {
     const handlePanelShortcut = (e: KeyboardEvent): boolean => {
@@ -94,34 +119,22 @@ export function useAppKeyboard() {
         return isModChord(e) && e.shiftKey && letter === "m";
       }
       if (isInDialogOrMenu(e.target)) return false;
-      const state = useAppStore.getState();
 
       if (isModChord(e) && e.shiftKey) {
         if (letter === "f") {
           if (e.repeat || isEditableTarget(e.target)) return false;
-          toggleReadingMode();
+          collapseOrExpandAll();
           return true;
         }
         if (letter === "e") {
           if (e.repeat) return true;
-          const mode = effectiveGroupMode(state, "left", false);
-          if (mode === "autohide") {
-            togglePanel("left", "keyboard");
-          } else {
-            if (mode === "normal") unfoldLeftRails();
-            afterRender(() => focusGroupPrimary("left"));
-          }
+          unfoldLeftRails();
+          afterRender(focusSelectedRow);
           return true;
         }
         if (letter === "m") {
           if (e.repeat) return true;
-          const mode = effectiveGroupMode(state, "right", false);
-          if (mode === "normal") {
-            toggleNavigator();
-          } else if (document.getElementById(panelDomIds.region("right"))) {
-            if (mode === "autohide") togglePanel("right", "keyboard");
-            else focusGroupPrimary("right");
-          }
+          changeLayout(toggleNavigator);
           return true;
         }
         if (letter === "g") return stepMatch("previous");
@@ -144,13 +157,7 @@ export function useAppKeyboard() {
     const focusConversationSearch = (e: KeyboardEvent): boolean => {
       const input = getConversationSearchInput();
       if (!input || shouldPassFindToBrowser(input, e.target)) return false;
-      const state = useAppStore.getState();
-      if (effectiveGroupMode(state, "top", false) === "autohide") {
-        revealPanel("top", "keyboard", { focus: "search" });
-      } else {
-        input.focus();
-        input.select();
-      }
+      openConversationTool("search");
       return true;
     };
 
@@ -191,5 +198,5 @@ export function useAppKeyboard() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [openModal, toggleNavigator, toggleReadingMode, isMobile]);
+  }, [openModal, toggleNavigator, collapseOrExpandAll, isMobile]);
 }

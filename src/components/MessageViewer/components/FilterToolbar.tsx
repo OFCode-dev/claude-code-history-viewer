@@ -2,6 +2,7 @@ import { Filter, RotateCcw, User, Bot, MessageSquareText, MessagesSquare, Brain,
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "../../../store/useAppStore";
+import { TOOL_FOCUS_ATTR } from "./conversationToolsActions";
 
 interface FilterToggleProps {
   active: boolean;
@@ -13,7 +14,7 @@ interface FilterToggleProps {
   disabled?: boolean;
   /** Keep the text label even when the toolbar is narrow. */
   alwaysShowLabel?: boolean;
-  /** Where a reading-mode chip lands focus (`data-autohide-focus`). */
+  /** Where a chip on the collapsed tools strip lands focus. */
   focusKey?: "dialogue" | "filters";
 }
 
@@ -32,7 +33,7 @@ function FilterToggle({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      data-autohide-focus={focusKey}
+      {...{ [TOOL_FOCUS_ATTR]: focusKey }}
       className={cn(
         "flex items-center gap-1 px-1.5 py-0.5 rounded text-2xs border transition-colors",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",

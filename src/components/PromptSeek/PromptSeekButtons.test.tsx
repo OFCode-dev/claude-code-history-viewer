@@ -1,7 +1,6 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { AUTOHIDE_COLD_ATTR } from "@/components/AutoHide/constants";
 import { useAppStore } from "@/store/useAppStore";
 import { buildPromptTrack, useViewportAnchorStore } from "@/store/viewportAnchorStore";
 import type { ClaudeMessage, ClaudeSession } from "@/types";
@@ -178,10 +177,14 @@ describe("PromptSeekButtons", () => {
     expect(announcement()).toBe("Loading earlier messages");
   });
 
-  it("in the reading-mode gutter, is marked as working without the panel", () => {
-    renderSeek("gutter");
+  it("on the 24 px navigator rail, steps prompts with buttons sized for the rail", () => {
+    const { next } = renderSeek("rail");
     const group = screen.getByRole("group", { name: "Previous and next prompt" });
-    expect(group).toHaveAttribute(AUTOHIDE_COLD_ATTR);
     expect(within(group).getAllByRole("button")).toHaveLength(2);
+    expect(next.className).toContain("size-6");
+    expect(next.className).toContain("pointer-coarse:size-11");
+
+    fireEvent.click(next);
+    expect(navigateToMessage).toHaveBeenCalledWith("p2", expect.anything());
   });
 });

@@ -27,9 +27,6 @@ const GROUPINGS = ["file", "edit"] as const;
  * and `message-filter`. `recent-edits-width` is deliberately absent: that one
  * belongs to `useResizablePanel`, which owns its own persistence.
  */
-/** Persisted dock visibility; reading mode closes and reopens the dock through it. */
-export const RECENT_EDITS_DOCK_OPEN_KEY = "recent-edits-dock-open";
-
 const STORAGE_KEYS = {
   mode: "recent-edits-mode",
   densityPage: "recent-edits-density-page",
@@ -38,7 +35,7 @@ const STORAGE_KEYS = {
   groupingProject: "recent-edits-grouping-project",
   groupingSession: "recent-edits-grouping-session",
   missingOnly: "recent-edits-missing-only",
-  dockOpen: RECENT_EDITS_DOCK_OPEN_KEY,
+  dockOpen: "recent-edits-dock-open",
 } as const;
 
 /**

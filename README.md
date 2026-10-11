@@ -39,18 +39,16 @@ This fork of [jhlee0409/claude-code-history-viewer](https://github.com/jhlee0409
 > The download links and Homebrew formulas further down install the **upstream** app. To run this fork, [build from source](#build-from-source) (`just setup && just tauri-build`) or build the server (`cargo build --release --features webui-server` in `src-tauri/`).
 
 <p align="center">
-  <img width="49%" alt="Reading mode: panels hidden, the conversation fills the window" src="docs/assets/fork/reading-mode.png" />
-  <img width="49%" alt="Reading mode: explorer and sessions slide in over the text from the left edge" src="docs/assets/fork/reading-mode-panel.png" />
+  <img width="49%" alt="Reading mode: every panel folded to a thin bar, the conversation fills the window" src="docs/assets/fork/reading-mode.png" />
+  <img width="49%" alt="Explorer and sessions open, the prompts list and the conversation tools folded to thin bars" src="docs/assets/fork/thin-bars.png" />
 </p>
 <p align="center"><sub>Screenshots use invented demo projects and sessions.</sub></p>
 
 ### Read without distractions
 
-- **Reading mode** (<kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd>) — the explorer, session list, prompts navigator and conversation tools step aside, and only the conversation is left. You stay on the same message when you enter or leave.
-  - **Panels wait at the window edges.** Rest the pointer on a handle at the left or right edge (or at the top) and the panel slides in *over* the text, so nothing reflows. Move away and it tucks back after half a second. Click a handle or an edge to open a panel straight away.
-  - **No accidental pop-ups.** Passing over an edge, scrolling, typing, selecting text or dragging a scrollbar never opens a panel. A panel you are using stays open while its menu, filter or rename field is active.
-  - **Keyboard first.** <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>Shift</kbd>+<kbd>E</kbd> opens explorer and sessions on the selected session; <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>Shift</kbd>+<kbd>M</kbd> opens the prompts list; <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>F</kbd> searches without bringing the toolbar back, and <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>G</kbd> steps through matches. <kbd>Esc</kbd> closes one layer at a time and returns focus where it was.
-  - **Your choice of panels.** Pin any panel to keep it visible in reading mode. *Reveal panels on hover* can be set to Standard, Slow or Off (click and keyboard only) in the settings menu. Touch opens stay until you dismiss them, and motion respects *reduced motion*.
+- **Reading mode** (<kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd>, or the book button) — one press folds the explorer, session list, prompts navigator and conversation tools to thin bars, and the conversation takes the window. Press again to open them all. You stay on the same message either way.
+  - **One layout, thin bars.** Each panel also folds on its own. The side panels become 24 px rails that keep their buttons (expand, global statistics, subagents, previous/next prompt); the toolbar becomes a 24 px strip that still shows an active search (with match stepping), the Dialogue view and hidden message types. Nothing slides over the text: the conversation simply gets the room. Each panel remembers whether it is folded, and touch screens get 44 px bars.
+  - **Keyboard first.** <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>Shift</kbd>+<kbd>E</kbd> opens explorer and sessions on the selected session; <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>Shift</kbd>+<kbd>M</kbd> folds or opens the prompts list; <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>F</kbd> opens the toolbar if needed and puts you in search, and <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>G</kbd> steps through matches without opening anything. When a panel folds, focus moves to its toggle, never into something hidden.
 - **Dialogue view** — one click shows only your prompts and the assistant's answers; tool calls, tool results and thinking step aside.
 - **Your prompts stand out** — each message you typed is a wide card (*You · time · Turn N*). Messages you sent while Claude was still working are no longer invisible: they show with *Sent while Claude was working*.
 - **Long messages, readable** — messages up to 10,000 characters show in full; longer ones show their first 10,000 (never cutting a table row or a code block in half) with *Show more*. Tables show every row. Message cards use the full width of the conversation column, with justified prose.
