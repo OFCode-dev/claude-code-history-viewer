@@ -217,6 +217,8 @@
   "header.readingMode.tooltip": "阅读模式：折叠所有面板，或再次全部展开（{{toggle}}）。资源管理器和会话 {{left}}，提示 {{right}}，搜索 {{search}}",
   "readingMode.announce.collapsed": "已折叠所有面板。",
   "readingMode.announce.expanded": "已展开所有面板。",
+  "layout.announce.foldedForRoom": "为腾出空间已折叠：{{panels}}。",
+  "layout.announce.noRoom": "空间不足，无法打开{{panel}}。请加宽窗口。",
   "conversationTools.expand": "显示对话工具",
   "conversationTools.collapse": "隐藏对话工具",
   "conversationTools.chips.search": "搜索 “{{query}}” {{position}}",

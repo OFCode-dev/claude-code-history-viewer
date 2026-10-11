@@ -5,8 +5,8 @@
  * 직접 수정하지 마세요.
  *
  * 생성 명령: pnpm run generate:i18n-types
- * 생성 시간: 2026-10-11T05:48:35.222Z
- * 총 키 개수: 2131
+ * 생성 시간: 2026-10-11T09:33:36.300Z
+ * 총 키 개수: 2133
  * Namespace 수: 11
  */
 
@@ -40,7 +40,7 @@ export type I18nNamespace =
   | 'recentEdits';
 
 /**
- * common namespace의 번역 키 (228개)
+ * common namespace의 번역 키 (230개)
  * 파일: locales/{lang}/common.json
  */
 export type CommonKeys =
@@ -250,6 +250,8 @@ export type CommonKeys =
   | 'header.readingMode.label'
   | 'header.readingMode.tooltip'
   | 'header.views'
+  | 'layout.announce.foldedForRoom'
+  | 'layout.announce.noRoom'
   | 'readingMode.announce.collapsed'
   | 'readingMode.announce.expanded'
   | 'status.checking'
@@ -2959,6 +2961,8 @@ export type TranslationKey =
   | 'imageRenderer.downloadImage'
   | 'imageRenderer.image'
   | 'imageRenderer.viewFullscreen'
+  | 'layout.announce.foldedForRoom'
+  | 'layout.announce.noRoom'
   | 'mcpRenderer.error'
   | 'mcpRenderer.executionResult'
   | 'mcpRenderer.mcpToolCall'
@@ -4412,6 +4416,7 @@ export type TranslationPrefix =
   | 'globalSearch'
   | 'header'
   | 'imageRenderer'
+  | 'layout'
   | 'mcpRenderer'
   | 'mcpToolResultRenderer'
   | 'mcpToolUseRenderer'

@@ -4,7 +4,7 @@ import { BarChart3, PanelLeft } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { railButtonClass, railClass, railCountClass } from "@/components/ui/rail";
-import { AREA_TOGGLE_ATTR } from "@/layouts/areaToggleAttr";
+import { AREA_TOGGLE_ATTR, RAIL_ATTR } from "@/layouts/areaToggleAttr";
 import { SubagentsRailButton } from "@/components/SessionsPane/SubagentsRailButton";
 
 interface CollapsedExplorerRailProps {
@@ -40,6 +40,7 @@ export const CollapsedExplorerRail: React.FC<CollapsedExplorerRailProps> = ({
       aria-label={t("project.explorer")}
       tabIndex={-1}
       data-menu-boundary
+      {...{ [RAIL_ATTR]: "" }}
       className={cn(railClass, "border-r border-border/50", isResizing && "select-none")}
     >
       {onExpand && (

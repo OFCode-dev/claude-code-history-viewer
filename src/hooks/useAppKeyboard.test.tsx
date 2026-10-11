@@ -2,7 +2,8 @@ import { render, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useAppStore } from "@/store/useAppStore";
 import { areAllCollapsed } from "@/store/slices/layoutSlice";
-import { AREA_TOGGLE_ATTR } from "@/layouts/areaToggleAttr";
+import { AREA_TOGGLE_ATTR, RAIL_ATTR } from "@/layouts/areaToggleAttr";
+import { changeLayout } from "@/layouts/collapsibleAreas";
 import {
   CONVERSATION_TOOLS_ID,
   CONVERSATION_TOOLS_PANEL_ID,
@@ -44,30 +45,48 @@ const ctrlShift = (key: string, init: KeyboardEventInit = {}, target: EventTarge
   press(key, { ctrlKey: true, shiftKey: true, ...init }, target);
 
 const toggle = { [AREA_TOGGLE_ATTR]: "" };
+const rail = { [RAIL_ATTR]: "" };
 
-/** The four areas as the layout renders them, each in its current form. */
-function Layout({ withSessions = false }: { withSessions?: boolean }) {
+/**
+ * The four areas as the layout renders them, each in its current form, with
+ * toggles that flip their flag as AppLayout's do. `navigatorRoomFolded`
+ * renders the navigator as a rail although its flag is open (folded for lack
+ * of room), with `onNavigatorToggle` standing in for AppLayout's handler.
+ */
+function Layout({
+  withSessions = false,
+  navigatorRoomFolded = false,
+  onNavigatorToggle,
+}: {
+  withSessions?: boolean;
+  navigatorRoomFolded?: boolean;
+  onNavigatorToggle?: () => void;
+}) {
   const explorerCollapsed = useAppStore((s) => s.isExplorerCollapsed);
   const sessionsCollapsed = useAppStore((s) => s.isSessionsPaneCollapsed);
-  const navigatorOpen = useAppStore((s) => s.isNavigatorOpen);
+  const navigatorOpen = useAppStore((s) => s.isNavigatorOpen) && !navigatorRoomFolded;
   const toolsCollapsed = useAppStore((s) => s.isConversationToolsCollapsed);
+  const store = useAppStore.getState();
+  const toggleExplorer = () => changeLayout(store.toggleExplorerCollapsed);
+  const toggleSessions = () => changeLayout(store.toggleSessionsPaneCollapsed);
+  const toggleNavigator = onNavigatorToggle ?? (() => changeLayout(store.toggleNavigator));
   return (
     <>
-      <aside id="project-explorer" tabIndex={-1}>
+      <aside id="project-explorer" tabIndex={-1} {...(explorerCollapsed ? rail : {})}>
         {explorerCollapsed ? (
-          <button type="button" {...toggle}>expand explorer</button>
+          <button type="button" {...toggle} onClick={toggleExplorer}>expand explorer</button>
         ) : (
           <>
-            <button type="button" {...toggle}>collapse explorer</button>
+            <button type="button" {...toggle} onClick={toggleExplorer}>collapse explorer</button>
             <div role="treeitem" tabIndex={-1} aria-selected="false">other</div>
             <div role="treeitem" tabIndex={-1} aria-selected="true">selected project</div>
           </>
         )}
       </aside>
       {withSessions && (
-        <aside id="sessions-pane" tabIndex={-1}>
+        <aside id="sessions-pane" tabIndex={-1} {...(sessionsCollapsed ? rail : {})}>
           {sessionsCollapsed ? (
-            <button type="button" {...toggle}>expand sessions</button>
+            <button type="button" {...toggle} onClick={toggleSessions}>expand sessions</button>
           ) : (
             <div data-session-list="">
               <button type="button" data-session-open="" tabIndex={-1}>other session</button>
@@ -87,11 +106,14 @@ function Layout({ withSessions = false }: { withSessions?: boolean }) {
         </div>
         <button type="button">transcript button</button>
       </main>
-      <aside id="message-navigator" tabIndex={-1}>
+      <aside id="message-navigator" tabIndex={-1} {...(navigatorOpen ? {} : rail)}>
         {navigatorOpen ? (
-          <button type="button" role="option" tabIndex={0}>current prompt</button>
+          <>
+            <button type="button" {...toggle} onClick={toggleNavigator}>collapse navigator</button>
+            <button type="button" role="option" tabIndex={0}>current prompt</button>
+          </>
         ) : (
-          <button type="button" {...toggle}>expand navigator</button>
+          <button type="button" {...toggle} onClick={toggleNavigator}>expand navigator</button>
         )}
       </aside>
     </>
@@ -267,6 +289,16 @@ describe("Mod+Shift+M: prompts", () => {
     row.focus();
     ctrlShift("M", {}, row);
     expect(document.activeElement).toBe(getByText("expand navigator"));
+  });
+
+  it("presses the navigator's own toggle, so a rail folded for lack of room makes room", () => {
+    const onNavigatorToggle = vi.fn();
+    renderHook(() => useAppKeyboard());
+    render(<Layout navigatorRoomFolded onNavigatorToggle={onNavigatorToggle} />);
+    ctrlShift("M");
+    expect(onNavigatorToggle).toHaveBeenCalledTimes(1);
+    // The flag is left to that handler.
+    expect(useAppStore.getState().isNavigatorOpen).toBe(true);
   });
 
   it("below 768 px swallows the chord (browser profile menu) and changes nothing", () => {

@@ -35,13 +35,19 @@ import { MobileNavigatorSheet } from "@/components/mobile/MobileNavigatorSheet";
 import { Header } from "@/layouts/Header/Header";
 import { ModalContainer } from "@/layouts/Header/SettingDropdown/ModalContainer";
 import { DesktopOnly } from "@/contexts/platform";
-import { useIsLgUp, useIsXlUp } from "@/hooks/useMediaQuery";
+import { useIsLgUp, useIsXlUp, useMediaQuery, useWindowWidth } from "@/hooks/useMediaQuery";
 import { useResizablePanel } from "@/hooks/useResizablePanel";
 import { SessionsPane } from "@/components/SessionsPane/SessionsPane";
 import { formatTimeAgo } from "@/utils/time";
 import { useStatusRegionText } from "@/hooks/useStatusRegionText";
 import { supportsSessionBoard } from "@/layouts/sessionBoard";
 import { changeLayout } from "@/layouts/collapsibleAreas";
+import {
+  panelsFoldedForRoom,
+  panelsToCollapseForOpening,
+  type FitInput,
+  type SidePanel,
+} from "@/layouts/fitPanels";
 import {
   AppErrorType,
   type ClaudeMessage,
@@ -229,6 +235,13 @@ export const AppLayout: React.FC<AppLayoutProps> = (props) => {
   // Called before the early returns below, as hook order must not vary.
   const isXlUp = useIsXlUp();
   const isLgUp = useIsLgUp();
+  const windowWidth = useWindowWidth();
+  // Rails are 44 px under a coarse pointer (see `railClass`).
+  const railWidth = useMediaQuery("(pointer: coarse)") ? 44 : 24;
+  const announceLayout = useAppStore((s) => s.announceLayout);
+  const setExplorerCollapsed = useAppStore((s) => s.setExplorerCollapsed);
+  const setSessionsPaneCollapsed = useAppStore((s) => s.setSessionsPaneCollapsed);
+  const setNavigatorOpen = useAppStore((s) => s.setNavigatorOpen);
   // A breadcrumb reveal on mobile needs the explorer drawer (and its tree) open.
   useOpenDrawerOnExplorerReveal(isMobile, setIsMobileSidebarOpen);
   // Sessions get their own column from `lg` up; below that they stay inline in
@@ -255,11 +268,6 @@ export const AppLayout: React.FC<AppLayoutProps> = (props) => {
     maxWidth: 520,
     storageKey: "sessions-pane-width",
   });
-  // Folding or unfolding an area keeps the reader on the same message and
-  // hands focus from the pressed toggle to its counterpart.
-  const toggleExplorer = () => changeLayout(handleToggleSidebar);
-  const toggleSessionsPane = () => changeLayout(toggleSessionsPaneCollapsed);
-  const toggleNavigatorPanel = () => changeLayout(toggleNavigator);
 
   // Layout announcements share the status region, then make way again.
   useEffect(() => {
@@ -365,6 +373,71 @@ export const AppLayout: React.FC<AppLayoutProps> = (props) => {
   */
   const showRecentEditsDock =
     isXlUp && isRecentEditsDockOpen && isTranscriptView;
+
+  /*
+    The transcript never gets narrower than MIN_TRANSCRIPT_WIDTH_PX: panels
+    that would squeeze it render as rails (navigator, then sessions, then
+    explorer), derived here from the window width and never written to the
+    persisted flags, so a wider window brings them back by itself. Only while
+    a conversation shows: before one is chosen, the sessions pane is where
+    the person picks it.
+  */
+  const isReadingTranscript = !isMobile && isTranscriptView && selectedSession != null;
+  const fitInput: FitInput = {
+    viewportWidth: windowWidth,
+    railWidth,
+    reservedWidth: showRecentEditsDock ? recentEditsDockWidth : 0,
+    panels: {
+      explorer: { shown: !isMobile, open: !isSidebarCollapsed, width: sidebarWidth },
+      sessions: { shown: showSessionsPane, open: !isSessionsPaneCollapsed, width: sessionsPaneWidth },
+      navigator: {
+        shown: isReadingTranscript,
+        open: isNavigatorOpen,
+        width: navigatorWidth,
+      },
+    },
+  };
+  const foldedForRoom = isReadingTranscript
+    ? panelsFoldedForRoom(fitInput)
+    : new Set<SidePanel>();
+  const isExplorerFolded = isSidebarCollapsed || foldedForRoom.has("explorer");
+  const panelNames: Record<SidePanel, string> = {
+    explorer: t("project.explorer"),
+    sessions: t("session.pane.title"),
+    navigator: t("navigator.title"),
+  };
+  const collapseFlag: Record<SidePanel, () => void> = {
+    explorer: () => setExplorerCollapsed(true),
+    sessions: () => setSessionsPaneCollapsed(true),
+    navigator: () => setNavigatorOpen(false),
+  };
+
+  /*
+    Folding or unfolding an area keeps the reader on the same message and
+    hands focus from the pressed toggle to its counterpart. A rail folded
+    only for lack of room opens by folding the next panels in FOLD_ORDER, so
+    the person gets what they clicked and the transcript keeps its width.
+  */
+  const togglePanel = (panel: SidePanel, toggle: () => void) => {
+    if (!foldedForRoom.has(panel)) {
+      changeLayout(toggle);
+      return;
+    }
+    const collapse = panelsToCollapseForOpening(panel, fitInput);
+    if (collapse.length === 0) {
+      announceLayout(t("layout.announce.noRoom", { panel: panelNames[panel] }));
+      return;
+    }
+    changeLayout(() => collapse.forEach((other) => collapseFlag[other]()));
+    announceLayout(
+      t("layout.announce.foldedForRoom", {
+        panels: collapse.map((other) => panelNames[other]).join(", "),
+      })
+    );
+  };
+  const toggleExplorer = () => togglePanel("explorer", handleToggleSidebar);
+  const toggleSessionsPane = () => togglePanel("sessions", toggleSessionsPaneCollapsed);
+  const toggleNavigatorPanel = () => togglePanel("navigator", toggleNavigator);
 
   const recentEditsDock = showRecentEditsDock ? (
       <div className="hidden xl:block">
@@ -480,7 +553,7 @@ export const AppLayout: React.FC<AppLayoutProps> = (props) => {
             in the tab order pointing at an id that was not in the document
             (#518). Same treatment the recent-edits link above already has.
           */}
-          {!isMobile && isTranscriptView && isNavigatorOpen && selectedSession && (
+          {!isMobile && isTranscriptView && isNavigatorOpen && !foldedForRoom.has("navigator") && selectedSession && (
             <a
               href="#message-navigator"
               className="absolute left-[35rem] top-[-40px] z-[700] rounded-md border border-border bg-card px-3 py-2 text-sm font-medium text-foreground transition-all focus:top-2"
@@ -567,13 +640,13 @@ export const AppLayout: React.FC<AppLayoutProps> = (props) => {
                 isLoadingMoreSessions={isLoadingMoreSessions}
                 isViewingGlobalStats={isViewingGlobalStats}
                 inlineSessions={!showSessionsPane}
-                width={isSidebarCollapsed ? undefined : sidebarWidth}
+                width={isExplorerFolded ? undefined : sidebarWidth}
                 isResizing={isSidebarResizing}
                 onResizeStart={handleSidebarResizeStart}
                 onHideProject={hideProject}
                 onUnhideProject={unhideProject}
                 isProjectHidden={isProjectHidden}
-                isCollapsed={isSidebarCollapsed}
+                isCollapsed={isExplorerFolded}
                 onToggleCollapse={toggleExplorer}
                 asideId="project-explorer"
               />
@@ -596,7 +669,7 @@ export const AppLayout: React.FC<AppLayoutProps> = (props) => {
               width={sessionsPaneWidth}
               isResizing={isSessionsPaneResizing}
               onResizeStart={handleSessionsPaneResizeStart}
-              isCollapsed={isSessionsPaneCollapsed}
+              isCollapsed={isSessionsPaneCollapsed || foldedForRoom.has("sessions")}
               onToggleCollapse={toggleSessionsPane}
             />
           )}
@@ -835,7 +908,7 @@ export const AppLayout: React.FC<AppLayoutProps> = (props) => {
                       width={navigatorWidth}
                       isResizing={isNavigatorResizing}
                       onResizeStart={handleNavigatorResizeStart}
-                      isCollapsed={!isNavigatorOpen}
+                      isCollapsed={!isNavigatorOpen || foldedForRoom.has("navigator")}
                       onToggleCollapse={toggleNavigatorPanel}
                       // On phones the navigator button carries them.
                       showPromptSeek={!isMobile}

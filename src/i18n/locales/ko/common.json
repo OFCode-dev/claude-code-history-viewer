@@ -217,6 +217,8 @@
   "header.readingMode.tooltip": "읽기 모드: 모든 패널을 접거나 다시 모두 펼칩니다 ({{toggle}}). 탐색기와 세션 {{left}}, 프롬프트 {{right}}, 검색 {{search}}",
   "readingMode.announce.collapsed": "모든 패널을 접었습니다.",
   "readingMode.announce.expanded": "모든 패널을 펼쳤습니다.",
+  "layout.announce.foldedForRoom": "공간 확보를 위해 접음: {{panels}}.",
+  "layout.announce.noRoom": "{{panel}}을(를) 열 공간이 부족합니다. 창을 넓혀 주세요.",
   "conversationTools.expand": "대화 도구 표시",
   "conversationTools.collapse": "대화 도구 숨기기",
   "conversationTools.chips.search": "검색 “{{query}}” {{position}}",

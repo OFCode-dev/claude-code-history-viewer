@@ -217,6 +217,8 @@
   "header.readingMode.tooltip": "Reading mode: collapse all panels, or expand them all again ({{toggle}}). Explorer and sessions {{left}}, prompts {{right}}, search {{search}}",
   "readingMode.announce.collapsed": "All panels collapsed.",
   "readingMode.announce.expanded": "All panels expanded.",
+  "layout.announce.foldedForRoom": "Folded to make room: {{panels}}.",
+  "layout.announce.noRoom": "Not enough room to open {{panel}}. Widen the window.",
   "conversationTools.expand": "Show conversation tools",
   "conversationTools.collapse": "Hide conversation tools",
   "conversationTools.chips.search": "Search “{{query}}” {{position}}",

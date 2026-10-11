@@ -299,6 +299,8 @@ vi.mock("react-i18next", async (importOriginal) => {
 
 describe("App accessibility smoke", () => {
   beforeEach(() => {
+    // Wide enough that no side panel folds for lack of room.
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 1440 });
     window.history.replaceState({}, "", "/");
     vi.clearAllMocks();
     resetComputedMock();

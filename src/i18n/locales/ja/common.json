@@ -217,6 +217,8 @@
   "header.readingMode.tooltip": "読書モード: すべてのパネルを折りたたむか、すべて再び展開します ({{toggle}})。エクスプローラーとセッション {{left}}、プロンプト {{right}}、検索 {{search}}",
   "readingMode.announce.collapsed": "すべてのパネルを折りたたみました。",
   "readingMode.announce.expanded": "すべてのパネルを展開しました。",
+  "layout.announce.foldedForRoom": "スペースを空けるために折りたたみました: {{panels}}。",
+  "layout.announce.noRoom": "{{panel}} を開くスペースが足りません。ウィンドウを広げてください。",
   "conversationTools.expand": "会話ツールを表示",
   "conversationTools.collapse": "会話ツールを隠す",
   "conversationTools.chips.search": "検索 “{{query}}” {{position}}",

@@ -6,6 +6,7 @@ import { isEditableTarget, isInArrowKeyWidget } from "@/utils/editableTarget";
 import { isActionModifier, isMacOS } from "@/utils/platform";
 import { jumpToAdjacentPrompt } from "@/utils/promptNavigation";
 import { changeLayout } from "@/layouts/collapsibleAreas";
+import { AREA_TOGGLE_ATTR, RAIL_ATTR } from "@/layouts/areaToggleAttr";
 import {
   getConversationSearchInput,
   openConversationTool,
@@ -45,20 +46,25 @@ function shouldPassFindToBrowser(input: HTMLInputElement, target: EventTarget | 
 }
 
 /**
+ * Presses the toggle of area `id` as a click would, so a shortcut takes the
+ * same path (a rail folded for lack of room makes room first). Returns
+ * false when the area is not on screen.
+ */
+function pressAreaToggle(id: string, onlyWhenRail = false): boolean {
+  const scope = onlyWhenRail ? `#${id}[${RAIL_ATTR}]` : `#${id}`;
+  const toggle = document.querySelector<HTMLElement>(`${scope} [${AREA_TOGGLE_ATTR}]`);
+  toggle?.click();
+  return toggle != null;
+}
+
+/**
  * Mod+Shift+E: unfold whichever rail holds the target, the explorer and,
- * when a session is selected and the sessions pane is shown, that pane (the
- * selected session row lives there).
+ * when a session is selected, the sessions pane (the selected session row
+ * lives there).
  */
 function unfoldLeftRails(): void {
-  const state = useAppStore.getState();
-  const sessionsPaneShown = document.getElementById("sessions-pane") != null;
-  const unfoldSessions =
-    state.selectedSession != null && sessionsPaneShown && state.isSessionsPaneCollapsed;
-  if (!state.isExplorerCollapsed && !unfoldSessions) return;
-  changeLayout(() => {
-    if (state.isExplorerCollapsed) state.setExplorerCollapsed(false);
-    if (unfoldSessions) state.setSessionsPaneCollapsed(false);
-  });
+  pressAreaToggle("project-explorer", true);
+  if (useAppStore.getState().selectedSession != null) pressAreaToggle("sessions-pane", true);
 }
 
 /** After the unfolded panels have rendered and laid out their rows. */
@@ -134,7 +140,7 @@ export function useAppKeyboard() {
         }
         if (letter === "m") {
           if (e.repeat) return true;
-          changeLayout(toggleNavigator);
+          if (!pressAreaToggle("message-navigator")) changeLayout(toggleNavigator);
           return true;
         }
         if (letter === "g") return stepMatch("previous");

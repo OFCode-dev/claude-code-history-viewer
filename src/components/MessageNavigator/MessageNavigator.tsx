@@ -20,7 +20,7 @@ import { buildPromptEntries, buildPromptListRows, type PromptListRow } from "./p
 import { useNavigatorEntries } from "./useNavigatorEntries";
 import { PromptSeekButtons } from "../PromptSeek/PromptSeekButtons";
 import { railButtonClass, railClass, railCountClass } from "../ui/rail";
-import { AREA_TOGGLE_ATTR } from "../../layouts/areaToggleAttr";
+import { AREA_TOGGLE_ATTR, RAIL_ATTR } from "../../layouts/areaToggleAttr";
 
 // Height estimation constants for virtual scrolling
 const ESTIMATED_CHARS_PER_LINE = 40; // Conservative estimate for small text
@@ -356,6 +356,7 @@ export const MessageNavigator: React.FC<MessageNavigatorProps> = ({
         role="complementary"
         aria-label={t("navigator.title")}
         tabIndex={-1}
+        {...{ [RAIL_ATTR]: "" }}
         className={cn(railClass, "border-l border-border/50", isResizing && "select-none")}
       >
         <button

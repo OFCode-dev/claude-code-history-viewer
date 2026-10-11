@@ -45,5 +45,10 @@ toggle.
   when the store is created.
 - Showing or hiding a panel reflows the text; keeping the reader's place
   covers that.
+- While a conversation shows, the transcript never gets narrower than 480 px:
+  open panels that would squeeze it render as rails (navigator, then
+  sessions, then explorer), derived from the window width at render time
+  and never written to the flags. Opening such a rail writes the flags of
+  the next panels in that order to collapsed, so the click is honoured.
 - Below 768 px nothing changes: the drawers stay, and the conversation tools
   always show.

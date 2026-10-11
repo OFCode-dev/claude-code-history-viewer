@@ -217,6 +217,8 @@
   "header.readingMode.tooltip": "閱讀模式：摺疊所有面板，或再次全部展開（{{toggle}}）。檔案總管與會話 {{left}}，提示 {{right}}，搜尋 {{search}}",
   "readingMode.announce.collapsed": "已摺疊所有面板。",
   "readingMode.announce.expanded": "已展開所有面板。",
+  "layout.announce.foldedForRoom": "為騰出空間已摺疊：{{panels}}。",
+  "layout.announce.noRoom": "空間不足，無法開啟{{panel}}。請加寬視窗。",
   "conversationTools.expand": "顯示對話工具",
   "conversationTools.collapse": "隱藏對話工具",
   "conversationTools.chips.search": "搜尋 “{{query}}” {{position}}",

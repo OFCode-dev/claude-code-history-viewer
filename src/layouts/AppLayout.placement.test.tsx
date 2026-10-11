@@ -9,12 +9,13 @@
  * to their 24 px rails);
  * only the conversation and the app chrome around them are stubbed.
  */
-import { act, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useAppStore } from "@/store/useAppStore";
 import { buildPromptTrack, useViewportAnchorStore } from "@/store/viewportAnchorStore";
 import type { ClaudeMessage, ClaudeProject, ClaudeSession, SubagentSession } from "@/types";
 import { AppLayout, type AppLayoutProps } from "./AppLayout";
+import { MIN_TRANSCRIPT_WIDTH_PX } from "./fitPanels";
 
 vi.mock("@/contexts/platform", () => ({
   usePlatform: () => ({ platform: "web", isDesktop: false, isWeb: true, isMobile: false }),
@@ -42,6 +43,7 @@ vi.mock("overlayscrollbars-react", () => ({
 
 /** Media queries answered for one window width. */
 function setWindowWidth(width: number) {
+  Object.defineProperty(window, "innerWidth", { configurable: true, value: width });
   window.matchMedia = ((query: string) => {
     const min = /min-width:\s*(\d+)px/.exec(query);
     const max = /max-width:\s*(\d+)px/.exec(query);
@@ -205,6 +207,7 @@ const seekPairs = () =>
 
 const original = useAppStore.getState();
 const originalMatchMedia = window.matchMedia;
+const originalInnerWidth = window.innerWidth;
 
 beforeEach(() => {
   localStorage.clear();
@@ -224,6 +227,7 @@ beforeEach(() => {
 
 afterEach(() => {
   window.matchMedia = originalMatchMedia;
+  Object.defineProperty(window, "innerWidth", { configurable: true, value: originalInnerWidth });
   useAppStore.setState({
     selectedProject: original.selectedProject,
     selectedSession: original.selectedSession,
@@ -233,6 +237,11 @@ afterEach(() => {
   });
   useViewportAnchorStore.getState().reset();
 });
+
+/** Expanded widths the layout passes as props (explorer 256, sessions 300, navigator 280). */
+function explicitWidth(id: string): number {
+  return { "project-explorer": 256, "sessions-pane": 300, "message-navigator": 280 }[id] ?? 0;
+}
 
 /** Where the subagent list (or its rail button) sits in a layout. */
 function subagentHome(): string {
@@ -258,9 +267,11 @@ describe("AppLayout: one home for subagents and for prompt seeking", () => {
     [{ width: 1440 }, "list in #sessions-pane", "header"],
     [{ width: 1440, isSessionsPaneCollapsed: true }, "rail button in #sessions-pane", "header"],
     [{ width: 1440, isNavigatorOpen: false }, "list in #sessions-pane", "rail"],
-    [{ width: 1024 }, "list in #sessions-pane", "header"],
-    [{ width: 1024, isSessionsPaneCollapsed: true }, "rail button in #sessions-pane", "header"],
-    [{ width: 900 }, "list in #project-explorer", "header"],
+    // Too narrow for every panel: the navigator folds first, then sessions.
+    [{ width: 1280 }, "list in #sessions-pane", "rail"],
+    [{ width: 1024 }, "rail button in #sessions-pane", "rail"],
+    [{ width: 1024, isSessionsPaneCollapsed: true }, "rail button in #sessions-pane", "rail"],
+    [{ width: 900 }, "list in #project-explorer", "rail"],
     [{ width: 900, isSidebarCollapsed: true }, "rail button in #project-explorer", "header"],
     [{ width: 900, isNavigatorOpen: false }, "list in #project-explorer", "rail"],
     [{ width: 390, isMobileSidebarOpen: true }, "list in #project-explorer", "floating"],
@@ -288,6 +299,35 @@ describe("AppLayout: one home for subagents and for prompt seeking", () => {
     const [pair] = seekPairs();
     expect(pair!.closest("aside")?.id).toBe("message-navigator");
     expect(pair).toHaveAttribute("data-prompt-seek", "rail");
+  });
+
+  it.each([1024, 1280, 1440])(
+    "%i px, every panel open: the transcript keeps at least the minimum width",
+    (width) => {
+      renderLayout({ width });
+      act(() => {});
+      const side = ["project-explorer", "sessions-pane", "message-navigator"].reduce((sum, id) => {
+        const element = document.getElementById(id);
+        if (!element) return sum;
+        const isRail = element.hasAttribute("data-rail");
+        return sum + (isRail ? 24 : Number.parseInt(element.style.width || "0", 10) || explicitWidth(id));
+      }, 0);
+      expect(width - side).toBeGreaterThanOrEqual(MIN_TRANSCRIPT_WIDTH_PX);
+    }
+  );
+
+  it("1280 px: expanding the navigator folded for room folds the sessions pane instead", () => {
+    renderLayout({ width: 1280 });
+    act(() => {});
+    expect(document.getElementById("message-navigator")).toHaveAttribute("data-rail");
+    expect(useAppStore.getState().isNavigatorOpen).toBe(true);
+
+    fireEvent.click(screen.getByRole("button", { name: "Toggle message navigator" }));
+
+    expect(useAppStore.getState().isSessionsPaneCollapsed).toBe(true);
+    expect(document.getElementById("sessions-pane")).toHaveAttribute("data-rail");
+    expect(document.getElementById("message-navigator")).not.toHaveAttribute("data-rail");
+    expect(useAppStore.getState().layoutAnnouncement?.text).toMatch(/Sessions/);
   });
 
   it("phones with the drawer closed: no subagent list on screen, prompt seek by the navigator button", () => {

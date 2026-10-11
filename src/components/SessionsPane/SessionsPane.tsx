@@ -4,7 +4,7 @@ import { MessageSquare, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { OverlayScrollbarsComponent } from "overlayscrollbars-react";
 import { cn } from "@/lib/utils";
 import { railButtonClass, railClass, railCountClass } from "@/components/ui/rail";
-import { AREA_TOGGLE_ATTR } from "@/layouts/areaToggleAttr";
+import { AREA_TOGGLE_ATTR, RAIL_ATTR } from "@/layouts/areaToggleAttr";
 import { SessionList } from "@/components/ProjectTree/components/SessionList";
 import { SubagentsSection } from "./SubagentsSection";
 import { SubagentsRailButton } from "./SubagentsRailButton";
@@ -218,6 +218,7 @@ function SessionsPaneRail({ count, projectPath, onExpand }: SessionsPaneRailProp
       id="sessions-pane"
       aria-label={t("session.pane.title")}
       tabIndex={-1}
+      {...{ [RAIL_ATTR]: "" }}
       className={cn(railClass, "border-r border-border/50 outline-none")}
     >
       {onExpand && (

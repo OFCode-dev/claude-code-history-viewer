@@ -47,6 +47,22 @@ export function useIsLgUp(): boolean {
   return useMediaQuery(`(min-width: ${LG_BREAKPOINT}px)`);
 }
 
+/** The window's inner width, kept current on resize. */
+export function useWindowWidth(): number {
+  const [width, setWidth] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth : 0
+  );
+
+  useEffect(() => {
+    const handler = () => setWidth(window.innerWidth);
+    handler();
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, []);
+
+  return width;
+}
+
 /** Whether the viewport is at or above Tailwind's `md` breakpoint (the inverse of `useIsMobile`). */
 export function useIsMdUp(): boolean {
   return !useIsMobile();
