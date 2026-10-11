@@ -135,9 +135,9 @@ fn scan_projects_from_global(base: &Path) -> Result<Vec<ClaudeProject>, String> 
 
     for row in rows.flatten() {
         let (key, value) = row;
-        let Some(composer_id) = key.strip_prefix("composerData:") else {
+        if !key.starts_with("composerData:") {
             continue;
-        };
+        }
         let Ok(composer) = parse_cursor_json(&value) else {
             continue;
         };
@@ -163,7 +163,6 @@ fn scan_projects_from_global(base: &Path) -> Result<Vec<ClaudeProject>, String> 
         }
         entry.session_count += 1;
         entry.last_modified_ms = entry.last_modified_ms.max(composer_timestamp_ms(&composer));
-        let _ = composer_id;
     }
 
     let mut projects = Vec::with_capacity(by_workspace.len());
@@ -351,13 +350,7 @@ fn composer_to_session(composer: &Value, project_name: &str) -> Option<ClaudeSes
         .get("name")
         .and_then(Value::as_str)
         .unwrap_or("Untitled");
-    let created = composer_timestamp_ms(composer);
-    let updated = composer
-        .get("lastUpdatedAt")
-        .and_then(Value::as_f64)
-        .map(|v| v as u64)
-        .filter(|v| *v > 0)
-        .unwrap_or(created);
+    let ts = composer_timestamp_ms(composer);
     let mode = composer
         .get("unifiedMode")
         .and_then(Value::as_str)
@@ -369,9 +362,9 @@ fn composer_to_session(composer: &Value, project_name: &str) -> Option<ClaudeSes
         file_path: format!("cursor://{id}"),
         project_name: project_name.to_string(),
         message_count: 0,
-        first_message_time: ms_to_iso(created),
-        last_message_time: ms_to_iso(updated),
-        last_modified: ms_to_iso(updated),
+        first_message_time: ms_to_iso(ts),
+        last_message_time: ms_to_iso(ts),
+        last_modified: ms_to_iso(ts),
         has_tool_use: mode == "agent",
         has_errors: false,
         summary: Some(name.to_string()),

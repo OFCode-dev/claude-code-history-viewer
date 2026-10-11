@@ -49,12 +49,6 @@ pub fn detect() -> Option<ProviderInfo> {
     })
 }
 
-/// Crush has no single root (per-project DBs), so the watcher / `WebUI`
-/// allowlist don't track it.
-pub fn get_base_path() -> Option<String> {
-    None
-}
-
 /// Scan Crush projects — one per discovered `<project>/.crush/crush.db`.
 pub fn scan_projects() -> Result<Vec<ClaudeProject>, String> {
     // Up to MAX_DBS per-project DBs, each open parking up to 5s on a locked

@@ -128,14 +128,6 @@ fn is_conversation_message_type(message_type: &str) -> bool {
     matches!(message_type, "user" | "assistant")
 }
 
-/// Return whether a message type is non-conversational noise.
-fn is_non_message_noise_type(message_type: &str) -> bool {
-    matches!(
-        message_type,
-        "progress" | "queue-operation" | "file-history-snapshot"
-    )
-}
-
 /// Return whether token usage contains any populated token counters.
 fn token_usage_has_token_fields(usage: &TokenUsage) -> bool {
     usage.input_tokens.is_some()
@@ -263,15 +255,7 @@ fn should_include_stats_entry(
         return is_conversation_message_type(message_type);
     }
 
-    if is_core_message_type(message_type) {
-        return true;
-    }
-
-    if is_non_message_noise_type(message_type) {
-        return has_usage;
-    }
-
-    has_usage
+    is_core_message_type(message_type) || has_usage
 }
 
 fn is_synthetic_antigravity_prompt(message: &ClaudeMessage) -> bool {
@@ -1899,7 +1883,6 @@ struct ProjectSessionFileStats {
     activity_data: HashMap<(u8, u8), (u32, u64)>,
     session_duration_minutes: u32,
     session_dates: HashSet<String>,
-    timestamps: Vec<DateTime<Utc>>,
 }
 
 /// Process a session file into project-level stats.
@@ -2085,7 +2068,6 @@ fn scan_session_file_for_project_stats(
         stats.session_duration_minutes = 1;
     }
 
-    stats.timestamps = session_timestamps;
     Some(stats)
 }
 
@@ -4618,13 +4600,10 @@ pub async fn get_project_token_stats(
     if project_path.trim().is_empty() {
         return Err("project_path is required".to_string());
     }
-    let project_path_buf = PathBuf::from(&project_path);
-    if !project_path_buf.is_absolute() {
+    if !Path::new(&project_path).is_absolute() {
         return Err("project_path must be absolute".to_string());
     }
 
-    #[cfg(debug_assertions)]
-    let start = std::time::Instant::now();
     let offset = offset.unwrap_or(0);
     let limit = limit.unwrap_or(20);
 
@@ -4639,9 +4618,6 @@ pub async fn get_project_token_stats(
             .collect(),
     );
 
-    #[cfg(debug_assertions)]
-    let scan_time = start.elapsed();
-
     // Parse date limits before parallel processing so per-message filtering is applied
     let s_limit = parse_date_limit(start_date, "start_date");
     let e_limit = parse_date_limit(end_date, "end_date");
@@ -4654,9 +4630,6 @@ pub async fn get_project_token_stats(
         })
         .collect();
 
-    #[cfg(debug_assertions)]
-    let process_time = start.elapsed();
-
     let total_count = all_stats.len();
 
     let mut all_stats = all_stats;
@@ -4667,19 +4640,6 @@ pub async fn get_project_token_stats(
         all_stats.into_iter().skip(offset).take(limit).collect();
 
     let has_more = offset + paginated_items.len() < total_count;
-    #[cfg(debug_assertions)]
-    let total_time = start.elapsed();
-
-    #[cfg(debug_assertions)]
-    log::debug!(
-        "get_project_token_stats: {} sessions ({} after filter), scan={}ms, process={}ms, total={}ms",
-        total_count,
-        paginated_items.len(),
-        scan_time.as_millis(),
-        process_time.as_millis(),
-        total_time.as_millis()
-    );
-
     Ok(PaginatedTokenStats {
         items: paginated_items,
         total_count,
@@ -4712,8 +4672,7 @@ pub async fn get_project_stats_summary(
     if project_path.trim().is_empty() {
         return Err("project_path is required".to_string());
     }
-    let project_path_buf = PathBuf::from(&project_path);
-    if !project_path_buf.is_absolute() {
+    if !Path::new(&project_path).is_absolute() {
         return Err("project_path must be absolute".to_string());
     }
 
@@ -4841,8 +4800,6 @@ pub async fn get_project_stats_summary(
         let (dates, duration) = sessions.entry(session_key).or_default();
         dates.extend(stats.session_dates);
         *duration = (*duration).max(stats.session_duration_minutes);
-
-        // timestamps are preserved for duration calculations only.
     }
 
     summary.total_sessions = sessions.len();

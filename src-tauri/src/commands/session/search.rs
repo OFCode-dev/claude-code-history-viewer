@@ -499,9 +499,6 @@ fn search_messages_blocking(
     filters: serde_json::Value,
     limit: Option<usize>,
 ) -> Result<Vec<ClaudeMessage>, String> {
-    #[cfg(debug_assertions)]
-    let start_time = std::time::Instant::now();
-
     let max_results = limit.unwrap_or(DEFAULT_SEARCH_LIMIT);
     validate_search_filters(&filters)?;
 
@@ -547,14 +544,6 @@ fn search_messages_blocking(
         .filter(|(_, (_, cached))| cached.is_none())
         .map(|(idx, _)| idx)
         .collect();
-
-    #[cfg(debug_assertions)]
-    eprintln!(
-        "🔍 search_messages: {} files ({} cached, {} scanned)",
-        file_paths.len(),
-        file_paths.len() - scan_indices.len(),
-        scan_indices.len()
-    );
 
     let matcher = build_matcher(&query);
 
@@ -606,17 +595,6 @@ fn search_messages_blocking(
         if let Ok(mut cache) = SEARCH_CACHE.lock() {
             cache.put(key, CachedQuerySearch { files });
         }
-    }
-
-    #[cfg(debug_assertions)]
-    {
-        let elapsed = start_time.elapsed();
-        eprintln!(
-            "📊 search_messages performance: {} results (limit: {}), {}ms elapsed",
-            filtered.len(),
-            max_results,
-            elapsed.as_millis()
-        );
     }
 
     Ok(filtered)

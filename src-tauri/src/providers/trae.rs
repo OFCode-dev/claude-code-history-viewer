@@ -18,7 +18,7 @@
 
 use crate::models::{ClaudeMessage, ClaudeProject, ClaudeSession};
 use crate::providers::ProviderInfo;
-use crate::utils::{build_provider_message, search_json_value_case_insensitive};
+use crate::utils::{build_provider_message, search_json_value_case_insensitive, summarize_text};
 use rusqlite::{Connection, OpenFlags};
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
@@ -27,7 +27,6 @@ use walkdir::WalkDir;
 const PROVIDER: &str = "trae";
 const SCHEME: &str = "trae://";
 const SESSION_SEP: char = '#';
-const SUMMARY_MAX_CHARS: usize = 80;
 
 /// Exact icube keys to try, in precedence order.
 const EXACT_KEYS: &[&str] = &[
@@ -109,29 +108,34 @@ fn open_db(path: &Path) -> Result<Connection, String> {
 
 /// Read the first present icube conversation value from a workspace DB.
 fn read_icube_value(conn: &Connection) -> Option<Value> {
+    let usable = |raw: String| {
+        serde_json::from_str::<Value>(&raw)
+            .ok()
+            .filter(|v| !extract_sessions(v).is_empty())
+    };
     for key in EXACT_KEYS {
-        if let Ok(raw) = conn.query_row("SELECT value FROM ItemTable WHERE key = ?1", [key], |r| {
-            r.get::<_, String>(0)
-        }) {
-            if let Ok(v) = serde_json::from_str::<Value>(&raw) {
-                if !extract_sessions(&v).is_empty() {
-                    return Some(v);
-                }
-            }
+        if let Some(v) = conn
+            .query_row("SELECT value FROM ItemTable WHERE key = ?1", [key], |r| {
+                r.get::<_, String>(0)
+            })
+            .ok()
+            .and_then(usable)
+        {
+            return Some(v);
         }
     }
     for prefix in KEY_PREFIXES {
         let like = format!("{prefix}%");
-        if let Ok(raw) = conn.query_row(
-            "SELECT value FROM ItemTable WHERE key LIKE ?1 ORDER BY key DESC LIMIT 1",
-            [&like],
-            |r| r.get::<_, String>(0),
-        ) {
-            if let Ok(v) = serde_json::from_str::<Value>(&raw) {
-                if !extract_sessions(&v).is_empty() {
-                    return Some(v);
-                }
-            }
+        if let Some(v) = conn
+            .query_row(
+                "SELECT value FROM ItemTable WHERE key LIKE ?1 ORDER BY key DESC LIMIT 1",
+                [&like],
+                |r| r.get::<_, String>(0),
+            )
+            .ok()
+            .and_then(usable)
+        {
+            return Some(v);
         }
     }
     None
@@ -197,24 +201,30 @@ fn scan_workspace(hash: &str, db_path: &Path) -> Option<ClaudeProject> {
     })
 }
 
+/// The `state.vscdb` path and icube conversation value for workspace `hash`,
+/// or `None` when the hash is invalid or the DB/value is absent.
+fn workspace_value(hash: &str) -> Result<Option<(PathBuf, Value)>, String> {
+    if !valid_hash(hash) {
+        return Ok(None);
+    }
+    let Some(storage) = workspace_storage() else {
+        return Ok(None);
+    };
+    let db_path = storage.join(hash).join("state.vscdb");
+    if !db_path.is_file() {
+        return Ok(None);
+    }
+    let conn = open_db(&db_path)?;
+    Ok(read_icube_value(&conn).map(|value| (db_path, value)))
+}
+
 /// Load the chat sessions for one Trae workspace (`trae://<hash>`).
 pub fn load_sessions(
     project_path: &str,
     _exclude_sidechain: bool,
 ) -> Result<Vec<ClaudeSession>, String> {
     let hash = project_path.strip_prefix(SCHEME).unwrap_or(project_path);
-    if !valid_hash(hash) {
-        return Ok(vec![]);
-    }
-    let Some(storage) = workspace_storage() else {
-        return Ok(vec![]);
-    };
-    let db_path = storage.join(hash).join("state.vscdb");
-    if !db_path.is_file() {
-        return Ok(vec![]);
-    }
-    let conn = open_db(&db_path)?;
-    let Some(value) = read_icube_value(&conn) else {
+    let Some((db_path, value)) = workspace_value(hash)? else {
         return Ok(vec![]);
     };
     let folder = workspace_folder(&db_path).unwrap_or_else(|| hash.to_string());
@@ -230,7 +240,7 @@ pub fn load_sessions(
                 .title
                 .clone()
                 .filter(|t| !t.trim().is_empty())
-                .or_else(|| s.first_user_text().map(|t| summarize(&t)))
+                .or_else(|| s.first_user_text().map(|t| summarize_text(&t)))
                 .or_else(|| Some(s.id.clone()));
             ClaudeSession {
                 session_id: format!("{SCHEME}{hash}{SESSION_SEP}{}", s.id),
@@ -257,18 +267,7 @@ pub fn load_sessions(
 /// Load messages for one Trae session (`trae://<hash>#<sessionId>`).
 pub fn load_messages(session_path: &str) -> Result<Vec<ClaudeMessage>, String> {
     let (hash, session_id) = parse_session_path(session_path)?;
-    if !valid_hash(&hash) {
-        return Ok(vec![]);
-    }
-    let Some(storage) = workspace_storage() else {
-        return Ok(vec![]);
-    };
-    let db_path = storage.join(&hash).join("state.vscdb");
-    if !db_path.is_file() {
-        return Ok(vec![]);
-    }
-    let conn = open_db(&db_path)?;
-    let Some(value) = read_icube_value(&conn) else {
+    let Some((_, value)) = workspace_value(&hash)? else {
         return Ok(vec![]);
     };
     let Some(session) = extract_sessions(&value)
@@ -506,18 +505,6 @@ fn parse_session_path(session_path: &str) -> Result<(String, String), String> {
     rest.split_once(SESSION_SEP)
         .map(|(h, id)| (h.to_string(), id.to_string()))
         .ok_or_else(|| format!("Invalid Trae session path: {session_path}"))
-}
-
-fn summarize(text: &str) -> String {
-    let cleaned = text.split_whitespace().collect::<Vec<_>>().join(" ");
-    if cleaned.chars().count() > SUMMARY_MAX_CHARS {
-        format!(
-            "{}…",
-            cleaned.chars().take(SUMMARY_MAX_CHARS).collect::<String>()
-        )
-    } else {
-        cleaned
-    }
 }
 
 #[cfg(test)]

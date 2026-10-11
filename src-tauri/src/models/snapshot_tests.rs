@@ -6,7 +6,7 @@
 #![cfg(test)]
 
 use super::*;
-use insta::{assert_json_snapshot, assert_snapshot};
+use insta::assert_json_snapshot;
 use serde_json::json;
 
 /// Snapshot tests for `ClaudeMessage` serialization
@@ -587,16 +587,5 @@ mod edit_snapshots {
         };
 
         assert_json_snapshot!("recent_edits_result", result);
-    }
-}
-
-/// String snapshot tests for formatted output
-mod string_snapshots {
-    use super::*;
-
-    #[test]
-    fn snapshot_error_message_format() {
-        let error_msg = "CLAUDE_FOLDER_NOT_FOUND:Claude folder not found at /home/user/.claude";
-        assert_snapshot!("error_message_format", error_msg);
     }
 }

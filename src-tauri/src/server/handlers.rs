@@ -273,7 +273,6 @@ pub struct SessionPathParam {
 #[serde(rename_all = "camelCase")]
 pub struct LoadProjectSessionsParams {
     pub project_path: String,
-    #[serde(default)]
     pub exclude_sidechain: Option<bool>,
 }
 
@@ -281,11 +280,8 @@ pub struct LoadProjectSessionsParams {
 #[serde(rename_all = "camelCase")]
 pub struct LoadProjectSessionsPageParams {
     pub project_path: String,
-    #[serde(default)]
     pub exclude_sidechain: Option<bool>,
-    #[serde(default)]
     pub offset: Option<usize>,
-    #[serde(default)]
     pub limit: Option<usize>,
 }
 
@@ -295,7 +291,6 @@ pub struct PaginatedParams {
     pub session_path: String,
     pub offset: usize,
     pub limit: usize,
-    #[serde(default)]
     pub exclude_sidechain: Option<bool>,
 }
 
@@ -303,7 +298,6 @@ pub struct PaginatedParams {
 #[serde(rename_all = "camelCase")]
 pub struct MessageCountParams {
     pub session_path: String,
-    #[serde(default)]
     pub exclude_sidechain: Option<bool>,
 }
 
@@ -314,7 +308,6 @@ pub struct SearchParams {
     pub query: String,
     #[serde(default)]
     pub filters: Value,
-    #[serde(default)]
     pub limit: Option<usize>,
 }
 
@@ -322,15 +315,11 @@ pub struct SearchParams {
 #[serde(rename_all = "camelCase")]
 pub struct RecentEditsParams {
     pub project_path: String,
-    #[serde(default)]
     pub offset: Option<usize>,
-    #[serde(default)]
     pub limit: Option<usize>,
     /// Narrow the scan to a single session's JSONL file.
-    #[serde(default)]
     pub session_file_path: Option<String>,
     /// "file" (default) for one row per file, "edit" for one row per edit.
-    #[serde(default)]
     pub grouping: Option<String>,
 }
 
@@ -343,7 +332,6 @@ pub struct RestoreFileParams {
     pub project_path: String,
     /// Narrows the authorising scan to one session, matching the panel's
     /// session scope.
-    #[serde(default)]
     pub session_file_path: Option<String>,
 }
 
@@ -353,7 +341,6 @@ pub struct RestoreFileParams {
 pub struct ReadRestoreTargetParams {
     pub file_path: String,
     pub project_path: String,
-    #[serde(default)]
     pub session_file_path: Option<String>,
 }
 
@@ -367,11 +354,8 @@ pub struct IdParam {
 #[serde(rename_all = "camelCase")]
 pub struct SessionTokenStatsParams {
     pub session_path: String,
-    #[serde(default)]
     pub start_date: Option<String>,
-    #[serde(default)]
     pub end_date: Option<String>,
-    #[serde(default)]
     pub stats_mode: Option<String>,
 }
 
@@ -379,15 +363,10 @@ pub struct SessionTokenStatsParams {
 #[serde(rename_all = "camelCase")]
 pub struct ProjectTokenStatsParams {
     pub project_path: String,
-    #[serde(default)]
     pub offset: Option<usize>,
-    #[serde(default)]
     pub limit: Option<usize>,
-    #[serde(default)]
     pub start_date: Option<String>,
-    #[serde(default)]
     pub end_date: Option<String>,
-    #[serde(default)]
     pub stats_mode: Option<String>,
 }
 
@@ -395,11 +374,8 @@ pub struct ProjectTokenStatsParams {
 #[serde(rename_all = "camelCase")]
 pub struct ProjectStatsSummaryParams {
     pub project_path: String,
-    #[serde(default)]
     pub start_date: Option<String>,
-    #[serde(default)]
     pub end_date: Option<String>,
-    #[serde(default)]
     pub stats_mode: Option<String>,
 }
 
@@ -408,28 +384,19 @@ pub struct ProjectStatsSummaryParams {
 pub struct SessionComparisonParams {
     pub session_id: String,
     pub project_path: String,
-    #[serde(default)]
     pub start_date: Option<String>,
-    #[serde(default)]
     pub end_date: Option<String>,
-    #[serde(default)]
     pub stats_mode: Option<String>,
 }
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GlobalStatsParams {
-    #[serde(default)]
     pub claude_path: Option<String>,
-    #[serde(default)]
     pub active_providers: Option<Vec<String>>,
-    #[serde(default)]
     pub stats_mode: Option<String>,
-    #[serde(default)]
     pub start_date: Option<String>,
-    #[serde(default)]
     pub end_date: Option<String>,
-    #[serde(default)]
     pub custom_claude_paths: Option<Vec<commands::multi_provider::CustomClaudePathParam>>,
 }
 
@@ -437,7 +404,6 @@ pub struct GlobalStatsParams {
 #[serde(rename_all = "camelCase")]
 pub struct SettingsScopeParams {
     pub scope: String,
-    #[serde(default)]
     pub project_path: Option<String>,
 }
 
@@ -446,14 +412,12 @@ pub struct SettingsScopeParams {
 pub struct SaveSettingsParams {
     pub scope: String,
     pub content: String,
-    #[serde(default)]
     pub project_path: Option<String>,
 }
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OptionalProjectPath {
-    #[serde(default)]
     pub project_path: Option<String>,
 }
 
@@ -462,7 +426,6 @@ pub struct OptionalProjectPath {
 pub struct SaveMcpServersParams {
     pub source: String,
     pub servers: String,
-    #[serde(default)]
     pub project_path: Option<String>,
 }
 
@@ -502,15 +465,10 @@ pub struct RenameOpenCodeParams {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ScanAllProjectsParams {
-    #[serde(default)]
     pub claude_path: Option<String>,
-    #[serde(default)]
     pub active_providers: Option<Vec<String>>,
-    #[serde(default)]
     pub custom_claude_paths: Option<Vec<commands::multi_provider::CustomClaudePathParam>>,
-    #[serde(default)]
     pub wsl_enabled: Option<bool>,
-    #[serde(default)]
     pub wsl_excluded_distros: Option<Vec<String>>,
 }
 
@@ -519,7 +477,6 @@ pub struct ScanAllProjectsParams {
 pub struct ProviderSessionsParams {
     pub provider: String,
     pub project_path: String,
-    #[serde(default)]
     pub exclude_sidechain: Option<bool>,
 }
 
@@ -529,7 +486,6 @@ pub struct ProviderSessionByPathParams {
     pub provider: String,
     pub project_path: String,
     pub file_path: String,
-    #[serde(default)]
     pub exclude_sidechain: Option<bool>,
 }
 
@@ -538,11 +494,8 @@ pub struct ProviderSessionByPathParams {
 pub struct ProviderSessionsPageParams {
     pub provider: String,
     pub project_path: String,
-    #[serde(default)]
     pub exclude_sidechain: Option<bool>,
-    #[serde(default)]
     pub offset: Option<usize>,
-    #[serde(default)]
     pub limit: Option<usize>,
 }
 
@@ -558,11 +511,8 @@ pub struct ProviderMessagesParams {
 pub struct ProviderMessagesPaginatedParams {
     pub provider: String,
     pub session_path: String,
-    #[serde(default)]
     pub offset: Option<usize>,
-    #[serde(default)]
     pub limit: Option<usize>,
-    #[serde(default)]
     pub exclude_sidechain: Option<bool>,
 }
 
@@ -572,29 +522,20 @@ pub struct ProviderMessageOffsetParams {
     pub provider: String,
     pub session_path: String,
     pub message_uuid: String,
-    #[serde(default)]
     pub exclude_sidechain: Option<bool>,
 }
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SearchAllProvidersParams {
-    #[serde(default)]
     pub claude_path: Option<String>,
     pub query: String,
-    #[serde(default)]
     pub active_providers: Option<Vec<String>>,
-    #[serde(default)]
     pub wsl_providers: Option<Vec<String>>,
-    #[serde(default)]
     pub filters: Option<Value>,
-    #[serde(default)]
     pub limit: Option<usize>,
-    #[serde(default)]
     pub custom_claude_paths: Option<Vec<commands::multi_provider::CustomClaudePathParam>>,
-    #[serde(default)]
     pub wsl_enabled: Option<bool>,
-    #[serde(default)]
     pub wsl_excluded_distros: Option<Vec<String>>,
 }
 
@@ -602,7 +543,6 @@ pub struct SearchAllProvidersParams {
 #[serde(rename_all = "camelCase")]
 pub struct SessionIdParam {
     pub session_id: String,
-    #[serde(default)]
     pub fallback_summary: Option<String>,
 }
 
@@ -623,7 +563,6 @@ pub struct UpdateProjectMetadataParams {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct McpScopeParam {
-    #[serde(default)]
     pub scope: Option<String>,
 }
 
@@ -1502,7 +1441,6 @@ handler_no_params!(
 #[serde(rename_all = "camelCase")]
 pub struct CreateArchiveParams {
     pub name: String,
-    #[serde(default)]
     pub description: Option<String>,
     pub session_file_paths: Vec<String>,
     pub source_provider: String,
@@ -1589,7 +1527,6 @@ handler_json!(
 #[serde(rename_all = "camelCase")]
 pub struct ExpiringSessionsParams {
     pub project_path: String,
-    #[serde(default)]
     pub threshold_days: Option<i64>,
 }
 
@@ -1668,10 +1605,8 @@ mod tests {
             tokio::sync::broadcast::channel::<crate::commands::watcher::FileWatchEvent>(1);
         Arc::new(AppState {
             metadata: Arc::new(commands::metadata::MetadataState::default()),
-            start_time: std::time::Instant::now(),
             auth: crate::server::auth::AuthState::Disabled,
             read_only: false,
-            loopback_bind: false,
             event_tx,
         })
     }

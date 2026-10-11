@@ -64,17 +64,11 @@ fn db_mtime_iso() -> String {
     get_db_path()
         .and_then(|p| std::fs::metadata(p).ok())
         .and_then(|m| m.modified().ok())
-        .and_then(|t| t.duration_since(std::time::SystemTime::UNIX_EPOCH).ok())
-        .map(|d| ms_to_iso_secs(d.as_secs()))
+        .map(|t| {
+            chrono::DateTime::<chrono::Utc>::from(t)
+                .to_rfc3339_opts(chrono::SecondsFormat::Secs, false)
+        })
         .unwrap_or_default()
-}
-
-#[allow(clippy::cast_possible_wrap)]
-fn ms_to_iso_secs(secs: u64) -> String {
-    use chrono::{DateTime, Utc};
-    DateTime::from_timestamp(secs as i64, 0)
-        .unwrap_or_else(Utc::now)
-        .to_rfc3339()
 }
 
 /// Scan Amazon Q projects — one per `conversations.key` (cwd).

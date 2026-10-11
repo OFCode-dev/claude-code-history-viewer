@@ -1,6 +1,6 @@
 use crate::models::{ClaudeMessage, ClaudeProject, ClaudeSession, TokenUsage};
 use crate::providers::ProviderInfo;
-use crate::utils::{build_provider_message, search_json_value_case_insensitive};
+use crate::utils::{build_provider_message, is_symlink, search_json_value_case_insensitive};
 use serde_json::Value;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -354,13 +354,6 @@ fn is_session_file(entry: &fs::DirEntry) -> bool {
             // versions wrote monolithic `.json` (issue #348, gemini-cli#23749).
             ext.eq_ignore_ascii_case("json") || ext.eq_ignore_ascii_case("jsonl")
         })
-}
-
-/// Check if a path is a symlink (without following it)
-fn is_symlink(path: &Path) -> bool {
-    fs::symlink_metadata(path)
-        .map(|m| m.file_type().is_symlink())
-        .unwrap_or(false)
 }
 
 fn read_project_root(project_dir: &Path) -> Option<String> {

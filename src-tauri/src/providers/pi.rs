@@ -36,16 +36,14 @@
 use crate::models::{ClaudeMessage, ClaudeProject, ClaudeSession, TokenUsage};
 use crate::providers::ProviderInfo;
 use crate::utils::{
-    build_provider_message, is_symlink, ms_to_iso, search_json_value_case_insensitive,
+    build_provider_message, is_symlink, ms_to_iso, mtime_rfc3339,
+    search_json_value_case_insensitive, summarize_text,
 };
-use chrono::{DateTime, Utc};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
-
-const SUMMARY_MAX_CHARS: usize = 80;
 
 /// A Pi-format session store: the `pi` original and any fork that keeps the
 /// format but relocates the dot-directory (oh-my-pi's `~/.omp`).
@@ -162,7 +160,7 @@ pub(crate) fn load_sessions_of(
         let Some(meta) = session_meta(&data) else {
             continue;
         };
-        let mtime = file_mtime_rfc3339(&file);
+        let mtime = mtime_rfc3339(&file);
         let first = meta.first_ts.clone().unwrap_or_else(|| mtime.clone());
         let last = meta.last_ts.clone().unwrap_or(mtime);
         let project_name = meta
@@ -324,7 +322,7 @@ pub(crate) fn scan_projects_in(root: &Path, provider: &'static str) -> Vec<Claud
             if actual_path.is_none() {
                 actual_path.clone_from(&meta.cwd);
             }
-            let mtime = file_mtime_rfc3339(&file);
+            let mtime = mtime_rfc3339(&file);
             let last = meta.last_ts.unwrap_or(mtime);
             if last > last_modified {
                 last_modified = last;
@@ -467,7 +465,7 @@ fn session_meta(data: &str) -> Option<SessionMeta> {
         }
         let role = msg.get("role").and_then(Value::as_str).unwrap_or("");
         if role == "user" && first_user_summary.is_none() {
-            first_user_summary = first_text(msg).map(|t| summarize(&t));
+            first_user_summary = first_text(msg).map(|t| summarize_text(&t));
         }
         if role == "assistant" {
             let stop_reason = msg.get("stopReason").and_then(Value::as_str);
@@ -1187,18 +1185,6 @@ fn first_text(msg: &Value) -> Option<String> {
     })
 }
 
-fn summarize(text: &str) -> String {
-    let cleaned = text.split_whitespace().collect::<Vec<_>>().join(" ");
-    if cleaned.chars().count() > SUMMARY_MAX_CHARS {
-        format!(
-            "{}…",
-            cleaned.chars().take(SUMMARY_MAX_CHARS).collect::<String>()
-        )
-    } else {
-        cleaned
-    }
-}
-
 /// Validate that a caller-supplied path (a project directory for
 /// `load_sessions`, a session file for `load_messages`) is a real,
 /// non-symlinked path canonicalizing to somewhere under the store's resolved
@@ -1230,19 +1216,6 @@ fn validate_under_root(store: &PiStore, path: &Path) -> Result<(), String> {
             path.display()
         ))
     }
-}
-
-fn file_mtime_rfc3339(path: &Path) -> String {
-    fs::metadata(path)
-        .and_then(|m| m.modified())
-        .ok()
-        .and_then(|t| t.duration_since(std::time::SystemTime::UNIX_EPOCH).ok())
-        .map(|d| {
-            DateTime::from_timestamp(i64::try_from(d.as_secs()).unwrap_or(0), 0)
-                .unwrap_or_else(Utc::now)
-                .to_rfc3339()
-        })
-        .unwrap_or_default()
 }
 
 #[cfg(test)]

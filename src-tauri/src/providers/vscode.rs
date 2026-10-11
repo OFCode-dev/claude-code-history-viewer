@@ -53,14 +53,6 @@ pub fn detect() -> Option<ProviderInfo> {
     })
 }
 
-/// First available `<UserData>` for VS Code-family builds, per OS.
-pub fn get_base_path() -> Option<PathBuf> {
-    get_user_data_roots()
-        .into_iter()
-        .next()
-        .map(|root| root.path)
-}
-
 pub fn get_base_paths() -> Vec<PathBuf> {
     get_user_data_roots()
         .into_iter()

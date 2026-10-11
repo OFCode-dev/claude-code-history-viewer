@@ -939,8 +939,6 @@ pub(super) fn compose_project(
         return Composed::Ready(None);
     }
     stats.session_duration_minutes = merged_active_minutes(&runs) as u32;
-    // `timestamps` stays empty: the aggregation phase in
-    // `get_project_stats_summary` never reads it.
     Composed::Ready(Some(stats))
 }
 
@@ -1233,9 +1231,6 @@ mod tests {
         assert_eq!(a.provider, b.provider, "provider");
     }
 
-    /// `timestamps` is intentionally not compared: the aggregation phase in
-    /// `get_project_stats_summary` never reads it, and the cached composition
-    /// leaves it empty.
     fn assert_project_stats_eq(a: &ProjectSessionFileStats, b: &ProjectSessionFileStats) {
         assert_eq!(a.total_messages, b.total_messages, "total_messages");
         assert_token_distribution_eq(&a.token_distribution, &b.token_distribution);

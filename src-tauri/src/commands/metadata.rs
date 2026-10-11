@@ -330,37 +330,6 @@ mod tests {
         assert!(folder.exists());
     }
 
-    #[test]
-    fn test_atomic_write() {
-        let (_guard, temp) = setup_test_env();
-
-        // Manually create the metadata folder since HOME is mocked
-        let metadata_folder = temp.path().join(".claude-history-viewer");
-        fs::create_dir_all(&metadata_folder).unwrap();
-
-        let metadata = UserMetadata::new();
-        let path = metadata_folder.join("user-data.json");
-
-        // Write metadata
-        let content = serde_json::to_string_pretty(&metadata).unwrap();
-        let temp_path = path.with_extension("json.tmp");
-
-        let mut file = fs::File::create(&temp_path).unwrap();
-        file.write_all(content.as_bytes()).unwrap();
-        file.sync_all().unwrap();
-        fs::rename(&temp_path, &path).unwrap();
-
-        // Verify
-        assert!(path.exists());
-        assert!(!temp_path.exists());
-
-        let loaded_content = fs::read_to_string(&path).unwrap();
-        let loaded: UserMetadata = serde_json::from_str(&loaded_content).unwrap();
-        assert_eq!(loaded.version, metadata.version);
-
-        drop(temp);
-    }
-
     /// Concurrent updates to different sessions must all reach disk: each
     /// writer's read-merge-write has to be serialized, or an older snapshot
     /// overwrites a newer one.

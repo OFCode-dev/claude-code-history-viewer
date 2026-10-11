@@ -110,20 +110,12 @@ pub(crate) fn convert_user_message(
     let mut blocks: Vec<Value> = Vec::new();
 
     if let Some(prompt) = content_obj.get("Prompt") {
-        if let Some(text) = prompt.get("prompt").and_then(Value::as_str) {
-            if !text.is_empty() {
-                blocks.push(json!({"type": "text", "text": text}));
-            }
-        }
+        push_text(&mut blocks, prompt.get("prompt").and_then(Value::as_str));
     } else if let Some(tool_results) = content_obj.get("ToolUseResults") {
         push_tool_results(&mut blocks, tool_results);
     } else if let Some(cancelled) = content_obj.get("CancelledToolUses") {
         // A cancelled turn may carry a prompt plus the partial tool results.
-        if let Some(text) = cancelled.get("prompt").and_then(Value::as_str) {
-            if !text.is_empty() {
-                blocks.push(json!({"type": "text", "text": text}));
-            }
-        }
+        push_text(&mut blocks, cancelled.get("prompt").and_then(Value::as_str));
         push_tool_results(&mut blocks, cancelled);
     }
 
@@ -141,6 +133,13 @@ pub(crate) fn convert_user_message(
         Some(Value::Array(blocks)),
         None,
     ))
+}
+
+/// Append a `text` block when `text` is present and non-empty.
+fn push_text(blocks: &mut Vec<Value>, text: Option<&str>) {
+    if let Some(text) = text.filter(|t| !t.is_empty()) {
+        blocks.push(json!({"type": "text", "text": text}));
+    }
 }
 
 /// Append `tool_result` blocks from an object holding `tool_use_results[]`.
@@ -173,21 +172,9 @@ pub(crate) fn convert_assistant_message(
     let mut blocks: Vec<Value> = Vec::new();
 
     if let Some(response) = assistant.get("Response") {
-        let text = response
-            .get("content")
-            .and_then(Value::as_str)
-            .unwrap_or("");
-        if !text.is_empty() {
-            blocks.push(json!({"type": "text", "text": text}));
-        }
+        push_text(&mut blocks, response.get("content").and_then(Value::as_str));
     } else if let Some(tool_use) = assistant.get("ToolUse") {
-        let text = tool_use
-            .get("content")
-            .and_then(Value::as_str)
-            .unwrap_or("");
-        if !text.is_empty() {
-            blocks.push(json!({"type": "text", "text": text}));
-        }
+        push_text(&mut blocks, tool_use.get("content").and_then(Value::as_str));
         if let Some(tools) = tool_use.get("tool_uses").and_then(Value::as_array) {
             for tool in tools {
                 let id = tool.get("id").and_then(Value::as_str).unwrap_or("");

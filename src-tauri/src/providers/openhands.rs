@@ -19,8 +19,9 @@
 
 use crate::models::{ClaudeMessage, ClaudeProject, ClaudeSession};
 use crate::providers::ProviderInfo;
-use crate::utils::{build_provider_message, search_json_value_case_insensitive};
-use chrono::{DateTime, Utc};
+use crate::utils::{
+    build_provider_message, mtime_rfc3339, search_json_value_case_insensitive, summarize_text,
+};
 use serde_json::{json, Value};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -29,7 +30,6 @@ use walkdir::WalkDir;
 const PROVIDER: &str = "openhands";
 const SCHEME: &str = "openhands://";
 const PROJECT_KEY: &str = "__workspace__";
-const SUMMARY_MAX_CHARS: usize = 80;
 
 /// `~/.openhands/sessions` (the classic `file_store_path` default).
 fn sessions_dir() -> Option<PathBuf> {
@@ -88,7 +88,7 @@ pub fn scan_projects() -> Result<Vec<ClaudeProject>, String> {
     for sid in &ids {
         let events = dir.join(sid).join("events");
         message_count += event_files(&events).len();
-        let mtime = dir_mtime_rfc3339(&dir.join(sid));
+        let mtime = mtime_rfc3339(&dir.join(sid));
         if mtime > last_modified {
             last_modified = mtime;
         }
@@ -125,7 +125,7 @@ pub fn load_sessions(
         }
         let (summary, first_ts, last_ts, has_tool_use) = session_overview(&files);
         let title = read_metadata_title(&session_dir);
-        let mtime = dir_mtime_rfc3339(&session_dir);
+        let mtime = mtime_rfc3339(&session_dir);
         let first = first_ts.unwrap_or_else(|| mtime.clone());
         let last = last_ts.unwrap_or(mtime);
         sessions.push(ClaudeSession {
@@ -400,7 +400,7 @@ fn session_overview(files: &[PathBuf]) -> (Option<String>, Option<String>, Optio
                 .get("args")
                 .and_then(|a| a.get("content"))
                 .and_then(Value::as_str)
-                .map(summarize);
+                .map(summarize_text);
         }
     }
     (summary, first_ts, last_ts, has_tool_use)
@@ -412,32 +412,6 @@ fn read_metadata_title(session_dir: &Path) -> Option<String> {
     meta.get("title")
         .and_then(Value::as_str)
         .map(str::to_string)
-}
-
-fn summarize(text: &str) -> String {
-    let cleaned = text.split_whitespace().collect::<Vec<_>>().join(" ");
-    if cleaned.chars().count() > SUMMARY_MAX_CHARS {
-        format!(
-            "{}…",
-            cleaned.chars().take(SUMMARY_MAX_CHARS).collect::<String>()
-        )
-    } else {
-        cleaned
-    }
-}
-
-fn dir_mtime_rfc3339(path: &Path) -> String {
-    fs::metadata(path)
-        .and_then(|m| m.modified())
-        .ok()
-        .and_then(|t| t.duration_since(std::time::SystemTime::UNIX_EPOCH).ok())
-        .map(|d| {
-            #[allow(clippy::cast_possible_wrap)]
-            DateTime::from_timestamp(d.as_secs() as i64, 0)
-                .unwrap_or_else(Utc::now)
-                .to_rfc3339()
-        })
-        .unwrap_or_default()
 }
 
 #[cfg(test)]

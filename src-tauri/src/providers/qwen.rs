@@ -19,8 +19,9 @@
 
 use crate::models::{ClaudeMessage, ClaudeProject, ClaudeSession, TokenUsage};
 use crate::providers::ProviderInfo;
-use crate::utils::{build_provider_message, search_json_value_case_insensitive};
-use chrono::{DateTime, Utc};
+use crate::utils::{
+    build_provider_message, mtime_rfc3339, search_json_value_case_insensitive, summarize_text,
+};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::fs;
@@ -29,7 +30,6 @@ use walkdir::WalkDir;
 
 const PROVIDER: &str = "qwen";
 const SCHEME: &str = "qwen://";
-const SUMMARY_MAX_CHARS: usize = 80;
 
 /// Runtime base dir: `$QWEN_RUNTIME_DIR` / `$QWEN_HOME` / `~/.qwen`.
 fn runtime_base() -> Option<PathBuf> {
@@ -122,7 +122,7 @@ pub fn scan_projects() -> Result<Vec<ClaudeProject>, String> {
             continue;
         }
         let cwd = meta.cwd.unwrap_or_else(|| "unknown".to_string());
-        let mtime = file_mtime_rfc3339(&file);
+        let mtime = mtime_rfc3339(&file);
         let entry = by_cwd.entry(cwd).or_insert_with(|| Agg {
             session_count: 0,
             message_count: 0,
@@ -186,7 +186,7 @@ pub fn load_sessions(
         if meta.cwd.as_deref().unwrap_or("unknown") != target_cwd {
             continue;
         }
-        let mtime = file_mtime_rfc3339(&file);
+        let mtime = mtime_rfc3339(&file);
         let first = meta.first_ts.clone().unwrap_or_else(|| mtime.clone());
         let last = meta.last_ts.clone().unwrap_or(mtime);
         sessions.push(ClaudeSession {
@@ -320,7 +320,7 @@ fn session_meta(data: &str) -> Option<SessionMeta> {
             last_ts = Some(ts.to_string());
         }
         if summary.is_none() && rec_type == "user" {
-            summary = first_text(&rec).map(|t| summarize(&t));
+            summary = first_text(&rec).map(|t| summarize_text(&t));
         }
         if rec_type == "tool_result" || record_has_function_call(&rec) {
             has_tool_use = true;
@@ -504,18 +504,6 @@ fn stringify_value(v: &Value) -> String {
     }
 }
 
-fn summarize(text: &str) -> String {
-    let cleaned = text.split_whitespace().collect::<Vec<_>>().join(" ");
-    if cleaned.chars().count() > SUMMARY_MAX_CHARS {
-        format!(
-            "{}…",
-            cleaned.chars().take(SUMMARY_MAX_CHARS).collect::<String>()
-        )
-    } else {
-        cleaned
-    }
-}
-
 fn is_symlink(path: &Path) -> bool {
     fs::symlink_metadata(path)
         .map(|m| m.file_type().is_symlink())
@@ -538,20 +526,6 @@ fn validate_under_base(path: &Path) -> Result<(), String> {
             path.display()
         ))
     }
-}
-
-fn file_mtime_rfc3339(path: &Path) -> String {
-    fs::metadata(path)
-        .and_then(|m| m.modified())
-        .ok()
-        .and_then(|t| t.duration_since(std::time::SystemTime::UNIX_EPOCH).ok())
-        .map(|d| {
-            #[allow(clippy::cast_possible_wrap)]
-            DateTime::from_timestamp(d.as_secs() as i64, 0)
-                .unwrap_or_else(Utc::now)
-                .to_rfc3339()
-        })
-        .unwrap_or_default()
 }
 
 #[cfg(test)]

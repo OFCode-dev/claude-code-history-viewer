@@ -184,22 +184,27 @@ pub fn search(query: &str, limit: usize) -> Result<Vec<ClaudeMessage>, String> {
     let query_lower = query.to_lowercase();
 
     let mut stmt = conn
-        .prepare("SELECT key, conversation_id, value FROM conversations_v2 WHERE value LIKE ?1")
+        .prepare("SELECT conversation_id, value FROM conversations_v2 WHERE value LIKE ?1")
         .map_err(|e| e.to_string())?;
 
     let mut results = Vec::new();
 
     let rows = stmt
         .query_map([&pattern], |row| {
-            let key: String = row.get(0)?;
-            let conv_id: String = row.get(1)?;
-            let value: String = row.get(2)?;
-            Ok((key, conv_id, value))
+            let conv_id: String = row.get(0)?;
+            let value: String = row.get(1)?;
+            Ok((conv_id, value))
         })
         .map_err(|e| e.to_string())?;
 
+    type Convert = fn(&str, &Value, &str, usize) -> Option<ClaudeMessage>;
+    let converters: [(&str, Convert); 2] = [
+        ("user", q_conversation::convert_user_message),
+        ("assistant", q_conversation::convert_assistant_message),
+    ];
+
     for row in rows.flatten() {
-        let (_key, conv_id, value) = row;
+        let (conv_id, value) = row;
         let json: Value = match serde_json::from_str(&value) {
             Ok(v) => v,
             Err(_) => continue,
@@ -210,27 +215,13 @@ pub fn search(query: &str, limit: usize) -> Result<Vec<ClaudeMessage>, String> {
         };
 
         for (i, entry) in history.iter().enumerate() {
-            if results.len() >= limit {
-                return Ok(results);
-            }
-            if let Some(user) = entry.get("user") {
-                if let Some(mut msg) =
-                    q_conversation::convert_user_message(PROVIDER, user, &conv_id, i)
-                {
-                    if let Some(ref c) = msg.content {
-                        if search_json_value_case_insensitive(c, &query_lower) {
-                            msg.project_name = Some("Kiro CLI".to_string());
-                            results.push(msg);
-                        }
-                    }
+            for (field, convert) in converters {
+                if results.len() >= limit {
+                    return Ok(results);
                 }
-            }
-            if results.len() >= limit {
-                return Ok(results);
-            }
-            if let Some(assistant) = entry.get("assistant") {
-                if let Some(mut msg) =
-                    q_conversation::convert_assistant_message(PROVIDER, assistant, &conv_id, i)
+                if let Some(mut msg) = entry
+                    .get(field)
+                    .and_then(|v| convert(PROVIDER, v, &conv_id, i))
                 {
                     if let Some(ref c) = msg.content {
                         if search_json_value_case_insensitive(c, &query_lower) {

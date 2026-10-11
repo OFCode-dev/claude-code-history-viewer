@@ -618,17 +618,11 @@ fn extract_reasoning_text(value: &Value) -> String {
 
 fn content_to_blocks(content: Option<&Value>) -> Value {
     match content {
-        Some(Value::Array(items)) => {
-            Value::Array(items.iter().map(normalize_content_block).collect())
-        }
+        Some(Value::Array(items)) => Value::Array(items.clone()),
         Some(Value::String(text)) => json!([{ "type": "text", "text": text }]),
         Some(Value::Null) | None => Value::Array(Vec::new()),
         Some(other) => json!([{ "type": "text", "text": other.to_string() }]),
     }
-}
-
-fn normalize_content_block(item: &Value) -> Value {
-    item.clone()
 }
 
 fn content_is_empty(content: &Value) -> bool {
