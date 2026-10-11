@@ -234,7 +234,6 @@ export const MCPServersSection: React.FC<MCPServersSectionProps> = React.memo(({
   const [newServerName, setNewServerName] = useState("");
   const [newServerCommand, setNewServerCommand] = useState("npx");
   const [newServerArgs, setNewServerArgs] = useState("");
-  const [newServerEnv, setNewServerEnv] = useState<Record<string, string>>({});
 
   // Combine all servers into unified list
   const allServers = useMemo((): UnifiedServer[] => {
@@ -282,7 +281,6 @@ export const MCPServersSection: React.FC<MCPServersSectionProps> = React.memo(({
     const newServer: MCPServerConfig = {
       command: newServerCommand.trim(),
       args: newServerArgs.trim() ? newServerArgs.split(/\s+/) : undefined,
-      env: Object.keys(newServerEnv).length > 0 ? newServerEnv : undefined,
     };
 
     const source = scopeToSource[saveLocation];
@@ -351,7 +349,6 @@ export const MCPServersSection: React.FC<MCPServersSectionProps> = React.memo(({
     setNewServerName("");
     setNewServerCommand("npx");
     setNewServerArgs("");
-    setNewServerEnv({});
     setSaveLocation("user");
   };
 
@@ -479,29 +476,6 @@ export const MCPServersSection: React.FC<MCPServersSectionProps> = React.memo(({
                   className="mt-1 font-mono text-sm"
                 />
               </div>
-
-                {/* Env vars */}
-                {Object.keys(newServerEnv).length > 0 && (
-                  <div className="space-y-2">
-                    <Label>{t("settingsManager.mcp.envVars")}</Label>
-                    {Object.keys(newServerEnv).map((key) => (
-                      <div key={key} className="flex items-center gap-2">
-                        <span className="text-xs font-mono text-muted-foreground w-40 truncate">
-                          {key}
-                        </span>
-                        <Input
-                          type="password"
-                          value={newServerEnv[key]}
-                          onChange={(e) =>
-                            setNewServerEnv({ ...newServerEnv, [key]: e.target.value })
-                          }
-                          placeholder={t("settingsManager.mcp.envValuePlaceholder")}
-                          className="flex-1 font-mono text-sm"
-                        />
-                      </div>
-                    ))}
-                  </div>
-                )}
 
                 {/* Save Location */}
                 <div>

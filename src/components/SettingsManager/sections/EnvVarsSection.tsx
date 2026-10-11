@@ -61,11 +61,7 @@ const EnvVarCard: React.FC<EnvVarCardProps> = React.memo(({
   const [isDeleteConfirm, setIsDeleteConfirm] = useState(false);
   const [showValue, setShowValue] = useState(false);
 
-  const isSensitive =
-    envKey.toLowerCase().includes("key") ||
-    envKey.toLowerCase().includes("token") ||
-    envKey.toLowerCase().includes("secret") ||
-    envKey.toLowerCase().includes("password");
+  const isSensitive = /key|token|secret|password/i.test(envKey);
 
   const displayValue = () => {
     if (showValue || !isSensitive) {
