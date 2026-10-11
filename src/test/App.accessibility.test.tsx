@@ -58,9 +58,6 @@ const { useAppStoreMock } = vi.hoisted(() => {
     loadMoreProjectTokenStats: vi.fn(async () => {}),
     loadMoreRecentEdits: vi.fn(async () => {}),
     updateUserSettings: vi.fn(),
-    getGroupedProjects: vi.fn(() => ({ groups: [], ungrouped: [] })),
-    getDirectoryGroupedProjects: vi.fn(() => ({ groups: [] })),
-    getEffectiveGroupingMode: vi.fn(() => "none"),
     hideProject: vi.fn(),
     unhideProject: vi.fn(),
     isProjectHidden: vi.fn(() => false),
@@ -116,7 +113,7 @@ vi.mock("@/components/ProjectTree", () => ({
   ),
 }));
 
-vi.mock("@/components/MessageViewer", () => ({
+vi.mock("@/components/MessageViewer/MessageViewer", () => ({
   MessageViewer: () => <div>message-viewer</div>,
 }));
 
@@ -132,7 +129,7 @@ vi.mock("@/components/TokenStatsViewer", () => ({
   TokenStatsViewer: () => <div>token-stats</div>,
 }));
 
-vi.mock("@/components/AnalyticsDashboard", () => ({
+vi.mock("@/components/AnalyticsDashboard/AnalyticsDashboard", () => ({
   AnalyticsDashboard: () => <div>analytics</div>,
 }));
 
@@ -180,7 +177,7 @@ vi.mock("@/layouts/Header/SettingDropdown/ModalContainer", () => ({
   ModalContainer: () => null,
 }));
 
-vi.mock("@/hooks/useAnalytics", () => ({
+vi.mock("@/hooks/analytics", () => ({
   useAnalytics: () => ({
     state: {
       recentEdits: null,
@@ -272,11 +269,9 @@ vi.mock("@/contexts/platform", () => ({
   usePlatform: () => ({
     platform: "web",
     isDesktop: false,
-    isWeb: true,
     isMobile: false,
   }),
   DesktopOnly: () => null,
-  MobileOnly: () => null,
 }));
 
 vi.mock("@/store/useAppStore", () => ({

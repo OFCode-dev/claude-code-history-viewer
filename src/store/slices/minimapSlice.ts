@@ -1,5 +1,6 @@
 import type { StateCreator } from "zustand";
 import type { FullAppStore } from "./types";
+import { readBool, writeStr } from "../persist";
 
 export interface MinimapSliceState {
     /** Whether the session minimap strip is shown */
@@ -21,23 +22,16 @@ export const createMinimapSlice: StateCreator<
     [],
     MinimapSlice
 > = (set) => ({
-    isMinimapOpen: (() => {
-        try {
-            const stored = localStorage.getItem(STORAGE_KEY);
-            return stored === null ? false : stored === "true";
-        } catch {
-            return false;
-        }
-    })(),
+    isMinimapOpen: readBool(STORAGE_KEY, false),
 
     toggleMinimap: () => set((state) => {
         const next = !state.isMinimapOpen;
-        try { localStorage.setItem(STORAGE_KEY, String(next)); } catch { /* ignore */ }
+        writeStr(STORAGE_KEY, String(next));
         return { isMinimapOpen: next };
     }),
 
     setMinimapOpen: (open) => {
-        try { localStorage.setItem(STORAGE_KEY, String(open)); } catch { /* ignore */ }
+        writeStr(STORAGE_KEY, String(open));
         set({ isMinimapOpen: open });
     },
 });

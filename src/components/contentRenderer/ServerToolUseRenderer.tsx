@@ -20,37 +20,29 @@ export const ServerToolUseRenderer = memo(function ServerToolUseRenderer({
   input,
 }: Props) {
   const { t } = useTranslation();
-  const variant = name === "web_search" ? "web" : "mcp";
+  const isWebSearch = name === "web_search";
+  const variant = isWebSearch ? "web" : "mcp";
   const styles = getVariantStyles(variant);
   const [showInput, setShowInput] = useCaptureExpandState(`server-input-${id}`, false);
 
-  const getIcon = () => {
-    switch (name) {
-      case "web_search":
-        return <Globe className={cn(layout.iconSize, styles.icon)} />;
-      default:
-        return <Wrench className={cn(layout.iconSize, styles.icon)} />;
-    }
-  };
-
-  const getTitle = () => {
-    switch (name) {
-      case "web_search":
-        return t("serverToolUseRenderer.webSearch");
-      default:
-        return t("serverToolUseRenderer.serverTool", {name,
-        });
-    }
-  };
-
   return (
     <ToolUseCard
-      title={getTitle()}
-      icon={getIcon()}
+      title={
+        isWebSearch
+          ? t("serverToolUseRenderer.webSearch")
+          : t("serverToolUseRenderer.serverTool", { name })
+      }
+      icon={
+        isWebSearch ? (
+          <Globe className={cn(layout.iconSize, styles.icon)} />
+        ) : (
+          <Wrench className={cn(layout.iconSize, styles.icon)} />
+        )
+      }
       variant={variant}
       toolId={id}
     >
-      {name === "web_search" && input.query !== undefined && (
+      {isWebSearch && input.query !== undefined && (
         <div className={cn(layout.bodyText, "text-foreground")}>
           <span className="font-medium">
             {t("serverToolUseRenderer.query")}:
@@ -59,7 +51,7 @@ export const ServerToolUseRenderer = memo(function ServerToolUseRenderer({
         </div>
       )}
       {Object.keys(input).length > 0 &&
-        !(name === "web_search" && Object.keys(input).length === 1) && (
+        !(isWebSearch && Object.keys(input).length === 1) && (
           <div className="mt-2">
             <button
               type="button"

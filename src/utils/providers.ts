@@ -53,236 +53,16 @@ const PROVIDER_TRANSLATIONS: Record<
 
 type TranslateFn = (key: string, defaultValue: string) => string;
 
-export interface ProviderSessionCapability {
-  supportsConversationBreakdown: boolean;
-  supportsNativeRename: boolean;
-  supportsResumeCommand: boolean;
-  supportsSessionDeletion: boolean;
-  supportsArchiveCreation: boolean;
-}
+const CAPABLE = {
+  supportsConversationBreakdown: ["antigravity", "claude", "forgecode"],
+  supportsNativeRename: ["claude", "codex", "forgecode", "opencode"],
+  supportsResumeCommand: ["claude", "codex", "copilot", "forgecode", "kimi", "vibe"],
+  supportsSessionDeletion: ["claude", "codex", "forgecode"],
+  supportsArchiveCreation: ["claude"],
+} as const satisfies Record<string, readonly ProviderId[]>;
 
-const PROVIDER_SESSION_CAPABILITIES: Record<ProviderId, ProviderSessionCapability> = {
-  aider: {
-    supportsConversationBreakdown: false,
-    supportsNativeRename: false,
-    supportsResumeCommand: false,
-    supportsSessionDeletion: false,
-    supportsArchiveCreation: false,
-  },
-  amazonq: {
-    supportsConversationBreakdown: false,
-    supportsNativeRename: false,
-    supportsResumeCommand: false,
-    supportsSessionDeletion: false,
-    supportsArchiveCreation: false,
-  },
-  antigravity: {
-    supportsConversationBreakdown: true,
-    supportsNativeRename: false,
-    supportsResumeCommand: false,
-    supportsSessionDeletion: false,
-    supportsArchiveCreation: false,
-  },
-  claude: {
-    supportsConversationBreakdown: true,
-    supportsNativeRename: true,
-    supportsResumeCommand: true,
-    supportsSessionDeletion: true,
-    supportsArchiveCreation: true,
-  },
-  cline: {
-    supportsConversationBreakdown: false,
-    supportsNativeRename: false,
-    supportsResumeCommand: false,
-    supportsSessionDeletion: false,
-    supportsArchiveCreation: false,
-  },
-  codebuddy: {
-    supportsConversationBreakdown: false,
-    supportsNativeRename: false,
-    supportsResumeCommand: false,
-    supportsSessionDeletion: false,
-    supportsArchiveCreation: false,
-  },
-  codex: {
-    supportsConversationBreakdown: false,
-    supportsNativeRename: true,
-    supportsResumeCommand: true,
-    supportsSessionDeletion: true,
-    supportsArchiveCreation: false,
-  },
-  continue: {
-    supportsConversationBreakdown: false,
-    supportsNativeRename: false,
-    supportsResumeCommand: false,
-    supportsSessionDeletion: false,
-    supportsArchiveCreation: false,
-  },
-  copilot: {
-    supportsConversationBreakdown: false,
-    supportsNativeRename: false,
-    // Resume capability is entrypoint-dependent (CLI yes, Desktop/VS Code no).
-    // The provider-level capability is the optimistic union; per-session
-    // gating is done by `supportsResumeCommandForSession` below.
-    supportsResumeCommand: true,
-    supportsSessionDeletion: false,
-    supportsArchiveCreation: false,
-  },
-  crush: {
-    supportsConversationBreakdown: false,
-    supportsNativeRename: false,
-    supportsResumeCommand: false,
-    supportsSessionDeletion: false,
-    supportsArchiveCreation: false,
-  },
-  cursor: {
-    supportsConversationBreakdown: false,
-    supportsNativeRename: false,
-    supportsResumeCommand: false,
-    supportsSessionDeletion: false,
-    supportsArchiveCreation: false,
-  },
-  "cursor-agent": {
-    supportsConversationBreakdown: false,
-    supportsNativeRename: false,
-    supportsResumeCommand: false,
-    supportsSessionDeletion: false,
-    supportsArchiveCreation: false,
-  },
-  forgecode: {
-    supportsConversationBreakdown: true,
-    supportsNativeRename: true,
-    supportsResumeCommand: true,
-    supportsSessionDeletion: true,
-    supportsArchiveCreation: false,
-  },
-  gemini: {
-    supportsConversationBreakdown: false,
-    supportsNativeRename: false,
-    supportsResumeCommand: false,
-    supportsSessionDeletion: false,
-    supportsArchiveCreation: false,
-  },
-  goose: {
-    supportsConversationBreakdown: false,
-    supportsNativeRename: false,
-    supportsResumeCommand: false,
-    supportsSessionDeletion: false,
-    supportsArchiveCreation: false,
-  },
-  grok: {
-    supportsConversationBreakdown: false,
-    supportsNativeRename: false,
-    supportsResumeCommand: false,
-    supportsSessionDeletion: false,
-    supportsArchiveCreation: false,
-  },
-  kilo: {
-    supportsConversationBreakdown: false,
-    supportsNativeRename: false,
-    supportsResumeCommand: false,
-    supportsSessionDeletion: false,
-    supportsArchiveCreation: false,
-  },
-  kimi: {
-    supportsConversationBreakdown: false,
-    supportsNativeRename: false,
-    supportsResumeCommand: true,
-    supportsSessionDeletion: false,
-    supportsArchiveCreation: false,
-  },
-  kiro: {
-    supportsConversationBreakdown: false,
-    supportsNativeRename: false,
-    supportsResumeCommand: false,
-    supportsSessionDeletion: false,
-    supportsArchiveCreation: false,
-  },
-  llm: {
-    supportsConversationBreakdown: false,
-    supportsNativeRename: false,
-    supportsResumeCommand: false,
-    supportsSessionDeletion: false,
-    supportsArchiveCreation: false,
-  },
-  opencode: {
-    supportsConversationBreakdown: false,
-    supportsNativeRename: true,
-    supportsResumeCommand: false,
-    supportsSessionDeletion: false,
-    supportsArchiveCreation: false,
-  },
-  openhands: {
-    supportsConversationBreakdown: false,
-    supportsNativeRename: false,
-    supportsResumeCommand: false,
-    supportsSessionDeletion: false,
-    supportsArchiveCreation: false,
-  },
-  ompi: {
-    supportsConversationBreakdown: false,
-    supportsNativeRename: false,
-    supportsResumeCommand: false,
-    supportsSessionDeletion: false,
-    supportsArchiveCreation: false,
-  },
-  openinterpreter: {
-    supportsConversationBreakdown: false,
-    supportsNativeRename: false,
-    supportsResumeCommand: false,
-    supportsSessionDeletion: false,
-    supportsArchiveCreation: false,
-  },
-  pi: {
-    supportsConversationBreakdown: false,
-    supportsNativeRename: false,
-    supportsResumeCommand: false,
-    supportsSessionDeletion: false,
-    supportsArchiveCreation: false,
-  },
-  pearai: {
-    supportsConversationBreakdown: false,
-    supportsNativeRename: false,
-    supportsResumeCommand: false,
-    supportsSessionDeletion: false,
-    supportsArchiveCreation: false,
-  },
-  qwen: {
-    supportsConversationBreakdown: false,
-    supportsNativeRename: false,
-    supportsResumeCommand: false,
-    supportsSessionDeletion: false,
-    supportsArchiveCreation: false,
-  },
-  zcode: {
-    supportsConversationBreakdown: false,
-    supportsNativeRename: false,
-    supportsResumeCommand: false,
-    supportsSessionDeletion: false,
-    supportsArchiveCreation: false,
-  },
-  trae: {
-    supportsConversationBreakdown: false,
-    supportsNativeRename: false,
-    supportsResumeCommand: false,
-    supportsSessionDeletion: false,
-    supportsArchiveCreation: false,
-  },
-  vibe: {
-    supportsConversationBreakdown: false,
-    supportsNativeRename: false,
-    supportsResumeCommand: true,
-    supportsSessionDeletion: false,
-    supportsArchiveCreation: false,
-  },
-  zed: {
-    supportsConversationBreakdown: false,
-    supportsNativeRename: false,
-    supportsResumeCommand: false,
-    supportsSessionDeletion: false,
-    supportsArchiveCreation: false,
-  },
-};
+const supports = (capability: keyof typeof CAPABLE, provider?: ProviderId | string): boolean =>
+  (CAPABLE[capability] as readonly string[]).includes(provider ?? "");
 
 export interface ProviderTokenStatsLike {
   provider_id: string;
@@ -297,42 +77,9 @@ export interface ConversationBreakdownCoverage {
 }
 
 export function getProviderId(provider?: ProviderId | string): ProviderId {
-  switch (provider) {
-    case "aider":
-    case "amazonq":
-    case "antigravity":
-    case "cline":
-    case "codebuddy":
-    case "codex":
-    case "continue":
-    case "copilot":
-    case "crush":
-    case "cursor":
-    case "cursor-agent":
-    case "gemini":
-    case "goose":
-    case "grok":
-    case "kilo":
-    case "kimi":
-    case "forgecode":
-    case "kiro":
-    case "llm":
-    case "opencode":
-    case "openhands":
-    case "openinterpreter":
-    case "ompi":
-    case "pi":
-    case "pearai":
-    case "qwen":
-    case "trae":
-    case "vibe":
-    case "zcode":
-    case "zed":
-    case "claude":
-      return provider;
-    default:
-      return DEFAULT_PROVIDER_ID;
-  }
+  return PROVIDER_IDS.includes(provider as ProviderId)
+    ? (provider as ProviderId)
+    : DEFAULT_PROVIDER_ID;
 }
 
 export function normalizeProviderIds(ids: readonly ProviderId[]): ProviderId[] {
@@ -354,29 +101,14 @@ export function getProviderLabel(
   return translate(config.key, config.fallback);
 }
 
-export function supportsConversationBreakdown(
-  provider?: ProviderId | string
-): boolean {
-  if (provider == null || !PROVIDER_IDS.includes(provider as ProviderId)) {
-    return false;
-  }
-  return PROVIDER_SESSION_CAPABILITIES[provider as ProviderId]
-    .supportsConversationBreakdown;
-}
+export const supportsConversationBreakdown = (provider?: ProviderId | string): boolean =>
+  supports("supportsConversationBreakdown", provider);
 
-export function supportsNativeRename(provider?: ProviderId | string): boolean {
-  if (provider == null || !PROVIDER_IDS.includes(provider as ProviderId)) {
-    return false;
-  }
-  return PROVIDER_SESSION_CAPABILITIES[provider as ProviderId].supportsNativeRename;
-}
+export const supportsNativeRename = (provider?: ProviderId | string): boolean =>
+  supports("supportsNativeRename", provider);
 
-export function supportsResumeCommand(provider?: ProviderId | string): boolean {
-  if (provider == null || !PROVIDER_IDS.includes(provider as ProviderId)) {
-    return false;
-  }
-  return PROVIDER_SESSION_CAPABILITIES[provider as ProviderId].supportsResumeCommand;
-}
+export const supportsResumeCommand = (provider?: ProviderId | string): boolean =>
+  supports("supportsResumeCommand", provider);
 
 // Single-quote a path for safe shell interpolation. Always quotes (cheap and
 // robust for arbitrary paths); a literal `'` is escaped as `'\''`.
@@ -488,20 +220,11 @@ export function supportsResumeCommandForSession(
   return true;
 }
 
-export function supportsSessionDeletion(provider?: ProviderId | string): boolean {
-  if (provider == null || !PROVIDER_IDS.includes(provider as ProviderId)) {
-    return false;
-  }
-  return PROVIDER_SESSION_CAPABILITIES[provider as ProviderId]
-    .supportsSessionDeletion;
-}
+export const supportsSessionDeletion = (provider?: ProviderId | string): boolean =>
+  supports("supportsSessionDeletion", provider);
 
-export function supportsArchiveCreation(provider?: ProviderId | string): boolean {
-  if (provider == null || !PROVIDER_IDS.includes(provider as ProviderId)) {
-    return false;
-  }
-  return PROVIDER_SESSION_CAPABILITIES[provider as ProviderId].supportsArchiveCreation;
-}
+export const supportsArchiveCreation = (provider?: ProviderId | string): boolean =>
+  supports("supportsArchiveCreation", provider);
 
 export const PROVIDER_BADGE_STYLES: Record<ProviderId, string> = {
   claude: "bg-amber-500/15 text-amber-700 dark:text-amber-300",

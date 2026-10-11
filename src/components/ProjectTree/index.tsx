@@ -350,7 +350,6 @@ export const ProjectTree: React.FC<ProjectTreeProps> = ({
               renderSessions={renderSessions}
               onToggleKey={toggleExpansion}
               onActivateRow={activateRow}
-              onToggleSessions={activateRow}
               onSelectProject={selectProject}
               onContextMenu={openContextMenu}
               treeRef={treeRef}

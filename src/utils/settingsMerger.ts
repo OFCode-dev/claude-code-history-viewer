@@ -23,8 +23,8 @@ import type {
   PermissionsConfig,
   MCPServerConfig,
   SettingsScope,
-} from "@/types/claudeSettings";
-import { SCOPE_PRIORITY } from "@/types/claudeSettings";
+} from "@/types/core/settings";
+import { SCOPE_PRIORITY } from "@/types/core/settings";
 
 // ============================================================================
 // Types for Merged Settings

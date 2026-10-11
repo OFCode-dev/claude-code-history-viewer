@@ -101,29 +101,6 @@ export const languageLocaleMap: Record<string, string> = {
 };
 
 /**
- * Namespace 목록
- *
- * LLM이 특정 기능의 번역만 수정할 때 해당 namespace 파일만 참조 가능
- */
-export const namespaces = [
-  'common',
-  'analytics',
-  'session',
-  'settings',
-  'tools',
-  'error',
-  'message',
-  'renderers',
-  'update',
-  'feedback',
-  'recentEdits',
-  'archive',
-  'webui',
-] as const;
-
-export type Namespace = (typeof namespaces)[number];
-
-/**
  * Namespace별 리소스 병합 함수
  * i18next는 returnObjects 옵션으로 배열을 반환할 수 있으므로 string | string[] 허용
  */

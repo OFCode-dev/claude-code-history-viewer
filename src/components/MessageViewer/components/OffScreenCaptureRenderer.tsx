@@ -87,12 +87,9 @@ export const OffScreenCaptureRenderer = forwardRef<
             message={item.message}
             depth={item.depth}
             agentTaskGroup={item.agentTaskGroup}
-            isAgentTaskGroupMember={false}
             agentProgressGroup={item.agentProgressGroup}
-            isAgentProgressGroupMember={false}
             taskOperationGroup={item.taskOperationGroup}
             taskRegistry={item.taskRegistry}
-            isTaskOperationGroupMember={false}
             isCaptureMode={false}
             // Mirror the on-screen header collapsing, but the first captured
             // row always keeps its header so the image is self-describing.

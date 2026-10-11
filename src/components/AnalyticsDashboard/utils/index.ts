@@ -29,7 +29,6 @@ export {
 // Project-level calculations
 export {
   generateTrendData,
-  calculateDailyGrowth,
   extractProjectGrowth,
   type GrowthMetrics,
 } from "./projectCalculations";

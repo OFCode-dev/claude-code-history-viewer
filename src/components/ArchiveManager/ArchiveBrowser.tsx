@@ -140,10 +140,17 @@ export const ArchiveBrowser: React.FC = () => {
   };
 
   const handleExportFile = useCallback(
-    async (filePath: string, downloadName: string, trackingId: string) => {
+    async (archiveId: string, segments: string[], downloadName: string, trackingId: string) => {
+      if (!archiveBasePath) {
+        toast.error(t('archive.error.exportFailed'));
+        return;
+      }
       setExportingSessionId(trackingId);
       try {
-        const content = await exportSession(filePath, 'json');
+        const content = await exportSession(
+          joinArchivePath(archiveBasePath, archiveId, ...segments),
+          'json'
+        );
 
         if (isTauri()) {
           const { save } = await import('@tauri-apps/plugin-dialog');
@@ -174,40 +181,29 @@ export const ArchiveBrowser: React.FC = () => {
         setExportingSessionId(null);
       }
     },
-    [exportSession, t]
+    [archiveBasePath, exportSession, t]
   );
 
   const handleExportSession = useCallback(
     (archiveId: string, session: ArchiveSessionInfo) => {
-      if (!archiveBasePath) {
-        toast.error(t('archive.error.exportFailed'));
-        return;
-      }
-      const filePath = joinArchivePath(archiveBasePath, archiveId, 'sessions', session.fileName);
       const downloadName = `${session.summary || session.sessionId}.json`;
-      handleExportFile(filePath, downloadName, session.sessionId);
+      handleExportFile(archiveId, ['sessions', session.fileName], downloadName, session.sessionId);
     },
-    [archiveBasePath, handleExportFile, t]
+    [handleExportFile]
   );
 
   const handleExportSubagent = useCallback(
     (archiveId: string, sessionId: string, subagentFileName: string) => {
-      if (!archiveBasePath) {
-        toast.error(t('archive.error.exportFailed'));
-        return;
-      }
-      const filePath = joinArchivePath(
-        archiveBasePath,
-        archiveId,
-        'subagents',
-        sessionId,
-        subagentFileName
-      );
       const stem = subagentFileName.replace(/\.jsonl$/, '');
       const downloadName = `${stem}.json`;
-      handleExportFile(filePath, downloadName, `${sessionId}/${subagentFileName}`);
+      handleExportFile(
+        archiveId,
+        ['subagents', sessionId, subagentFileName],
+        downloadName,
+        `${sessionId}/${subagentFileName}`
+      );
     },
-    [archiveBasePath, handleExportFile, t]
+    [handleExportFile]
   );
 
   const archives = archive.manifest?.archives ?? [];

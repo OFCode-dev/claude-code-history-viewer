@@ -14,13 +14,10 @@ import { AppErrorType } from "../../types";
 
 export interface WatcherSliceState {
   watcherEnabled: boolean;
-  lastUpdateTime: Record<string, number>; // projectPath -> timestamp
   activeSessionNearBottom: boolean;
 }
 
 export interface WatcherSliceActions {
-  setWatcherEnabled: (enabled: boolean) => void;
-  markProjectUpdated: (projectPath: string) => void;
   triggerProjectRefresh: (projectPath: string) => Promise<void>;
   triggerSessionRefresh: (
     projectPath: string,
@@ -37,7 +34,6 @@ export type WatcherSlice = WatcherSliceState & WatcherSliceActions;
 
 const initialWatcherState: WatcherSliceState = {
   watcherEnabled: true,
-  lastUpdateTime: {},
   activeSessionNearBottom: true,
 };
 
@@ -91,8 +87,8 @@ export const createWatcherSlice: StateCreator<
       // Reload the project's session list (not just a timestamp) so that a
       // newly-created session file — e.g. a Claude Code auto-continuation —
       // shows up, and superseded-chain-predecessor filtering on the backend
-      // re-runs with the new file present. `triggerProjectRefresh` is a
-      // no-op beyond marking the timestamp when `projectPath` isn't the
+      // re-runs with the new file present. `triggerProjectRefresh` does nothing
+      // beyond invalidating cached Recent Edits when `projectPath` isn't the
       // currently selected project, so this is safe to call unconditionally.
       void get().triggerProjectRefresh(projectPath);
     }, PROJECT_UPDATE_DEBOUNCE_MS);
@@ -213,8 +209,6 @@ export const createWatcherSlice: StateCreator<
   return {
     ...initialWatcherState,
 
-    setWatcherEnabled: (enabled) => set({ watcherEnabled: enabled }),
-
     setActiveSessionNearBottom: (nearBottom) => {
       if (get().activeSessionNearBottom === nearBottom) {
         return;
@@ -248,14 +242,6 @@ export const createWatcherSlice: StateCreator<
       void scheduleSessionRefresh(projectPath, sessionPath);
     },
 
-    markProjectUpdated: (projectPath) =>
-      set((state) => ({
-        lastUpdateTime: {
-          ...state.lastUpdateTime,
-          [projectPath]: Date.now(),
-        },
-      })),
-
     triggerProjectRefresh: async (projectPath) => {
       try {
         const { selectedProject, reloadProjectSessions } = get();
@@ -281,9 +267,6 @@ export const createWatcherSlice: StateCreator<
           type: AppErrorType.UNKNOWN,
           message: `Failed to refresh project: ${String(error)}`,
         });
-      } finally {
-        // Always mark as updated regardless of success/failure
-        get().markProjectUpdated(projectPath);
       }
     },
 

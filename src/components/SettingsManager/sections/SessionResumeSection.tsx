@@ -139,12 +139,6 @@ export function SessionResumeSection({
    */
   const getValidationErrorMessage = useCallback(
     (validation: ReturnType<typeof parseResumeArgs>) => {
-      if (!validation.errorCode) {
-        return (
-          validation.error ??
-          t("settings.sessionResume.errorInvalid", "Invalid CLI arguments")
-        );
-      }
       switch (validation.errorCode) {
         case "metacharacters":
           return t(
@@ -167,10 +161,7 @@ export function SessionResumeSection({
             param: validation.errorParam ?? "",
           });
         default:
-          return (
-            validation.error ??
-            t("settings.sessionResume.errorInvalid", "Invalid CLI arguments")
-          );
+          return t("settings.sessionResume.errorInvalid", "Invalid CLI arguments");
       }
     },
     [t]
@@ -283,134 +274,125 @@ export function SessionResumeSection({
 
       <CollapsibleContent>
         <div className="p-4 pt-0 space-y-4 border-t border-border/40">
-          {resumeEligibleProviders.length === 0 ? (
-            <p className="text-xs text-muted-foreground py-2">
-              {t(
-                "settings.sessionResume.noProviders",
-                "No supported CLI agent runtimes detected on this machine."
-              )}
-            </p>
-          ) : (
-            <div className="space-y-4 pt-3">
-              {resumeEligibleProviders.map((providerId) => {
-                const rawValue = getValueForProvider(providerId);
-                const validation = parseResumeArgs(rawValue);
-                const providerLabel = getProviderLabel(
-                  (key, fallback) => t(key, fallback),
-                  providerId
-                );
-                const previewCommand = buildLivePreviewResumeCommand(
-                  providerId,
-                  rawValue,
-                  "<id>",
-                  providerId === "kimi" ? kimiEntrypoint : undefined
-                );
-                const isDirty =
-                  providerId in draftValues &&
-                  draftValues[providerId] !== (storedArgsMap[providerId] ?? "");
+          <div className="space-y-4 pt-3">
+            {resumeEligibleProviders.map((providerId) => {
+              const rawValue = getValueForProvider(providerId);
+              const validation = parseResumeArgs(rawValue);
+              const providerLabel = getProviderLabel(
+                (key, fallback) => t(key, fallback),
+                providerId
+              );
+              const previewCommand = buildLivePreviewResumeCommand(
+                providerId,
+                rawValue,
+                "<id>",
+                providerId === "kimi" ? kimiEntrypoint : undefined
+              );
+              const isDirty =
+                providerId in draftValues &&
+                draftValues[providerId] !== (storedArgsMap[providerId] ?? "");
 
-                return (
-                  <div
-                    key={providerId}
-                    className="rounded-lg border border-border/50 bg-background/60 p-3.5 space-y-2.5"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <Label
-                        htmlFor={`resume-arg-${providerId}`}
-                        className="text-xs font-semibold text-foreground flex items-center gap-1.5"
-                      >
-                        <span>{providerLabel}</span>
-                        <span className="font-mono text-3xs text-muted-foreground font-normal">
-                          ({providerId})
-                        </span>
-                      </Label>
+              return (
+                <div
+                  key={providerId}
+                  className="rounded-lg border border-border/50 bg-background/60 p-3.5 space-y-2.5"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <Label
+                      htmlFor={`resume-arg-${providerId}`}
+                      className="text-xs font-semibold text-foreground flex items-center gap-1.5"
+                    >
+                      <span>{providerLabel}</span>
+                      <span className="font-mono text-3xs text-muted-foreground font-normal">
+                        ({providerId})
+                      </span>
+                    </Label>
 
-                      {(isDirty || !!storedArgsMap[providerId]) && !readOnly && (
-                        <div className="flex items-center gap-1.5">
+                    {(isDirty || !!storedArgsMap[providerId]) && !readOnly && (
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => void handleReset(providerId)}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 text-3xs text-muted-foreground hover:text-foreground rounded hover:bg-muted"
+                          title={t("common.reset", "Reset")}
+                        >
+                          <RotateCcw className="h-3 w-3" />
+                          <span>{t("common.reset", "Reset")}</span>
+                        </button>
+                        {isDirty && (
                           <button
                             type="button"
-                            onClick={() => void handleReset(providerId)}
-                            className="inline-flex items-center gap-1 px-2 py-0.5 text-3xs text-muted-foreground hover:text-foreground rounded hover:bg-muted"
-                            title={t("common.reset", "Reset")}
+                            onClick={() => void handleSave(providerId)}
+                            disabled={!validation.isValid}
+                            className="inline-flex items-center gap-1 px-2.5 py-0.5 text-3xs font-medium bg-primary text-primary-foreground rounded hover:bg-primary/90 disabled:opacity-50"
                           >
-                            <RotateCcw className="h-3 w-3" />
-                            <span>{t("common.reset", "Reset")}</span>
+                            <CheckCircle2 className="h-3 w-3" />
+                            <span>{t("common.save", "Save")}</span>
                           </button>
-                          {isDirty && (
-                            <button
-                              type="button"
-                              onClick={() => void handleSave(providerId)}
-                              disabled={!validation.isValid}
-                              className="inline-flex items-center gap-1 px-2.5 py-0.5 text-3xs font-medium bg-primary text-primary-foreground rounded hover:bg-primary/90 disabled:opacity-50"
-                            >
-                              <CheckCircle2 className="h-3 w-3" />
-                              <span>{t("common.save", "Save")}</span>
-                            </button>
-                          )}
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="space-y-1">
-                      <Input
-                        id={`resume-arg-${providerId}`}
-                        value={rawValue}
-                        onChange={(e) =>
-                          handleInputChange(providerId, e.target.value)
-                        }
-                        disabled={readOnly}
-                        placeholder={t(
-                          "settings.sessionResume.placeholder",
-                          "e.g. --dangerously-skip-permissions"
                         )}
-                        className={cn(
-                          "font-mono text-xs h-8 bg-muted/20",
-                          !validation.isValid &&
-                            "border-destructive focus-visible:ring-destructive"
-                        )}
-                      />
+                      </div>
+                    )}
+                  </div>
 
-                      {/* Inline Validation Error */}
-                      {!validation.isValid && (
-                        <p className="flex items-center gap-1 text-3xs text-destructive">
-                          <XCircle className="h-3 w-3 shrink-0" />
-                          <span>{getValidationErrorMessage(validation)}</span>
-                        </p>
+                  <div className="space-y-1">
+                    <Input
+                      id={`resume-arg-${providerId}`}
+                      value={rawValue}
+                      onChange={(e) =>
+                        handleInputChange(providerId, e.target.value)
+                      }
+                      disabled={readOnly}
+                      placeholder={t(
+                        "settings.sessionResume.placeholder",
+                        "e.g. --dangerously-skip-permissions"
                       )}
-
-                      {/* Inline Dangerous Flag Warning */}
-                      {validation.isValid && validation.hasDangerousFlag && (
-                        <div className="flex items-center gap-1.5 text-3xs text-amber-700 dark:text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded px-2 py-1 mt-1">
-                          <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
-                          <span>
-                            {t(
-                              "settings.sessionResume.warningDangerous",
-                              "Flag disables permission checks or runs in dangerous mode."
-                            )}
-                          </span>
-                        </div>
+                      className={cn(
+                        "font-mono text-xs h-8 bg-muted/20",
+                        !validation.isValid &&
+                          "border-destructive focus-visible:ring-destructive"
                       )}
-                    </div>
+                    />
 
-                    {/* Live Preview Command */}
-                    <div className="rounded bg-muted/40 px-2.5 py-1.5 border border-border/30">
-                      <div className="flex items-center justify-between text-3xs text-muted-foreground mb-0.5">
+                    {/* Inline Validation Error */}
+                    {!validation.isValid && (
+                      <p className="flex items-center gap-1 text-3xs text-destructive">
+                        <XCircle className="h-3 w-3 shrink-0" />
+                        <span>{getValidationErrorMessage(validation)}</span>
+                      </p>
+                    )}
+
+                    {/* Inline Dangerous Flag Warning */}
+                    {validation.isValid && validation.hasDangerousFlag && (
+                      <div className="flex items-center gap-1.5 text-3xs text-amber-700 dark:text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded px-2 py-1 mt-1">
+                        <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
                         <span>
                           {t(
-                            "settings.sessionResume.livePreview",
-                            "Command preview:"
+                            "settings.sessionResume.warningDangerous",
+                            "Flag disables permission checks or runs in dangerous mode."
                           )}
                         </span>
                       </div>
-                      <code className="text-2xs font-mono text-foreground/90 break-all select-all">
-                        {previewCommand}
-                      </code>
-                    </div>
+                    )}
                   </div>
-                );
-              })}
-            </div>
-          )}
+
+                  {/* Live Preview Command */}
+                  <div className="rounded bg-muted/40 px-2.5 py-1.5 border border-border/30">
+                    <div className="flex items-center justify-between text-3xs text-muted-foreground mb-0.5">
+                      <span>
+                        {t(
+                          "settings.sessionResume.livePreview",
+                          "Command preview:"
+                        )}
+                      </span>
+                    </div>
+                    <code className="text-2xs font-mono text-foreground/90 break-all select-all">
+                      {previewCommand}
+                    </code>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </CollapsibleContent>
     </Collapsible>

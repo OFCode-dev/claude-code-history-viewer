@@ -441,7 +441,7 @@ export const SettingsDiagnosticsPanel: React.FC = () => {
               user: null, project: settings.project, local: settings.local, managed: null,
             };
             const mergedProjectLocal = mergeSettings(projectLocalOnly);
-            const issues = detectSettingsIssues(projectLocalOnly, null, mergedProjectLocal);
+            const issues = detectSettingsIssues(projectLocalOnly, mergedProjectLocal);
 
             if (files.some((f) => f.exists) || issues.length > 0) {
               results.push({
@@ -501,8 +501,8 @@ export const SettingsDiagnosticsPanel: React.FC = () => {
       user: allSettings.user, project: null, local: null, managed: allSettings.managed,
     };
     const merged = mergeSettings(userOnly);
-    return detectSettingsIssues(userOnly, mcpServers, merged);
-  }, [allSettings, mcpServers]);
+    return detectSettingsIssues(userOnly, merged);
+  }, [allSettings]);
 
   // Aggregated counts
   const issueCounts = useMemo(() => {

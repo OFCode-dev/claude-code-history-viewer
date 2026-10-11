@@ -15,10 +15,8 @@ export interface BoardSessionStats {
     fileEditCount: number;
     shellCount: number;
     commitCount: number;
-    filesTouchedCount: number; // Count of unique files
     hasMarkdownEdits: boolean; // New Flag for distinct visibility
     markdownEditCount: number;
-    toolBreakdown: Record<string, number>;
     searchCount: number;
     webCount: number;
     mcpCount: number;

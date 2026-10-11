@@ -1,9 +1,9 @@
-import { memo, useState } from "react";
+import { memo } from "react";
 import {
   Workflow as WorkflowIcon,
   Bot,
   CheckCircle2,
-  ChevronDown, ChevronRight, ScrollText,
+  ScrollText,
   ExternalLink,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -19,6 +19,7 @@ import type { Props } from "./shared";
 import { str, isError } from "./shared";
 import { StatusBadge } from "./StatusBadge";
 import { ResultBlock } from "./ResultBlock";
+import { CollapsibleSection } from "./CollapsibleSection";
 import {
   extractWorkflowResultText,
   parseWorkflowName,
@@ -27,8 +28,6 @@ import {
 
 export const WorkflowCard = memo(function WorkflowCard({ toolUse, toolResults }: Props) {
   const { t } = useTranslation();
-  const [isScriptOpen, setIsScriptOpen] = useState(false);
-  const [isResultOpen, setIsResultOpen] = useState(false);
   const subagentSessions = useAppStore((s) => s.subagentSessions);
   const navigateToSubagent = useAppStore((s) => s.navigateToSubagent);
 
@@ -47,7 +46,7 @@ export const WorkflowCard = memo(function WorkflowCard({ toolUse, toolResults }:
   const resultText = toolResults.length > 0 ? extractWorkflowResultText(toolResults) : null;
 
   return (
-    <Renderer className={taskStyles.container} hasError={toolResults.length > 0 && toolResults.some(isError)} expandKey={`unified-${toolId}`}>
+    <Renderer className={taskStyles.container} hasError={toolResults.some(isError)} expandKey={`unified-${toolId}`}>
       <Renderer.Header
         title={t("renderers.workflowTool.title", { defaultValue: "Workflow" })}
         icon={<WorkflowIcon className={cn(layout.iconSize, taskStyles.icon)} />}
@@ -79,34 +78,28 @@ export const WorkflowCard = memo(function WorkflowCard({ toolUse, toolResults }:
 
         {/* Script — collapsible */}
         {script && (
-          <div className={cn("border mb-3", layout.rounded, "border-border overflow-hidden")}>
-            <button type="button" onClick={() => setIsScriptOpen(p => !p)}
-              className={cn("w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-muted/50 transition-colors bg-muted/20")}
-              aria-label={t("renderers.workflowTool.toggleScript", { defaultValue: "Toggle script" })}>
-              {isScriptOpen ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" /> : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />}
-              <ScrollText className={cn("w-3.5 h-3.5", taskStyles.icon)} />
-              <span className={cn(layout.smallText, "font-medium text-foreground/80")}>{t("renderers.workflowTool.script", { defaultValue: "Script" })}</span>
-            </button>
-            {isScriptOpen && (
-              <pre className={cn("px-3 py-2 border-t border-border max-h-96 overflow-auto", layout.monoText, "text-px11 text-foreground/90 whitespace-pre-wrap")}>
-                {script}
-              </pre>
-            )}
-          </div>
+          <CollapsibleSection
+            className="mb-3"
+            icon={<ScrollText className={cn("w-3.5 h-3.5", taskStyles.icon)} />}
+            label={t("renderers.workflowTool.script", { defaultValue: "Script" })}
+            ariaLabel={t("renderers.workflowTool.toggleScript", { defaultValue: "Toggle script" })}
+          >
+            <pre className={cn("px-3 py-2 border-t border-border max-h-96 overflow-auto", layout.monoText, "text-px11 text-foreground/90 whitespace-pre-wrap")}>
+              {script}
+            </pre>
+          </CollapsibleSection>
         )}
 
         {/* Result — collapsible */}
         {resultText ? (
-          <div className={cn("border mb-3", layout.rounded, "border-border overflow-hidden")}>
-            <button type="button" onClick={() => setIsResultOpen(p => !p)}
-              className={cn("w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-muted/50 transition-colors bg-muted/20")}
-              aria-label={t("renderers.agentTool.toggleResult", { defaultValue: "Toggle result" })}>
-              {isResultOpen ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" /> : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />}
-              <CheckCircle2 className="w-3.5 h-3.5 text-success" />
-              <span className={cn(layout.smallText, "font-medium text-foreground/80")}>{t("renderers.agentTool.result", { defaultValue: "Result" })}</span>
-            </button>
-            {isResultOpen && <div className="px-3 py-2 border-t border-border max-h-[32rem] overflow-y-auto"><Markdown className="text-foreground/90">{resultText}</Markdown></div>}
-          </div>
+          <CollapsibleSection
+            className="mb-3"
+            icon={<CheckCircle2 className="w-3.5 h-3.5 text-success" />}
+            label={t("renderers.agentTool.result", { defaultValue: "Result" })}
+            ariaLabel={t("renderers.agentTool.toggleResult", { defaultValue: "Toggle result" })}
+          >
+            <div className="px-3 py-2 border-t border-border max-h-[32rem] overflow-y-auto"><Markdown className="text-foreground/90">{resultText}</Markdown></div>
+          </CollapsibleSection>
         ) : (
           <ResultBlock results={toolResults} />
         )}

@@ -135,28 +135,6 @@ export function groupTaskOperations(
   // Build global task registry from all TaskCreate operations in the conversation
   const taskRegistry = new Map<string, TaskInfo>();
   for (const msg of messages) {
-    // Extract from assistant message TaskCreate tool_use
-    if (msg.type === "assistant" && Array.isArray(msg.content)) {
-      for (const item of msg.content as unknown[]) {
-        if (item == null || typeof item !== "object") continue;
-        const obj = item as Record<string, unknown>;
-        if (obj.type === "tool_use" && obj.name === "TaskCreate") {
-          const input = (obj.input as Record<string, unknown>) ?? {};
-          const subject = typeof input.subject === "string" ? input.subject : undefined;
-          const description = typeof input.description === "string" ? input.description : undefined;
-          if (subject || description) {
-            const toolUseId = typeof obj.id === "string" ? obj.id : undefined;
-            if (toolUseId) {
-              (taskRegistry as Map<string, TaskInfo & { _toolUseId?: string }>).set(`_pending_${toolUseId}`, {
-                id: "",
-                subject,
-                description,
-              });
-            }
-          }
-        }
-      }
-    }
     // Extract from result messages (both assistant and user)
     const resultMsg = msg as { toolUseResult?: unknown };
     if (resultMsg.toolUseResult && typeof resultMsg.toolUseResult === "object") {

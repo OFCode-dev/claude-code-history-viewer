@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { SubagentSession } from "@/types";
+import { isFocusLost } from "@/utils/focus";
 import {
-  isFocusLost,
   openSubagentKeepingFocus,
   restoreFocusAfterEnteringSubagent,
 } from "./subagentFocus";

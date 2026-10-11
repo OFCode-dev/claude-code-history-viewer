@@ -100,7 +100,6 @@ export const SettingsEditorPane: React.FC = () => {
 
   // JSON editor state
   const [jsonError, setJsonError] = useState<string | null>(null);
-  const jsonEditorRef = useRef<HTMLTextAreaElement>(null);
   const jsonHistory = useJsonEditorHistory(
     JSON.stringify(effectiveSettings, null, 2)
   );
@@ -198,9 +197,6 @@ export const SettingsEditorPane: React.FC = () => {
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
     new Set(["general", "mcp"])
   );
-
-  // Section refs for scrolling
-  const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   // Clear save result after delay
   React.useEffect(() => {
@@ -301,57 +297,47 @@ export const SettingsEditorPane: React.FC = () => {
           {editorMode === "visual" ? (
             <div className="space-y-2">
               {/* General Section */}
-              <div ref={(el) => { sectionRefs.current["general"] = el; }}>
-                <GeneralSection
-                  settings={effectiveSettings}
-                  isExpanded={expandedSections.has("general")}
-                  onToggle={() => toggleSection("general")}
-                  onChange={handleSettingsChange}
-                  readOnly={isReadOnly}
-                />
-              </div>
+              <GeneralSection
+                settings={effectiveSettings}
+                isExpanded={expandedSections.has("general")}
+                onToggle={() => toggleSection("general")}
+                onChange={handleSettingsChange}
+                readOnly={isReadOnly}
+              />
 
               {/* Permissions Section */}
-              <div ref={(el) => { sectionRefs.current["permissions"] = el; }}>
-                <PermissionsSection
-                  settings={effectiveSettings}
-                  isExpanded={expandedSections.has("permissions")}
-                  onToggle={() => toggleSection("permissions")}
-                  onChange={handleSettingsChange}
-                  readOnly={isReadOnly}
-                />
-              </div>
+              <PermissionsSection
+                settings={effectiveSettings}
+                isExpanded={expandedSections.has("permissions")}
+                onToggle={() => toggleSection("permissions")}
+                onChange={handleSettingsChange}
+                readOnly={isReadOnly}
+              />
 
               {/* MCP Servers Section */}
-              <div ref={(el) => { sectionRefs.current["mcp"] = el; }}>
-                <MCPServersSection
-                  isExpanded={expandedSections.has("mcp")}
-                  onToggle={() => toggleSection("mcp")}
-                  readOnly={isReadOnly}
-                />
-              </div>
+              <MCPServersSection
+                isExpanded={expandedSections.has("mcp")}
+                onToggle={() => toggleSection("mcp")}
+                readOnly={isReadOnly}
+              />
 
               {/* Hooks Section */}
-              <div ref={(el) => { sectionRefs.current["hooks"] = el; }}>
-                <HooksSection
-                  settings={effectiveSettings}
-                  isExpanded={expandedSections.has("hooks")}
-                  onToggle={() => toggleSection("hooks")}
-                  onChange={handleSettingsChange}
-                  readOnly={isReadOnly}
-                />
-              </div>
+              <HooksSection
+                settings={effectiveSettings}
+                isExpanded={expandedSections.has("hooks")}
+                onToggle={() => toggleSection("hooks")}
+                onChange={handleSettingsChange}
+                readOnly={isReadOnly}
+              />
 
               {/* Environment Variables Section */}
-              <div ref={(el) => { sectionRefs.current["env"] = el; }}>
-                <EnvVarsSection
-                  settings={effectiveSettings}
-                  isExpanded={expandedSections.has("env")}
-                  onToggle={() => toggleSection("env")}
-                  onChange={handleSettingsChange}
-                  readOnly={isReadOnly}
-                />
-              </div>
+              <EnvVarsSection
+                settings={effectiveSettings}
+                isExpanded={expandedSections.has("env")}
+                onToggle={() => toggleSection("env")}
+                onChange={handleSettingsChange}
+                readOnly={isReadOnly}
+              />
             </div>
           ) : (
             // JSON Mode - Editable
@@ -398,7 +384,6 @@ export const SettingsEditorPane: React.FC = () => {
               </div>
               {/* JSON Textarea */}
               <textarea
-                ref={jsonEditorRef}
                 className="flex-1 min-h-0 w-full bg-muted p-4 rounded-lg text-sm font-mono resize-none focus:outline-none focus:ring-2 focus:ring-ring border border-border/40"
                 value={jsonHistory.currentText}
                 onChange={handleJsonChange}

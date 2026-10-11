@@ -1,5 +1,5 @@
 import { ChevronRight, X } from "lucide-react";
-import { useToggle } from "../hooks";
+import { useToggle } from "../hooks/useToggle";
 import { createContext, useContext } from "react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";

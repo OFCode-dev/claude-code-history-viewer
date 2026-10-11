@@ -1,11 +1,5 @@
-import FlexSearch from "flexsearch";
-import type { Document as FlexSearchDocument } from "flexsearch";
 import type { ClaudeMessage } from "../types";
 import type { SearchFilterType } from "../store/useAppStore";
-
-// FlexSearch document shape used by this module's content / toolId indexes
-type SearchDoc = { uuid: string; messageIndex: number; text: string };
-type FlexSearchDocumentIndex = FlexSearchDocument<SearchDoc>;
 
 // Type guards for safe type checking
 const isRecord = (value: unknown): value is Record<string, unknown> => {
@@ -348,288 +342,6 @@ const extractToolIds = (message: ClaudeMessage): string => {
   return ids.join(" ");
 };
 
-// FlexSearch Document 인덱스 타입
-interface SearchDocument {
-  uuid: string;
-  messageIndex: number;
-  text: string;
-}
-
-// FlexSearch enriched 결과 타입
-interface EnrichedResult {
-  id: string;
-  doc?: SearchDocument;
-}
-
-// 결과 아이템에서 UUID 추출 (타입 가드)
-const extractUuidFromResult = (item: string | EnrichedResult): string => {
-  if (typeof item === "string") {
-    return item;
-  }
-  return item.id;
-};
-
-// FlexSearch Document 인덱스 생성 헬퍼
-//
-// Tokenize mode: "forward" (prefix-only indexing).
-//
-// Why not "full":
-//   "full" creates every substring of every word (O(n²) tokens), which
-//   pegs the CPU at 100% for large sessions (47k+ messages, ~20s freeze).
-//   "forward" creates only prefix substrings (O(n) tokens), keeping index
-//   construction well under a second even for our largest sessions.
-//
-// Tradeoff — recall gap:
-//   forward tokenize only matches queries that appear at a word boundary.
-//   Searching for "bug" will NOT match "debugging" (no token starts with "bug").
-//   With "full", it would.  For chat history search this is an acceptable
-//   tradeoff — the common case (whole-word / prefix search) is fast and
-//   accurate, and the linear fallback (linearSearchMessages) provides full
-//   substring recall during the brief window before the index is ready.
-const createFlexSearchIndex = (): FlexSearchDocumentIndex => {
-  return new FlexSearch.Document({
-    tokenize: "forward",
-    cache: 100, // 최근 100개 쿼리 캐시
-    document: {
-      id: "uuid",
-      index: ["text"],
-      store: ["uuid", "messageIndex"],
-    },
-  });
-};
-
-// 메시지 검색 인덱스 클래스
-class MessageSearchIndex {
-  private contentIndex: FlexSearchDocumentIndex;
-  private toolIdIndex: FlexSearchDocumentIndex;
-  private messageMap: Map<string, number> = new Map(); // uuid -> messageIndex
-  private messages: ClaudeMessage[] = []; // 메시지 원본 저장 (매치 위치 계산용)
-  private isBuilt = false;
-
-  constructor() {
-    this.contentIndex = createFlexSearchIndex();
-    this.toolIdIndex = createFlexSearchIndex();
-  }
-
-  // 인덱스가 구축 완료되었는지 확인
-  isReady(): boolean {
-    return this.isBuilt;
-  }
-
-  // 인덱스 구축 (메시지 로드 시 1회 호출) - 청크 단위 비동기 처리
-  build(messages: ClaudeMessage[]): void {
-    // Skip if already built with same messages or currently building
-    if (
-      this.messages === messages &&
-      (this.isBuilt || this.messages.length > 0)
-    ) {
-      return;
-    }
-
-    // 기존 인덱스 클리어
-    this.clear();
-
-    // 메시지 원본 저장
-    this.messages = messages;
-
-    // 청크 단위로 비동기 인덱싱 시작
-    this.buildAsync(messages);
-  }
-
-  // 비동기 청크 인덱싱 (메인 스레드 차단 방지)
-  private buildAsync(messages: ClaudeMessage[]): void {
-    const CHUNK_SIZE = 50; // 한 번에 처리할 메시지 수 (forward tokenize 기준 ~10ms/chunk)
-    const YIELD_INTERVAL_MS = 50; // chunk 간 최소 대기 시간 (UI 반응성 확보)
-    let currentIndex = 0;
-
-    const processChunk = (deadline?: IdleDeadline) => {
-      const timeLimit = deadline
-        ? () => deadline.timeRemaining() > 2
-        : () => true;
-      const endIndex = Math.min(currentIndex + CHUNK_SIZE, messages.length);
-
-      for (let i = currentIndex; i < endIndex && timeLimit(); i++) {
-        const message = messages[i];
-        if (!message) continue;
-
-        // Content 인덱스
-        const text = extractSearchableText(message);
-        if (text.trim()) {
-          this.contentIndex.add({
-            uuid: message.uuid,
-            messageIndex: i,
-            text: text.toLowerCase(),
-          });
-        }
-
-        // Tool ID 인덱스
-        const toolIds = extractToolIds(message);
-        if (toolIds.trim()) {
-          this.toolIdIndex.add({
-            uuid: message.uuid,
-            messageIndex: i,
-            text: toolIds.toLowerCase(),
-          });
-        }
-
-        this.messageMap.set(message.uuid, i);
-        currentIndex = i + 1;
-      }
-
-      if (currentIndex < messages.length) {
-        // 다음 청크를 idle callback으로 예약 (UI 반응성 우선)
-        if ("requestIdleCallback" in window) {
-          (
-            window as Window & {
-              requestIdleCallback: (
-                cb: IdleRequestCallback,
-                opts?: { timeout: number },
-              ) => number;
-            }
-          ).requestIdleCallback(processChunk, { timeout: 2000 });
-        } else {
-          setTimeout(processChunk, YIELD_INTERVAL_MS);
-        }
-      } else {
-        // 완료
-        this.isBuilt = true;
-        if (import.meta.env.DEV) {
-          console.log(
-            `[SearchIndex] Built index for ${messages.length} messages`,
-          );
-        }
-      }
-    };
-
-    // 첫 청크를 idle callback으로 시작
-    if ("requestIdleCallback" in window) {
-      (
-        window as Window & {
-          requestIdleCallback: (
-            cb: IdleRequestCallback,
-            opts?: { timeout: number },
-          ) => number;
-        }
-      ).requestIdleCallback(processChunk, { timeout: 2000 });
-    } else {
-      setTimeout(processChunk, YIELD_INTERVAL_MS);
-    }
-  }
-
-  // 메시지 내 모든 매치 위치 찾기
-  private findAllMatchesInText(text: string, query: string): number {
-    const lowerText = text.toLowerCase();
-    const lowerQuery = query.toLowerCase();
-    let count = 0;
-    let pos = 0;
-
-    while ((pos = lowerText.indexOf(lowerQuery, pos)) !== -1) {
-      count++;
-      pos += lowerQuery.length;
-    }
-
-    return count;
-  }
-
-  // 검색 실행
-  search(
-    query: string,
-    filterType: SearchFilterType = "content",
-  ): Array<{
-    messageUuid: string;
-    messageIndex: number;
-    matchIndex: number;
-    matchCount: number;
-  }> {
-    if (!this.isBuilt || !query.trim()) {
-      return [];
-    }
-
-    const lowerQuery = query.toLowerCase();
-    const index =
-      filterType === "toolId" ? this.toolIdIndex : this.contentIndex;
-
-    // FlexSearch 검색 (메시지 레벨)
-    const results = index.search(lowerQuery, {
-      limit: 1000, // 최대 1000개 결과
-      enrich: true, // 저장된 데이터 포함
-    });
-
-    // 매치된 메시지 UUID 수집
-    const matchedUuids = new Set<string>();
-    // FlexSearch's enriched result type is complex; cast to the shape we actually consume.
-    const enrichedResults = results as unknown as Array<{
-      field: string;
-      result: (string | EnrichedResult)[];
-    }>;
-    enrichedResults.forEach((fieldResult) => {
-      if (fieldResult.result) {
-        fieldResult.result.forEach((item: string | EnrichedResult) => {
-          const uuid = extractUuidFromResult(item);
-          matchedUuids.add(uuid);
-        });
-      }
-    });
-
-    // 각 메시지에서 모든 매치 추출
-    const allMatches: Array<{
-      messageUuid: string;
-      messageIndex: number;
-      matchIndex: number;
-      matchCount: number;
-    }> = [];
-
-    matchedUuids.forEach((uuid) => {
-      const messageIndex = this.messageMap.get(uuid);
-      if (messageIndex === undefined) return;
-
-      const message = this.messages[messageIndex];
-      if (!message) return;
-
-      // 메시지 텍스트 추출
-      const messageText =
-        filterType === "toolId"
-          ? extractToolIds(message)
-          : extractSearchableText(message);
-
-      // 메시지 내 모든 매치 개수 계산
-      const matchCount = this.findAllMatchesInText(messageText, lowerQuery);
-
-      // 각 매치마다 별도의 SearchMatch 생성
-      for (let i = 0; i < matchCount; i++) {
-        allMatches.push({
-          messageUuid: uuid,
-          messageIndex,
-          matchIndex: i,
-          matchCount,
-        });
-      }
-    });
-
-    // 완전 역순 정렬: 아래에서 위로 탐색 (최신 메시지의 마지막 매치부터)
-    allMatches.sort((a, b) => {
-      if (a.messageIndex !== b.messageIndex) {
-        return b.messageIndex - a.messageIndex; // newest messages first
-      }
-      return b.matchIndex - a.matchIndex; // last match within a message first
-    });
-
-    return allMatches;
-  }
-
-  // 인덱스 초기화
-  clear(): void {
-    this.contentIndex = createFlexSearchIndex();
-    this.toolIdIndex = createFlexSearchIndex();
-    this.messageMap.clear();
-    this.messages = [];
-    this.isBuilt = false;
-  }
-}
-
-// 싱글톤 인스턴스 (kept as fallback for non-worker environments)
-export const messageSearchIndex = new MessageSearchIndex();
-
 // ============================================================================
 // Web Worker-based Search Index
 // ============================================================================
@@ -718,31 +430,27 @@ function getWorker(): Worker | null {
 // 편의 함수들
 export const buildSearchIndex = (messages: ClaudeMessage[]): void => {
   const w = getWorker();
-  if (w) {
-    // De-dup: skip if the same messages reference is already building or built.
-    if (
-      lastBuildMessagesRef === messages &&
-      (workerBuildInFlight || workerReady)
-    ) {
-      return;
-    }
-    workerReady = false;
-    workerBuildInFlight = true;
-    lastBuildMessagesRef = messages;
-    // Send minimal message data to worker (avoid transferring unnecessary fields)
-    const minimalMessages = messages.map((m) => ({
-      uuid: m.uuid,
-      type: m.type,
-      content: m.content,
-      toolUse: (m as unknown as Record<string, unknown>).toolUse,
-      toolUseResult: (m as unknown as Record<string, unknown>).toolUseResult,
-      compactMetadata: (m as unknown as Record<string, unknown>).compactMetadata,
-    }));
-    w.postMessage({ type: "build", messages: minimalMessages });
-  } else {
-    // Fallback to main thread (shouldn't happen in browser)
-    messageSearchIndex.build(messages);
+  if (!w) return;
+  // De-dup: skip if the same messages reference is already building or built.
+  if (
+    lastBuildMessagesRef === messages &&
+    (workerBuildInFlight || workerReady)
+  ) {
+    return;
   }
+  workerReady = false;
+  workerBuildInFlight = true;
+  lastBuildMessagesRef = messages;
+  // Send minimal message data to worker (avoid transferring unnecessary fields)
+  const minimalMessages = messages.map((m) => ({
+    uuid: m.uuid,
+    type: m.type,
+    content: m.content,
+    toolUse: (m as unknown as Record<string, unknown>).toolUse,
+    toolUseResult: (m as unknown as Record<string, unknown>).toolUseResult,
+    compactMetadata: (m as unknown as Record<string, unknown>).compactMetadata,
+  }));
+  w.postMessage({ type: "build", messages: minimalMessages });
 };
 
 export const searchMessagesAsync = (
@@ -772,16 +480,7 @@ export const searchMessagesAsync = (
   return Promise.resolve([]);
 };
 
-export const searchMessages = (
-  query: string,
-  filterType: SearchFilterType = "content",
-): SearchResult[] => {
-  // Synchronous search: only works if main-thread index is built (legacy fallback)
-  return messageSearchIndex.search(query, filterType);
-};
-
 export const clearSearchIndex = (): void => {
-  messageSearchIndex.clear();
   workerReady = false;
   workerBuildInFlight = false;
   lastBuildMessagesRef = null;
@@ -795,7 +494,7 @@ export const clearSearchIndex = (): void => {
 };
 
 export const isSearchIndexReady = (): boolean => {
-  return workerReady || messageSearchIndex.isReady();
+  return workerReady;
 };
 
 /**

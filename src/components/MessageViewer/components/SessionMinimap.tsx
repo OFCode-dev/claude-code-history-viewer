@@ -27,7 +27,7 @@ import {
   viewportBox,
   type MinimapRow,
 } from "../helpers/minimapLayout";
-import { kindColorSource, minimapFailedColor } from "../helpers/kindColorSource";
+import { colorForKind, minimapFailedColor } from "../helpers/kindColorSource";
 
 /** The strip's fixed CSS width (Decision 8). The mount site pads the list by the same amount. */
 export const MINIMAP_WIDTH_PX = 64;
@@ -128,7 +128,7 @@ export const SessionMinimap: React.FC<SessionMinimapProps> = React.memo(
       const colorFor = (kind: MessageKind, failed: boolean) => {
         const key = failed ? "failed" : kind;
         if (!colors.has(key)) {
-          colors.set(key, failed ? minimapFailedColor() : kindColorSource.colorForKind(kind));
+          colors.set(key, failed ? minimapFailedColor() : colorForKind(kind));
         }
         return colors.get(key) ?? null;
       };

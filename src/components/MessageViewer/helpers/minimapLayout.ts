@@ -19,7 +19,7 @@ export const MINIMAP_KIND_PRIORITY: Record<MessageKind, number> = {
   system: 1,
 };
 
-/** Priority for a kind, per Design §4. The default `priorityForKind` for `bucketMinimapRows`. */
+/** Priority for a kind, per Design §4. */
 export function priorityForKind(kind: MessageKind): number {
   return MINIMAP_KIND_PRIORITY[kind];
 }
@@ -88,18 +88,6 @@ export function minimapBarRect(kind: MessageKind, stripWidth: number): { x: numb
   };
 }
 
-/**
- * Design §5's color seam. `kindColorSource` (built alongside `SessionMinimap`)
- * is the only PR 1 implementation; a token-cost mode (issue #570) is a
- * plausible second one that reorders priority without touching bucketing.
- */
-export interface MinimapColorSource {
-  /** CSS color for this row's kind, or null to leave the pixel unpainted. */
-  colorForKind(kind: MessageKind): string | null;
-  /** Priority for this row; higher wins a pixel shared with a lower one. */
-  priorityForKind(kind: MessageKind): number;
-}
-
 /** One flattened row's contribution to the strip: its kind, or null for rows that paint nothing. */
 export interface MinimapRow {
   kind: MessageKind | null;
@@ -129,8 +117,6 @@ export interface BucketMinimapRowsArgs {
   stripHeight: number;
   /** Added to every `start`, for content rendered above the list that the measurements leave out. */
   offset?: number;
-  /** Injectable so an alternate color source (Design §5) can reorder without touching this function. */
-  priorityForKind?: (kind: MessageKind) => number;
 }
 
 /**
@@ -149,7 +135,6 @@ export function bucketMinimapRows(args: BucketMinimapRowsArgs): (MinimapPaint | 
     totalSize,
     stripHeight,
     offset = 0,
-    priorityForKind: priorityFn = priorityForKind,
   } = args;
 
   const height = Math.max(0, Math.floor(stripHeight));
@@ -168,7 +153,7 @@ export function bucketMinimapRows(args: BucketMinimapRowsArgs): (MinimapPaint | 
     const kind = row?.kind ?? null;
     if (kind == null || row == null) continue;
 
-    const priority = priorityFn(kind);
+    const priority = priorityForKind(kind);
 
     const start = measurement.start + offset;
     let y0 = Math.floor(start * scale);
@@ -225,9 +210,4 @@ export function scrollTopForStripY(
   const maxScrollTop = Math.max(0, scrollHeight - clientHeight);
   const scrollTop = y / scale - clientHeight / 2;
   return Math.min(maxScrollTop, Math.max(0, scrollTop));
-}
-
-/** The inverse of `scrollTopForStripY`: the strip y-coordinate for a given scroll offset. */
-export function stripYForScrollTop(scrollTop: number, scale: number, clientHeight: number): number {
-  return (scrollTop + clientHeight / 2) * scale;
 }

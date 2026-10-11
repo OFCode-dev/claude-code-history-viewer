@@ -8,7 +8,6 @@ import {
   minimapScale,
   priorityForKind,
   scrollTopForStripY,
-  stripYForScrollTop,
   viewportBox,
   type MinimapRow,
 } from "./minimapLayout";
@@ -139,18 +138,6 @@ describe("bucketMinimapRows", () => {
     expect(winners[1]).toBeNull();
   });
 
-  it("accepts an injected priorityForKind so an alternate color source can reorder", () => {
-    const measurements = [measurement(0, 1), measurement(0, 1)];
-    const rows = [kindRow("reply"), kindRow("tool")];
-    const winners = bucketMinimapRows({
-      measurements,
-      rows,
-      totalSize: 1,
-      stripHeight: 1,
-      priorityForKind: (kind) => (kind === "tool" ? 100 : 0),
-    });
-    expect(winners[0]?.kind).toBe("tool");
-  });
 });
 
 describe("priorityForKind (Design §4 table)", () => {
@@ -242,17 +229,7 @@ describe("viewportBox", () => {
   });
 });
 
-describe("scrollTopForStripY and stripYForScrollTop (inverse mapping)", () => {
-  it("round-trips for an interior y value", () => {
-    const scale = 0.1;
-    const clientHeight = 400;
-    const scrollHeight = 10_000;
-    const y = 500;
-    const scrollTop = scrollTopForStripY(y, scale, clientHeight, scrollHeight);
-    const roundTripped = stripYForScrollTop(scrollTop, scale, clientHeight);
-    expect(roundTripped).toBeCloseTo(y, 0);
-  });
-
+describe("scrollTopForStripY", () => {
   it("clamps scrollTop to 0 at the top end", () => {
     const scrollTop = scrollTopForStripY(0, 0.1, 400, 10_000);
     expect(scrollTop).toBe(0);

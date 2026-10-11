@@ -55,23 +55,14 @@ export async function fetchSessionTokenStats(
 ): Promise<SessionTokenStats> {
   const { start_date, end_date } = options;
   const key = `sessionTokenStats:${sessionPath}:${statsMode}:${start_date ?? ""}:${end_date ?? ""}`;
-  return dedupeInFlight(key, async () => {
-    const start = performance.now();
-
-    const stats = await api<SessionTokenStats>("get_session_token_stats", {
+  return dedupeInFlight(key, () =>
+    api<SessionTokenStats>("get_session_token_stats", {
       sessionPath,
       statsMode,
       startDate: start_date,
       endDate: end_date,
-    });
-
-    if (import.meta.env.DEV) {
-      const duration = performance.now() - start;
-      console.log(`[API] fetchSessionTokenStats: ${duration.toFixed(1)}ms`);
-    }
-
-    return stats;
-  });
+    })
+  );
 }
 
 // ============================================================================
@@ -101,27 +92,16 @@ export async function fetchProjectTokenStats(
     stats_mode,
   } = options;
   const key = `projectTokenStats:${projectPath}:${offset}:${limit}:${start_date ?? ""}:${end_date ?? ""}:${stats_mode}`;
-  return dedupeInFlight(key, async () => {
-    const start = performance.now();
-
-    const response = await api<PaginatedTokenStats>("get_project_token_stats", {
+  return dedupeInFlight(key, () =>
+    api<PaginatedTokenStats>("get_project_token_stats", {
       projectPath,
       offset,
       limit,
       startDate: start_date,
       endDate: end_date,
       statsMode: stats_mode,
-    });
-
-    if (import.meta.env.DEV) {
-      const duration = performance.now() - start;
-      console.log(
-        `[API] fetchProjectTokenStats: ${duration.toFixed(1)}ms (${response.total_count} sessions, offset=${offset})`
-      );
-    }
-
-    return response;
-  });
+    })
+  );
 }
 
 // ============================================================================
@@ -137,25 +117,14 @@ export async function fetchProjectStatsSummary(
 ): Promise<ProjectStatsSummary> {
   const { start_date, end_date, stats_mode } = options;
   const key = `projectStatsSummary:${projectPath}:${start_date ?? ""}:${end_date ?? ""}:${stats_mode}`;
-  return dedupeInFlight(key, async () => {
-    const start = performance.now();
-
-    const summary = await api<ProjectStatsSummary>("get_project_stats_summary", {
+  return dedupeInFlight(key, () =>
+    api<ProjectStatsSummary>("get_project_stats_summary", {
       projectPath,
       startDate: start_date,
       endDate: end_date,
       statsMode: stats_mode,
-    });
-
-    if (import.meta.env.DEV) {
-      const duration = performance.now() - start;
-      console.log(
-        `[API] fetchProjectStatsSummary: ${duration.toFixed(1)}ms (${summary.total_sessions} sessions)`
-      );
-    }
-
-    return summary;
-  });
+    })
+  );
 }
 
 // ============================================================================
@@ -173,24 +142,15 @@ export async function fetchSessionComparison(
 ): Promise<SessionComparison> {
   const { start_date, end_date } = options;
   const key = `sessionComparison:${projectPath}:${sessionId}:${statsMode}:${start_date ?? ""}:${end_date ?? ""}`;
-  return dedupeInFlight(key, async () => {
-    const start = performance.now();
-
-    const comparison = await api<SessionComparison>("get_session_comparison", {
+  return dedupeInFlight(key, () =>
+    api<SessionComparison>("get_session_comparison", {
       sessionId,
       projectPath,
       statsMode,
       startDate: start_date,
       endDate: end_date,
-    });
-
-    if (import.meta.env.DEV) {
-      const duration = performance.now() - start;
-      console.log(`[API] fetchSessionComparison: ${duration.toFixed(1)}ms`);
-    }
-
-    return comparison;
-  });
+    })
+  );
 }
 
 // ============================================================================
@@ -234,26 +194,15 @@ export async function fetchRecentEdits(
     sessionFilePath ?? "",
     grouping ?? "file",
   ])}`;
-  return dedupeInFlight(key, async () => {
-    const start = performance.now();
-
-    const result = await api<PaginatedRecentEdits>("get_recent_edits", {
+  return dedupeInFlight(key, () =>
+    api<PaginatedRecentEdits>("get_recent_edits", {
       projectPath,
       offset,
       limit,
       sessionFilePath,
       grouping,
-    });
-
-    if (import.meta.env.DEV) {
-      const duration = performance.now() - start;
-      console.log(
-        `[API] fetchRecentEdits: ${duration.toFixed(1)}ms (${result.unique_files_count} files, offset=${offset})`
-      );
-    }
-
-    return result;
-  });
+    })
+  );
 }
 
 // ============================================================================
@@ -282,25 +231,14 @@ export async function fetchGlobalStatsSummary(
     ? customClaudePaths.map((p) => p.path).join("|")
     : "none";
   const key = `globalStatsSummary:${claudePath}:${providersKey}:${statsMode}:${dateKey}:${customKey}`;
-  return dedupeInFlight(key, async () => {
-    const start = performance.now();
-
-    const summary = await api<GlobalStatsSummary>("get_global_stats_summary", {
+  return dedupeInFlight(key, () =>
+    api<GlobalStatsSummary>("get_global_stats_summary", {
       claudePath,
       activeProviders: normalizedProviders.length > 0 ? normalizedProviders : undefined,
       statsMode,
       startDate,
       endDate,
       customClaudePaths: hasCustomPaths ? customClaudePaths : undefined,
-    });
-
-    if (import.meta.env.DEV) {
-      const duration = performance.now() - start;
-      console.log(
-        `[API] fetchGlobalStatsSummary: ${duration.toFixed(1)}ms (${summary.total_projects} projects)`
-      );
-    }
-
-    return summary;
-  });
+    })
+  );
 }

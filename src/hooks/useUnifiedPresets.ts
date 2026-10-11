@@ -45,10 +45,6 @@
  * ```
  *
  * @remarks
- * **Replaces Legacy Hooks:**
- * - `usePresets` (settings-only presets) - deprecated, remove in v2.0
- * - `useMCPPresets` (MCP-only presets) - deprecated, remove in v2.0
- *
  * **State Management:**
  * - Auto-loads presets on mount
  * - Reloads after mutations (save/delete/duplicate)

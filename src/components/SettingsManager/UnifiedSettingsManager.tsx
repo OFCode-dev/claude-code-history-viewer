@@ -331,17 +331,12 @@ export const UnifiedSettingsManager: React.FC<UnifiedSettingsManagerProps> = ({
         </div>
 
         {/* Content */}
-        {isLoading ? (
+        {isLoading || error ? (
           <LoadingState
             isLoading={isLoading}
             error={error}
             loadingMessage={t("settingsManager.loading")}
             spinnerSize="lg"
-          />
-        ) : error ? (
-          <LoadingState
-            isLoading={false}
-            error={error}
           />
         ) : (
           <div className="@container flex flex-col gap-4 flex-1 min-h-0">

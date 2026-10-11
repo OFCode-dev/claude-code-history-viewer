@@ -28,7 +28,7 @@ export const BashCard = memo(function BashCard({ toolUse, toolResults }: Props) 
   const hasStructuredResult = stdout != null || stderr != null;
 
   return (
-    <Renderer className={styles.container} hasError={toolResults.length > 0 && toolResults.some(isError)} expandKey={`unified-${(toolUse.id as string) || ""}`}>
+    <Renderer className={styles.container} hasError={toolResults.some(isError)} expandKey={`unified-${(toolUse.id as string) || ""}`}>
       <Renderer.Header
         title={t("tools.terminal")}
         icon={<ToolIcon toolName="Bash" className={cn(layout.iconSize, styles.icon)} />}

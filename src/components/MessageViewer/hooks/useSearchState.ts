@@ -14,11 +14,9 @@ interface UseSearchStateOptions {
 
 interface UseSearchStateReturn {
   searchQuery: string;
-  deferredSearchQuery: string;
   isSearchPending: boolean;
   handleSearchInput: (e: React.ChangeEvent<HTMLInputElement>) => void;
   handleClearSearch: () => void;
-  setSearchQuery: (query: string) => void;
 }
 
 export const useSearchState = ({
@@ -68,10 +66,8 @@ export const useSearchState = ({
 
   return {
     searchQuery,
-    deferredSearchQuery,
     isSearchPending,
     handleSearchInput,
     handleClearSearch,
-    setSearchQuery,
   };
 };

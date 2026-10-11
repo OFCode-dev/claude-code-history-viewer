@@ -25,15 +25,11 @@ interface SessionLaneProps {
     zoomLevel: ZoomLevel;
     activeBrush?: ActiveBrush | null;
     onHover?: (type: ActiveBrush["type"], value: string) => void;
-    onLeave?: () => void;
     onToggleSticky?: () => void;
     onInteractionClick?: (messageUuid: string) => void;
     onFileClick?: (file: string) => void;
     isSelected?: boolean;
     onNavigate?: (messageId: string) => void;
-    onNext?: () => void;
-    onPrev?: () => void;
-    siblings?: ClaudeMessage[]; // For merged cards
     scrollContainerRef: React.RefObject<HTMLDivElement>;
     onHeightChange?: (height: number) => void;
 }

@@ -84,13 +84,10 @@ export const ContributionGrid: React.FC<ContributionGridProps> = ({
 }) => {
   const { t } = useTranslation();
 
-  const maxCount = useMemo(() => {
-    let max = 0;
-    for (const bar of dailyBars) {
-      if (bar.sessionCount > max) max = bar.sessionCount;
-    }
-    return max;
-  }, [dailyBars]);
+  const maxCount = useMemo(
+    () => Math.max(0, ...dailyBars.map((bar) => bar.sessionCount)),
+    [dailyBars]
+  );
 
   const labelIndices = useMemo(
     () => selectLabelIndices(dailyBars.length),

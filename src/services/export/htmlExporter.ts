@@ -6,7 +6,7 @@
 
 import { Marked } from "marked";
 import type { ClaudeMessage } from "@/types";
-import { extractBlocks, filterBlocksByContentType, isExportable, type ExtractedBlock, type ExportOptions } from "./contentExtractor";
+import { countRoles, describeRange, extractBlocks, filterBlocksByContentType, formatTimestamp, isExportable, type ExtractedBlock, type ExportOptions } from "./contentExtractor";
 import type { MessageFilterContentTypes } from "@/store/slices/filterSlice";
 
 const CSS = `
@@ -58,18 +58,6 @@ function escapeHtml(text: string): string {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
-}
-
-function formatTimestamp(timestamp: string): { date: string; time: string } {
-  const d = new Date(timestamp);
-  if (Number.isNaN(d.getTime())) return { date: timestamp, time: timestamp };
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return {
-    date: `${y}-${m}-${day}`,
-    time: d.toLocaleTimeString("en-US", { hour12: false }),
-  };
 }
 
 function isSafeUrl(url: string): boolean {
@@ -128,17 +116,8 @@ function blockToHtml(block: ExtractedBlock): string {
 export function exportToHtml(messages: ClaudeMessage[], sessionName: string, contentTypeFilter?: MessageFilterContentTypes, options?: ExportOptions): string {
   const filtered = messages.filter((m) => isExportable(m, options));
 
-  const firstTimestamp = filtered[0]?.timestamp;
-  const lastTimestamp = filtered[filtered.length - 1]?.timestamp;
-  const start = firstTimestamp ? formatTimestamp(firstTimestamp) : null;
-  const end = lastTimestamp ? formatTimestamp(lastTimestamp) : null;
-  const dateRange = start
-    ? end && end.date !== start.date
-      ? `${start.date} ${start.time} ~ ${end.date} ${end.time}`
-      : `${start.date}${end ? ` ~ ${end.time}` : ""}`
-    : "";
-  const userCount = filtered.filter((m) => m.type === "user").length;
-  const assistantCount = filtered.filter((m) => m.type === "assistant").length;
+  const dateRange = describeRange(filtered);
+  const { userCount, assistantCount } = countRoles(filtered);
 
   const messageBlocks = filtered.map((msg) => {
     const role = msg.type === "user" ? "user" : "assistant";

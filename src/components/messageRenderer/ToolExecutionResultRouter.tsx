@@ -44,50 +44,38 @@ export const ToolExecutionResultRouter: React.FC<
   const { t } = useTranslation();
   // Helper function to check if content is JSONL Claude session history
   const isClaudeSessionHistory = (content: string): boolean => {
-    try {
-      const lines = content
-        .trim()
-        .split("\n")
-        .filter((line) => line.trim());
+    const lines = content
+      .trim()
+      .split("\n")
+      .filter((line) => line.trim());
 
-      // Need at least 2 lines to be considered chat history
-      if (lines.length < 2) return false;
+    // Need at least 2 lines to be considered chat history
+    if (lines.length < 2) return false;
 
-      let validChatMessages = 0;
-      let totalValidJson = 0;
+    let validChatMessages = 0;
 
-      for (const line of lines) {
-        try {
-          const parsed = JSON.parse(line);
-          totalValidJson++;
+    for (const line of lines) {
+      try {
+        const parsed = JSON.parse(line);
 
-          // Check if it looks like a Claude message
-          if (
-            parsed &&
-            typeof parsed === "object" &&
-            (parsed.type === "user" || parsed.type === "assistant") &&
-            (parsed.message || parsed.content)
-          ) {
-            validChatMessages++;
-          }
-        } catch {
-          // If we encounter non-JSON lines, it's probably not JSONL chat history
-          return false;
+        // Check if it looks like a Claude message
+        if (
+          parsed &&
+          typeof parsed === "object" &&
+          (parsed.type === "user" || parsed.type === "assistant") &&
+          (parsed.message || parsed.content)
+        ) {
+          validChatMessages++;
         }
+      } catch {
+        // If we encounter non-JSON lines, it's probably not JSONL chat history
+        return false;
       }
-
-      // Consider it chat history if:
-      // 1. All lines are valid JSON
-      // 2. At least 50% are valid chat messages
-      // 3. Have at least 2 valid chat messages
-      return (
-        totalValidJson === lines.length &&
-        validChatMessages >= 2 &&
-        validChatMessages / totalValidJson >= 0.5
-      );
-    } catch {
-      return false;
     }
+
+    // Chat history: every line is valid JSON (checked above), at least 2 are
+    // chat messages, and at least 50% of the lines are chat messages.
+    return validChatMessages >= 2 && validChatMessages / lines.length >= 0.5;
   };
 
   // Handle array toolUseResult (e.g., [{type: "text", text: "..."}])
@@ -201,22 +189,7 @@ export const ToolExecutionResultRouter: React.FC<
     Array.isArray(toolResult.results) &&
     toolResult.results.length > 0
   ) {
-    // Additional check: first result often starts with "I'll search"
-    const firstResult = toolResult.results[0];
-    if (
-      typeof firstResult === "string" &&
-      (firstResult.includes("I'll search") || firstResult.includes("search"))
-    ) {
-      return (
-        <WebSearchRenderer
-          searchData={toolResult}
-          searchQuery={searchQuery}
-          isCurrentMatch={isCurrentMatch}
-          currentMatchIndex={currentMatchIndex}
-        />
-      );
-    }
-    // Even without "I'll search", if it has query + results structure, treat as web search
+    // A query + results structure is treated as a web search
     return (
       <WebSearchRenderer
         searchData={toolResult}

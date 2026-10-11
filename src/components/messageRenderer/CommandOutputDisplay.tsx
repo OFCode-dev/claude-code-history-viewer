@@ -12,18 +12,89 @@
  */
 
 import React from "react";
-import { Highlight, themes } from "prism-react-renderer";
 import { Terminal, Package, TestTube, Hammer, BarChart3 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { getVariantStyles, layout } from "@/components/renderers";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/contexts/theme";
-import { getPreStyles, getLineStyles, getTokenStyles } from "@/utils/prismStyles";
 import { AnsiText } from "@/components/common/AnsiText";
+import { CodeHighlight } from "@/components/common/CodeHighlight";
 
 interface CommandOutputDisplayProps {
   stdout: string;
 }
+
+/** Header icon, label and style of each non-JSON output kind; `scroll` caps the body height. */
+const OUTPUT_KINDS = {
+  test: {
+    Icon: TestTube,
+    labelKey: "commandOutputDisplay.testResults",
+    defaultValue: "Test Results",
+    variant: "success",
+    scroll: false,
+  },
+  build: {
+    Icon: Hammer,
+    labelKey: "commandOutputDisplay.buildOutput",
+    defaultValue: "Build Output",
+    variant: "terminal",
+    scroll: true,
+  },
+  package: {
+    Icon: Package,
+    labelKey: "commandOutputDisplay.packageManagement",
+    defaultValue: "Package Management",
+    variant: "terminal",
+    scroll: true,
+  },
+  table: {
+    Icon: BarChart3,
+    labelKey: "commandOutputDisplay.tableOutput",
+    defaultValue: "Table Output",
+    variant: "neutral",
+    scroll: true,
+  },
+  terminal: {
+    Icon: Terminal,
+    labelKey: "commandOutputDisplay.terminalOutput",
+    defaultValue: "Terminal Output",
+    variant: "terminal",
+    scroll: true,
+  },
+} as const;
+
+/** Detect the output kind (checked in this order; the first match wins). */
+const detectOutputKind = (stdout: string): keyof typeof OUTPUT_KINDS => {
+  if (
+    stdout.includes("Test Suites:") ||
+    stdout.includes("jest") ||
+    stdout.includes("coverage")
+  ) {
+    return "test";
+  }
+  if (
+    stdout.includes("webpack") ||
+    stdout.includes("build") ||
+    stdout.includes("compile")
+  ) {
+    return "build";
+  }
+  if (
+    stdout.includes("npm") ||
+    stdout.includes("yarn") ||
+    stdout.includes("pnpm")
+  ) {
+    return "package";
+  }
+  if (
+    stdout.includes("|") &&
+    stdout.includes("-") &&
+    stdout.split("\n").length > 2
+  ) {
+    return "table";
+  }
+  return "terminal";
+};
 
 export const CommandOutputDisplay: React.FC<CommandOutputDisplayProps> = ({
   stdout,
@@ -31,35 +102,13 @@ export const CommandOutputDisplay: React.FC<CommandOutputDisplayProps> = ({
   const { t } = useTranslation();
   const { isDarkMode } = useTheme();
 
-  // 다양한 출력 유형 감지
-  const isTestOutput =
-    stdout.includes("Test Suites:") ||
-    stdout.includes("jest") ||
-    stdout.includes("coverage");
-  const isBuildOutput =
-    stdout.includes("webpack") ||
-    stdout.includes("build") ||
-    stdout.includes("compile");
-  const isPackageOutput =
-    stdout.includes("npm") ||
-    stdout.includes("yarn") ||
-    stdout.includes("pnpm");
+  // JSON 출력 처리
   const isJsonOutput =
     stdout.trim().startsWith("{") && stdout.trim().endsWith("}");
-  const isTableOutput =
-    stdout.includes("|") &&
-    stdout.includes("-") &&
-    stdout.split("\n").length > 2;
-
-  // Get variant styles
-  const neutralStyles = getVariantStyles("neutral");
-  const successStyles = getVariantStyles("success");
-  const terminalStyles = getVariantStyles("terminal");
-
-  // JSON 출력 처리
   if (isJsonOutput) {
     try {
       const parsed = JSON.parse(stdout);
+      const neutralStyles = getVariantStyles("neutral");
       return (
         <div className="bg-card rounded border border-border">
           <div
@@ -74,39 +123,15 @@ export const CommandOutputDisplay: React.FC<CommandOutputDisplayProps> = ({
               defaultValue: "JSON Output",
             })}
           </div>
-          <Highlight
-            theme={isDarkMode ? themes.vsDark : themes.vsLight}
+          <CodeHighlight
             code={JSON.stringify(parsed, null, 2)}
             language="json"
-          >
-            {({ className, style, tokens, getLineProps, getTokenProps }) => (
-              <pre
-                className={className}
-                style={getPreStyles(isDarkMode, style, {
-                  fontSize: "calc(0.6875rem * var(--app-font-scale))",
-                  padding: "0.75rem",
-                })}
-              >
-                {tokens.map((line, i) => {
-                  const lineProps = getLineProps({ line, key: i });
-                  return (
-                    <div key={i} {...lineProps} style={getLineStyles(lineProps.style)}>
-                      {line.map((token, key) => {
-                        const tokenProps = getTokenProps({ token, key });
-                        return (
-                          <span
-                            key={key}
-                            {...tokenProps}
-                            style={getTokenStyles(isDarkMode, tokenProps.style)}
-                          />
-                        );
-                      })}
-                    </div>
-                  );
-                })}
-              </pre>
-            )}
-          </Highlight>
+            isDarkMode={isDarkMode}
+            preOverrides={{
+              fontSize: "calc(0.6875rem * var(--app-font-scale))",
+              padding: "0.75rem",
+            }}
+          />
         </div>
       );
     } catch {
@@ -114,125 +139,15 @@ export const CommandOutputDisplay: React.FC<CommandOutputDisplayProps> = ({
     }
   }
 
-  // 테스트 출력 처리
-  if (isTestOutput) {
-    return (
-      <div className="bg-card rounded border border-border">
-        <div
-          className={cn(
-            "flex items-center",
-            layout.headerPadding,
-            layout.iconSpacing,
-            layout.smallText,
-            successStyles.badge,
-            successStyles.badgeText
-          )}
-        >
-          <TestTube className={layout.iconSize} />
-          <span>
-            {t("commandOutputDisplay.testResults", {
-              defaultValue: "Test Results",
-            })}
-          </span>
-        </div>
-        <pre className={cn(layout.monoText, "text-foreground/80 whitespace-pre-wrap p-3")}>
-          <AnsiText text={stdout} />
-        </pre>
-      </div>
-    );
-  }
+  const { Icon, labelKey, defaultValue, variant, scroll } =
+    OUTPUT_KINDS[detectOutputKind(stdout)];
+  const styles = getVariantStyles(variant);
+  const body = (
+    <pre className={cn(layout.monoText, "text-foreground/80 whitespace-pre-wrap p-3")}>
+      <AnsiText text={stdout} />
+    </pre>
+  );
 
-  // 빌드 출력 처리
-  if (isBuildOutput) {
-    return (
-      <div className="bg-card rounded border border-border">
-        <div
-          className={cn(
-            "flex items-center",
-            layout.headerPadding,
-            layout.iconSpacing,
-            layout.smallText,
-            terminalStyles.badge,
-            terminalStyles.badgeText
-          )}
-        >
-          <Hammer className={layout.iconSize} />
-          <span>
-            {t("commandOutputDisplay.buildOutput", {
-              defaultValue: "Build Output",
-            })}
-          </span>
-        </div>
-        <div className="max-h-80 overflow-y-auto scrollbar-thin">
-          <pre className={cn(layout.monoText, "text-foreground/80 whitespace-pre-wrap p-3")}>
-            <AnsiText text={stdout} />
-          </pre>
-        </div>
-      </div>
-    );
-  }
-
-  // 패키지 매니저 출력 처리
-  if (isPackageOutput) {
-    return (
-      <div className="bg-card rounded border border-border">
-        <div
-          className={cn(
-            "flex items-center",
-            layout.headerPadding,
-            layout.iconSpacing,
-            layout.smallText,
-            terminalStyles.badge,
-            terminalStyles.badgeText
-          )}
-        >
-          <Package className={layout.iconSize} />
-          <span>
-            {t("commandOutputDisplay.packageManagement", {
-              defaultValue: "Package Management",
-            })}
-          </span>
-        </div>
-        <div className="max-h-80 overflow-y-auto scrollbar-thin">
-          <pre className={cn(layout.monoText, "text-foreground/80 whitespace-pre-wrap p-3")}>
-            <AnsiText text={stdout} />
-          </pre>
-        </div>
-      </div>
-    );
-  }
-
-  // 테이블 형태 출력 처리
-  if (isTableOutput) {
-    return (
-      <div className="bg-card rounded border border-border">
-        <div
-          className={cn(
-            "flex items-center",
-            layout.headerPadding,
-            layout.iconSpacing,
-            layout.smallText,
-            neutralStyles.badge,
-            neutralStyles.badgeText
-          )}
-        >
-          <BarChart3 className={layout.iconSize} />
-          <span>
-            {t("commandOutputDisplay.tableOutput", {
-              defaultValue: "Table Output",
-            })}
-          </span>
-        </div>
-        <div className="max-h-80 overflow-y-auto scrollbar-thin">
-          <pre className={cn(layout.monoText, "text-foreground/80 whitespace-pre-wrap p-3")}>
-            <AnsiText text={stdout} />
-          </pre>
-        </div>
-      </div>
-    );
-  }
-
-  // 기본 출력 (bash/shell)
   return (
     <div className="bg-card rounded border border-border">
       <div
@@ -241,22 +156,18 @@ export const CommandOutputDisplay: React.FC<CommandOutputDisplayProps> = ({
           layout.headerPadding,
           layout.iconSpacing,
           layout.smallText,
-          terminalStyles.badge,
-          terminalStyles.badgeText
+          styles.badge,
+          styles.badgeText
         )}
       >
-        <Terminal className={layout.iconSize} />
-        <span>
-          {t("commandOutputDisplay.terminalOutput", {
-            defaultValue: "Terminal Output",
-          })}
-        </span>
+        <Icon className={layout.iconSize} />
+        <span>{t(labelKey, { defaultValue })}</span>
       </div>
-      <div className="max-h-80 overflow-y-auto scrollbar-thin">
-        <pre className={cn(layout.monoText, "text-foreground/80 whitespace-pre-wrap p-3")}>
-          <AnsiText text={stdout} />
-        </pre>
-      </div>
+      {scroll ? (
+        <div className="max-h-80 overflow-y-auto scrollbar-thin">{body}</div>
+      ) : (
+        body
+      )}
     </div>
   );
 };

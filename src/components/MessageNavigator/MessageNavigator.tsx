@@ -143,15 +143,8 @@ export const MessageNavigator: React.FC<MessageNavigatorProps> = ({
 
   // Prompts mode: human prompts with their spawned subagents
   const promptEntries = useMemo(
-    () =>
-      buildPromptEntries(
-        filterMessagesByCategory(
-          renderedMessages,
-          "parallel-task",
-          showParallelTasksInNavigator,
-        ),
-      ),
-    [renderedMessages, showParallelTasksInNavigator],
+    () => buildPromptEntries(navigatorMessages),
+    [navigatorMessages],
   );
   const promptRows = useMemo(
     () => buildPromptListRows(promptEntries, filterText),
@@ -223,32 +216,24 @@ export const MessageNavigator: React.FC<MessageNavigatorProps> = ({
     return activeUuid ? entries.findIndex((entry) => entry.uuid === activeUuid) : -1;
   }, [isPromptsMode, promptRows, entries, spyUuid, targetMessageUuid]);
 
-  const activateRow = useCallback(
-    (index: number) => {
-      if (isPromptsMode) {
-        const row = promptRows[index];
-        if (!row) return;
-        navigateToMessage(row.kind === "spawn" ? row.spawn.messageUuid : row.entry.uuid);
-        return;
-      }
-      const entry = entries[index];
-      if (entry) navigateToMessage(entry.uuid);
-    },
-    [isPromptsMode, promptRows, entries, navigateToMessage]
-  );
-
-  const handleEntryClick = useCallback(
-    (uuid: string) => {
-      navigateToMessage(uuid);
-    },
-    [navigateToMessage]
-  );
-
   const handlePromptRowActivate = useCallback(
     (row: PromptListRow) => {
       navigateToMessage(row.kind === "spawn" ? row.spawn.messageUuid : row.entry.uuid);
     },
     [navigateToMessage]
+  );
+
+  const activateRow = useCallback(
+    (index: number) => {
+      if (isPromptsMode) {
+        const row = promptRows[index];
+        if (row) handlePromptRowActivate(row);
+        return;
+      }
+      const entry = entries[index];
+      if (entry) navigateToMessage(entry.uuid);
+    },
+    [isPromptsMode, promptRows, entries, navigateToMessage, handlePromptRowActivate]
   );
 
   const isListFocused = useCallback(
@@ -587,7 +572,7 @@ export const MessageNavigator: React.FC<MessageNavigatorProps> = ({
                   entry={entry}
                   isActive={virtualItem.index === activeIndex}
                   isFocused={virtualItem.index === focusedIndex}
-                  onClick={handleEntryClick}
+                  onClick={navigateToMessage}
                   onFocus={setFocusedIndex}
                   onNavigate={handleRowKeyDown}
                   registerRef={registerRowRef}

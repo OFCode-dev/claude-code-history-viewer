@@ -111,13 +111,14 @@ describe("watcherSlice refresh coalescing", () => {
       void store.getState().triggerSessionRefresh("/project", `/tmp/${i}.jsonl`);
     }
 
-    expect(store.getState().lastUpdateTime).toEqual({});
+    expect(store.getState().invalidateRecentEdits).not.toHaveBeenCalled();
 
     await vi.advanceTimersByTimeAsync(249);
-    expect(store.getState().lastUpdateTime).toEqual({});
+    expect(store.getState().invalidateRecentEdits).not.toHaveBeenCalled();
 
     await vi.advanceTimersByTimeAsync(1);
-    expect(Object.keys(store.getState().lastUpdateTime)).toEqual(["/project"]);
+    expect(store.getState().invalidateRecentEdits).toHaveBeenCalledTimes(1);
+    expect(store.getState().invalidateRecentEdits).toHaveBeenCalledWith("/project");
     expect(store.getState().selectSession).not.toHaveBeenCalled();
   });
 
@@ -134,7 +135,7 @@ describe("watcherSlice refresh coalescing", () => {
     await flushMicrotasks();
 
     expect(store.getState().selectSession).not.toHaveBeenCalled();
-    expect(Object.keys(store.getState().lastUpdateTime)).toEqual(["/project"]);
+    expect(store.getState().invalidateRecentEdits).toHaveBeenCalledWith("/project");
 
     store.getState().setActiveSessionNearBottom(true);
 
@@ -275,9 +276,9 @@ describe("watcherSlice wildcard events", () => {
     expect(store.getState().selectSession).toHaveBeenCalledWith(
       opencodeSession
     );
-    expect(Object.keys(store.getState().lastUpdateTime)).toEqual([
-      "opencode://hash",
-    ]);
+    expect(store.getState().invalidateRecentEdits).toHaveBeenCalledWith(
+      "opencode://hash"
+    );
   });
 
   it("ignores a wildcard from another provider", async () => {

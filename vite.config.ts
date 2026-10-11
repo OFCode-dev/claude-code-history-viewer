@@ -70,7 +70,6 @@ export default defineConfig(async () => {
               id.includes("tailwind-merge") ||
               id.includes("clsx") ||
               id.includes("class-variance-authority") ||
-              id.includes("cmdk") ||
               id.includes("sonner")
             ) {
               return "ui-vendor";

@@ -37,31 +37,10 @@ import { useAppStore } from "../store/useAppStore";
 
 // Static token colors - defined outside component to avoid recreation on every render
 const TOKEN_COLORS = {
-  input: {
-    base: "var(--metric-green)",
-    glow: "var(--glow-green)",
-    bg: "color-mix(in oklch, var(--metric-green) 10%, transparent)"
-  },
-  output: {
-    base: "var(--metric-purple)",
-    glow: "var(--glow-purple)",
-    bg: "color-mix(in oklch, var(--metric-purple) 10%, transparent)"
-  },
-  cacheWrite: {
-    base: "var(--metric-blue)",
-    glow: "var(--glow-blue)",
-    bg: "color-mix(in oklch, var(--metric-blue) 10%, transparent)"
-  },
-  cacheRead: {
-    base: "var(--metric-amber)",
-    glow: "var(--glow-amber)",
-    bg: "color-mix(in oklch, var(--metric-amber) 10%, transparent)"
-  },
-  reasoning: {
-    base: "var(--metric-pink)",
-    glow: "var(--glow-pink)",
-    bg: "color-mix(in oklch, var(--metric-pink) 10%, transparent)"
-  },
+  input: "var(--metric-green)",
+  output: "var(--metric-purple)",
+  cacheWrite: "var(--metric-blue)",
+  reasoning: "var(--metric-pink)",
 } as const;
 
 interface TokenStatsViewerProps {
@@ -147,9 +126,6 @@ export const TokenStatsViewer: React.FC<TokenStatsViewerProps> = ({
     [projectConversationStats]
   );
 
-  // Use projectStats directly - pagination is handled by backend
-  const displayedSessions = useMemo(() => projectStats, [projectStats]);
-
   const hasMoreSessions = pagination?.hasMore ?? false;
   const isLoadingMore = pagination?.isLoadingMore ?? false;
   const totalCount = pagination?.totalCount ?? projectStats.length;
@@ -168,9 +144,6 @@ export const TokenStatsViewer: React.FC<TokenStatsViewerProps> = ({
     if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
     return num.toLocaleString();
   };
-
-  // Use static token colors for metrics display
-  const tokenColors = TOKEN_COLORS;
 
   // ============================================
   // PROJECT STATS VIEW
@@ -242,10 +215,10 @@ export const TokenStatsViewer: React.FC<TokenStatsViewerProps> = ({
 
     const metrics = [
       { label: t("analytics.totalTokens"), value: totalStats.total_tokens, color: "var(--metric-purple)" },
-      { label: t("analytics.inputTokens"), value: totalStats.total_input_tokens, color: tokenColors.input.base },
-      { label: t("analytics.outputTokens"), value: totalStats.total_output_tokens, color: tokenColors.output.base },
-      { label: t("analytics.cacheCreation"), value: totalStats.total_cache_creation_tokens, color: tokenColors.cacheWrite.base },
-      { label: t("analytics.reasoning", "Reasoning"), value: totalStats.total_reasoning_tokens, color: tokenColors.reasoning.base },
+      { label: t("analytics.inputTokens"), value: totalStats.total_input_tokens, color: TOKEN_COLORS.input },
+      { label: t("analytics.outputTokens"), value: totalStats.total_output_tokens, color: TOKEN_COLORS.output },
+      { label: t("analytics.cacheCreation"), value: totalStats.total_cache_creation_tokens, color: TOKEN_COLORS.cacheWrite },
+      { label: t("analytics.reasoning", "Reasoning"), value: totalStats.total_reasoning_tokens, color: TOKEN_COLORS.reasoning },
       { label: t("analytics.totalMessages"), value: totalStats.message_count, color: "var(--muted-foreground)" },
     ];
 
@@ -351,7 +324,7 @@ export const TokenStatsViewer: React.FC<TokenStatsViewerProps> = ({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {displayedSessions.map((stats, index) => (
+            {projectStats.map((stats, index) => (
               <div
                 key={`session-${stats.session_id}-${index}`}
                 className="animate-slide-up"

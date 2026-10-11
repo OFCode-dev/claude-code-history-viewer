@@ -155,44 +155,6 @@ describe("metadataSlice", () => {
   });
 
   // ==========================================================================
-  // saveMetadata Tests
-  // ==========================================================================
-
-  describe("saveMetadata", () => {
-    it("should save current metadata to backend", async () => {
-      const useStore = createTestStore();
-
-      // First load some metadata
-      const mockMetadata: UserMetadata = {
-        version: 1,
-        sessions: { "session-1": { starred: true } },
-        projects: {},
-        settings: {},
-      };
-
-      mockInvoke.mockResolvedValueOnce(mockMetadata);
-      await useStore.getState().loadMetadata();
-
-      mockInvoke.mockResolvedValueOnce(undefined);
-      await useStore.getState().saveMetadata();
-
-      expect(mockInvoke).toHaveBeenLastCalledWith("save_user_metadata", {
-        metadata: mockMetadata,
-      });
-    });
-
-    it("should handle save error", async () => {
-      const useStore = createTestStore();
-
-      mockInvoke.mockRejectedValue(new Error("Save failed"));
-
-      await useStore.getState().saveMetadata();
-
-      expect(useStore.getState().metadataError).toBe("Error: Save failed");
-    });
-  });
-
-  // ==========================================================================
   // updateSessionMetadata Tests
   // ==========================================================================
 
@@ -696,26 +658,6 @@ describe("metadataSlice", () => {
       expect(useStore.getState().isProjectHidden("backup-data")).toBe(true);
       expect(useStore.getState().isProjectHidden("file.old")).toBe(true);
       expect(useStore.getState().isProjectHidden("normal-project")).toBe(false);
-    });
-  });
-
-  // ==========================================================================
-  // clearMetadataError Tests
-  // ==========================================================================
-
-  describe("clearMetadataError", () => {
-    it("should clear the metadata error", async () => {
-      const useStore = createTestStore();
-
-      // Set an error
-      mockInvoke.mockRejectedValue(new Error("Test error"));
-      await useStore.getState().loadMetadata();
-      expect(useStore.getState().metadataError).toBe("Error: Test error");
-
-      // Clear the error
-      useStore.getState().clearMetadataError();
-
-      expect(useStore.getState().metadataError).toBeNull();
     });
   });
 });

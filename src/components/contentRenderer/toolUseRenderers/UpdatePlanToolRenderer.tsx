@@ -3,7 +3,7 @@ import { ListChecks } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { getVariantStyles, layout } from "@/components/renderers";
-import { TASK_STATUS_CONFIG } from "@/components/toolResultRenderer/taskStatusConfig";
+import { TASK_STATUS_CONFIG, getTaskStatusLabelKey } from "@/components/toolResultRenderer/taskStatusConfig";
 import { ToolUseCard } from "./ToolUseCard";
 
 interface PlanStep {
@@ -20,16 +20,6 @@ interface Props {
   toolId: string;
   input: UpdatePlanToolInput;
 }
-
-const getStatusLabelKey = (status: string) => {
-  const keyMap: Record<string, string> = {
-    pending: "taskOperation.pending",
-    in_progress: "taskOperation.inProgress",
-    completed: "taskOperation.completed",
-    deleted: "taskOperation.deleted",
-  };
-  return keyMap[status] ?? "taskOperation.pending";
-};
 
 export const UpdatePlanToolRenderer = memo(function UpdatePlanToolRenderer({
   toolId,
@@ -70,7 +60,7 @@ export const UpdatePlanToolRenderer = memo(function UpdatePlanToolRenderer({
               <div className={cn("flex items-center gap-1.5", layout.smallText)}>
                 <StatusIcon className={cn(layout.iconSizeSmall, color)} aria-hidden="true" />
                 <span className={cn("font-medium", color)}>
-                  {t(getStatusLabelKey(status))}
+                  {t(getTaskStatusLabelKey(status))}
                 </span>
               </div>
               <div className={cn(layout.bodyText, "text-foreground")}>

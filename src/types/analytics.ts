@@ -57,44 +57,6 @@ export interface AnalyticsState {
 }
 
 /**
- * Analytics 액션 인터페이스
- * 단일 책임 원칙을 따라 각 액션은 하나의 역할만 수행
- */
-export interface AnalyticsActions {
-  // 뷰 변경
-  setCurrentView: (view: AnalyticsView) => void;
-
-  // 데이터 설정
-  setProjectSummary: (summary: ProjectStatsSummary | null) => void;
-  setProjectConversationSummary: (summary: ProjectStatsSummary | null) => void;
-  setSessionComparison: (comparison: SessionComparison | null) => void;
-  setRecentEdits: (edits: RecentEditsResult | null) => void;
-  setRecentEditsSearchQuery: (query: string) => void;
-
-  // 로딩 상태 관리
-  setLoadingProjectSummary: (loading: boolean) => void;
-  setLoadingSessionComparison: (loading: boolean) => void;
-  setLoadingRecentEdits: (loading: boolean) => void;
-
-  // 에러 상태 관리
-  setProjectSummaryError: (error: string | null) => void;
-  setSessionComparisonError: (error: string | null) => void;
-  setRecentEditsError: (error: string | null) => void;
-
-  // 복합 액션 (비즈니스 로직)
-  switchToMessages: () => void;
-  switchToTokenStats: () => void;
-  switchToAnalytics: () => void;
-  switchToRecentEdits: () => void;
-  setStatsMode: (mode: StatsMode, options?: { isViewingGlobalStats?: boolean }) => Promise<void>;
-  setMetricMode: (mode: MetricMode) => void;
-
-  // 초기화
-  resetAnalytics: () => void;
-  clearErrors: () => void;
-}
-
-/**
  * Analytics 초기 상태
  */
 import { createInitialRecentEditsPagination } from '../utils/pagination';
@@ -159,19 +121,4 @@ export interface UseAnalyticsReturn {
     isLoadingRecentEdits: boolean;
     isAnyLoading: boolean;
   };
-}
-
-/**
- * Analytics 컨텍스트 타입
- * 프로젝트와 세션 정보를 담는 컨텍스트
- */
-export interface AnalyticsContext {
-  selectedProject: {
-    name: string;
-    path: string;
-  } | null;
-  selectedSession: {
-    session_id: string;
-    file_path: string;
-  } | null;
 }

@@ -513,19 +513,5 @@ describe("SessionList", () => {
 
       expect(container.querySelector(".ml-6")).toBeInTheDocument();
     });
-
-    it("should render with worktree variant", () => {
-      const { container } = render(<SessionList {...defaultProps} variant="worktree" />);
-
-      expect(container.querySelector(".ml-4")).toBeInTheDocument();
-      expect(container.querySelector(".border-success\\/30")).toBeInTheDocument();
-    });
-
-    it("should render with main variant", () => {
-      const { container } = render(<SessionList {...defaultProps} variant="main" />);
-
-      expect(container.querySelector(".ml-4")).toBeInTheDocument();
-      expect(container.querySelector(".border-accent\\/30")).toBeInTheDocument();
-    });
   });
 });

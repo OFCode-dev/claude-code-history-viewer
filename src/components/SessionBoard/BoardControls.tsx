@@ -18,6 +18,12 @@ import {
 } from "@/components/ui/select";
 import { useTranslation } from "react-i18next";
 
+const ZOOM_BUTTONS = [
+    [0, "session.board.controls.pixelView", Layout],
+    [1, "session.board.controls.skimView", Layers],
+    [2, "session.board.controls.readView", Eye],
+] as const;
+
 interface BoardControlsProps {
     zoomLevel: ZoomLevel;
     onZoomChange: (level: ZoomLevel) => void;
@@ -63,39 +69,20 @@ export const BoardControls = ({
             {/* Zoom Controls */}
             <div className="flex items-center gap-3">
                 <div className="flex items-center gap-1 p-0.5 bg-muted/30 rounded-lg border border-border/50">
-                    <button
-                        onClick={() => onZoomChange(0)}
-                        className={clsx(
-                            "p-1 rounded-md transition-all",
-                            zoomLevel === 0 ? "bg-background shadow-sm text-accent" : "text-muted-foreground hover:text-foreground"
-                        )}
-                        title={t("session.board.controls.pixelView")}
-                        aria-label={t("session.board.controls.pixelView")}
-                    >
-                        <Layout className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                        onClick={() => onZoomChange(1)}
-                        className={clsx(
-                            "p-1 rounded-md transition-all",
-                            zoomLevel === 1 ? "bg-background shadow-sm text-accent" : "text-muted-foreground hover:text-foreground"
-                        )}
-                        title={t("session.board.controls.skimView")}
-                        aria-label={t("session.board.controls.skimView")}
-                    >
-                        <Layers className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                        onClick={() => onZoomChange(2)}
-                        className={clsx(
-                            "p-1 rounded-md transition-all",
-                            zoomLevel === 2 ? "bg-background shadow-sm text-accent" : "text-muted-foreground hover:text-foreground"
-                        )}
-                        title={t("session.board.controls.readView")}
-                        aria-label={t("session.board.controls.readView")}
-                    >
-                        <Eye className="w-3.5 h-3.5" />
-                    </button>
+                    {ZOOM_BUTTONS.map(([level, labelKey, Icon]) => (
+                        <button
+                            key={level}
+                            onClick={() => onZoomChange(level)}
+                            className={clsx(
+                                "p-1 rounded-md transition-all",
+                                zoomLevel === level ? "bg-background shadow-sm text-accent" : "text-muted-foreground hover:text-foreground"
+                            )}
+                            title={t(labelKey)}
+                            aria-label={t(labelKey)}
+                        >
+                            <Icon className="w-3.5 h-3.5" />
+                        </button>
+                    ))}
                 </div>
             </div>
 
@@ -118,7 +105,7 @@ export const BoardControls = ({
                                     key={toolOption}
                                     value={toolOption}
                                     className="text-px10"
-                                    disabled={availableTools ? !availableTools.includes(toolOption) : false}
+                                    disabled={!availableTools.includes(toolOption)}
                                 >
                                     {toolOption.toUpperCase()}
                                 </SelectItem>
@@ -142,7 +129,7 @@ export const BoardControls = ({
                                         key={server}
                                         value={server}
                                         className="text-px10"
-                                        disabled={availableMcpServers ? !availableMcpServers.includes(server) : false}
+                                        disabled={!availableMcpServers.includes(server)}
                                     >
                                         {server}
                                     </SelectItem>
@@ -167,7 +154,7 @@ export const BoardControls = ({
                                         key={cmd}
                                         value={cmd}
                                         className="text-px10 font-mono"
-                                        disabled={availableShellCommands ? !availableShellCommands.includes(cmd) : false}
+                                        disabled={!availableShellCommands.includes(cmd)}
                                         title={cmd}
                                     >
                                         {cmd.length > 35 ? cmd.substring(0, 35) + '...' : cmd}
@@ -191,7 +178,7 @@ export const BoardControls = ({
                                     key={f}
                                     value={f}
                                     className="text-px10"
-                                    disabled={availableFiles ? !availableFiles.includes(f) : false}
+                                    disabled={!availableFiles.includes(f)}
                                 >
                                     {f.split(/[\\/]/).pop() || ""}
                                 </SelectItem>

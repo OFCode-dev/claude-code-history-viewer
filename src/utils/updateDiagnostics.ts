@@ -27,18 +27,5 @@ export function buildUpdateDiagnostics({
         : 'unknown',
   };
 
-  return [
-    '[Updater Diagnostics]',
-    `timestamp=${info.timestamp}`,
-    `error=${info.error}`,
-    `currentVersion=${info.currentVersion}`,
-    `newVersion=${info.newVersion}`,
-    `hasUpdate=${info.hasUpdate}`,
-    `isDownloading=${info.isDownloading}`,
-    `isInstalling=${info.isInstalling}`,
-    `isRestarting=${info.isRestarting}`,
-    `requiresManualRestart=${info.requiresManualRestart}`,
-    `downloadProgress=${info.downloadProgress}`,
-    `userAgent=${info.userAgent}`,
-  ].join('\n');
+  return ['[Updater Diagnostics]', ...Object.entries(info).map(([k, v]) => `${k}=${v}`)].join('\n');
 }

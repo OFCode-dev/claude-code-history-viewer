@@ -102,16 +102,6 @@ function SheetCloseButton() {
   );
 }
 
-function SheetHeader({ className, ...props }: React.ComponentProps<"div">) {
-  return (
-    <div
-      data-slot="sheet-header"
-      className={cn("flex flex-col gap-2 p-4", className)}
-      {...props}
-    />
-  );
-}
-
 function SheetTitle({
   className,
   ...props
@@ -130,7 +120,6 @@ export {
   SheetTrigger,
   SheetClose,
   SheetContent,
-  SheetHeader,
   SheetTitle,
   SheetOverlay,
   SheetPortal,

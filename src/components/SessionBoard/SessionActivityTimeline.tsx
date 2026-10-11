@@ -50,10 +50,6 @@ export const SessionActivityTimeline: React.FC<SessionActivityTimelineProps> = (
     [setDateFilter]
   );
 
-  const handleDateClear = useCallback(() => {
-    clearDateFilter();
-  }, [clearDateFilter]);
-
   if (allSortedSessionIds.length === 0) return null;
 
   const { totalActiveDays, currentStreak, longestStreak, totalSessions } = activityData;
@@ -110,7 +106,7 @@ export const SessionActivityTimeline: React.FC<SessionActivityTimelineProps> = (
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  handleDateClear();
+                  clearDateFilter();
                 }}
                 className="inline-flex items-center gap-0.5 bg-primary/10 rounded-full px-2.5 py-0.5 text-px10 text-primary/80 hover:text-primary hover:bg-primary/15 transition-colors"
               >
@@ -124,7 +120,7 @@ export const SessionActivityTimeline: React.FC<SessionActivityTimelineProps> = (
           <ContributionGrid
             dailyBars={activityData.dailyBars}
             onDateClick={handleDateClick}
-            onDateClear={handleDateClear}
+            onDateClear={clearDateFilter}
             selectedDate={selectedDate}
           />
         </div>

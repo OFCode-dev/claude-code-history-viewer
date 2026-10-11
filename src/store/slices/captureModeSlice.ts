@@ -7,6 +7,7 @@
 
 import type { StateCreator } from "zustand";
 import type { FullAppStore } from "./types";
+import { getRange } from "../../utils/selection";
 
 // ============================================================================
 // State Interface
@@ -38,10 +39,6 @@ export interface CaptureModeSliceActions {
   restoreMessages: (uuids: string[]) => void;
   /** Clear all hidden messages */
   restoreAllMessages: () => void;
-  /** Check if a message is hidden (only returns true when in capture mode) */
-  isMessageHidden: (uuid: string) => boolean;
-  /** Get count of hidden messages */
-  getHiddenCount: () => number;
   /** Handle a selection click with modifier keys */
   handleSelectionClick: (
     uuid: string,
@@ -67,20 +64,6 @@ const initialCaptureModeState: CaptureModeSliceState = {
   selectionAnchor: null,
   isCapturing: false,
 };
-
-// ============================================================================
-// Helpers
-// ============================================================================
-
-/** Get range of UUIDs between two UUIDs in an ordered list */
-function getRange(orderedUuids: string[], fromUuid: string, toUuid: string): string[] {
-  const fromIdx = orderedUuids.indexOf(fromUuid);
-  const toIdx = orderedUuids.indexOf(toUuid);
-  if (fromIdx === -1 || toIdx === -1) return [toUuid];
-  const lo = Math.min(fromIdx, toIdx);
-  const hi = Math.max(fromIdx, toIdx);
-  return orderedUuids.slice(lo, hi + 1);
-}
 
 // ============================================================================
 // Slice Creator
@@ -133,15 +116,6 @@ export const createCaptureModeSlice: StateCreator<
     set({ hiddenMessageIds: [] });
   },
 
-  isMessageHidden: (uuid: string) => {
-    const { isCaptureMode, hiddenMessageIds } = get();
-    return isCaptureMode && hiddenMessageIds.includes(uuid);
-  },
-
-  getHiddenCount: () => {
-    return get().hiddenMessageIds.length;
-  },
-
   handleSelectionClick: (
     uuid: string,
     orderedUuids: string[],
@@ -177,16 +151,14 @@ export const createCaptureModeSlice: StateCreator<
     }
 
     // Shift + Cmd/Ctrl: add range to existing selection
-    {
-      const anchor = selectionAnchor ?? uuid;
-      const range = getRange(orderedUuids, anchor, uuid);
-      const merged = new Set(selectedMessageIds);
-      for (const id of range) {
-        merged.add(id);
-      }
-      set({ selectedMessageIds: [...merged] });
-      // Anchor stays
+    const anchor = selectionAnchor ?? uuid;
+    const range = getRange(orderedUuids, anchor, uuid);
+    const merged = new Set(selectedMessageIds);
+    for (const id of range) {
+      merged.add(id);
     }
+    set({ selectedMessageIds: [...merged] });
+    // Anchor stays
   },
 
   clearSelection: () => {

@@ -28,7 +28,6 @@ describe("resumeArgs utility", () => {
       expect(res.isValid).toBe(true);
       expect(res.tokens).toEqual(["--model", "sonnet", "--timeout=60", "-v"]);
       expect(res.hasDangerousFlag).toBe(false);
-      expect(res.warning).toBeUndefined();
     });
 
     it("detects dangerous permission-skipping flags", () => {
@@ -36,7 +35,6 @@ describe("resumeArgs utility", () => {
       expect(res.isValid).toBe(true);
       expect(res.tokens).toEqual(["--dangerously-skip-permissions"]);
       expect(res.hasDangerousFlag).toBe(true);
-      expect(res.warning).toBeDefined();
     });
 
     it("rejects shell metacharacters and injection attempts", () => {
@@ -60,7 +58,7 @@ describe("resumeArgs utility", () => {
         const res = parseResumeArgs(input);
         expect(res.isValid).toBe(false);
         expect(res.tokens).toEqual([]);
-        expect(res.error).toBeDefined();
+        expect(res.errorCode).toBeDefined();
       }
     });
 
@@ -68,7 +66,7 @@ describe("resumeArgs utility", () => {
       const manyArgs = Array.from({ length: 35 }, (_, i) => `--arg${i}`).join(" ");
       const res = parseResumeArgs(manyArgs);
       expect(res.isValid).toBe(false);
-      expect(res.error).toContain("Maximum 32");
+      expect(res.errorCode).toBe("maxTokens");
     });
   });
 

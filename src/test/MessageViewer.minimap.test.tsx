@@ -254,7 +254,6 @@ const SAMPLE_SEARCH: SearchState = {
   currentMatchIndex: -1,
   isSearching: false,
   filterType: "content",
-  results: [],
 };
 
 function renderViewer() {

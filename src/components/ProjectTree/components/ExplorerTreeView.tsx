@@ -25,7 +25,6 @@ export interface ExplorerTreeViewProps {
   renderSessions: (level: number) => React.ReactNode;
   onToggleKey: (key: string) => void;
   onActivateRow: (row: ExplorerRowModel) => void;
-  onToggleSessions: (row: ExplorerRowModel) => void;
   onSelectProject: (project: ClaudeProject) => void;
   onContextMenu: (event: React.MouseEvent, row: ExplorerRowModel) => void;
   treeRef: React.Ref<HTMLDivElement>;
@@ -46,7 +45,6 @@ export const ExplorerTreeView: React.FC<ExplorerTreeViewProps> = ({
   renderSessions,
   onToggleKey,
   onActivateRow,
-  onToggleSessions,
   onSelectProject,
   onContextMenu,
   treeRef,
@@ -85,7 +83,7 @@ export const ExplorerTreeView: React.FC<ExplorerTreeViewProps> = ({
           match={matches.get(row.key)}
           inlineSessions={
             inlineSessions && row.location && !hasChildren
-              ? { isOpen: areSessionsOpen, onToggle: () => onToggleSessions(row) }
+              ? { isOpen: areSessionsOpen, onToggle: () => onActivateRow(row) }
               : undefined
           }
           ownsId={groupId}

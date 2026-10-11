@@ -54,8 +54,6 @@ export interface MetadataSliceState {
 export interface MetadataSliceActions {
   /** Load user metadata from disk */
   loadMetadata: () => Promise<void>;
-  /** Save entire metadata to disk */
-  saveMetadata: () => Promise<void>;
   /** Update metadata for a specific session */
   updateSessionMetadata: (
     sessionId: string,
@@ -79,10 +77,6 @@ export interface MetadataSliceActions {
   hideProject: (projectPath: string) => Promise<void>;
   /** Unhide a specific project */
   unhideProject: (projectPath: string) => Promise<void>;
-  /** Add a hidden pattern (glob) */
-  addHiddenPattern: (pattern: string) => Promise<void>;
-  /** Remove a hidden pattern */
-  removeHiddenPattern: (pattern: string) => Promise<void>;
   /** Add a custom Claude directory path */
   addCustomClaudePath: (path: string, label?: string) => Promise<void>;
   /** Remove a custom Claude directory path */
@@ -93,8 +87,6 @@ export interface MetadataSliceActions {
   setWslEnabled: (enabled: boolean) => Promise<void>;
   /** Toggle a WSL distro in/out of the excluded list */
   toggleWslDistro: (distroName: string) => Promise<void>;
-  /** Clear metadata error */
-  clearMetadataError: () => void;
   /** Whether a session is starred */
   isSessionFavorite: (sessionId: string) => boolean;
   /** Star a session (with a snapshot of where it lives), or unstar it */
@@ -125,6 +117,8 @@ export const initialMetadataState: MetadataSliceState = {
   isMetadataLoading: false,
   metadataError: null,
 };
+
+const trimSlash = (p: string): string => p.replace(/[\\/]+$/, "");
 
 // ============================================================================
 // Slice Creator
@@ -160,6 +154,14 @@ export const createMetadataSlice: StateCreator<
     const result = sessionWriteChain.then(run);
     sessionWriteChain = result.catch(() => undefined);
     return result;
+  };
+
+  const getWsl = (): WslSettings => {
+    const wsl = get().userMetadata?.settings?.wsl;
+    return {
+      enabled: wsl?.enabled ?? false,
+      excludedDistros: wsl?.excludedDistros ?? [],
+    };
   };
 
   // Only the latest `openFavoriteSession` may select anything.
@@ -229,17 +231,6 @@ export const createMetadataSlice: StateCreator<
         isMetadataLoading: false,
         metadataError: String(error),
       });
-    }
-  },
-
-  saveMetadata: async () => {
-    const { userMetadata } = get();
-
-    try {
-      await api("save_user_metadata", { metadata: userMetadata });
-    } catch (error) {
-      console.error("Failed to save user metadata:", error);
-      set({ metadataError: String(error) });
     }
   },
 
@@ -335,31 +326,13 @@ export const createMetadataSlice: StateCreator<
     await get().updateProjectMetadata(projectPath, { hidden: false });
   },
 
-  addHiddenPattern: async (pattern: string) => {
-    const { userMetadata } = get();
-    const currentPatterns = userMetadata.settings.hiddenPatterns || [];
-    if (!currentPatterns.includes(pattern)) {
-      await get().updateUserSettings({
-        hiddenPatterns: [...currentPatterns, pattern],
-      });
-    }
-  },
-
-  removeHiddenPattern: async (pattern: string) => {
-    const { userMetadata } = get();
-    const currentPatterns = userMetadata.settings.hiddenPatterns || [];
-    await get().updateUserSettings({
-      hiddenPatterns: currentPatterns.filter((p) => p !== pattern),
-    });
-  },
-
   addCustomClaudePath: async (path: string, label?: string) => {
     const { userMetadata } = get();
     const currentPaths = userMetadata.settings.customClaudePaths ?? [];
     // Normalize: trim trailing slashes for consistent comparison
-    const normalized = path.replace(/[\\/]+$/, "");
+    const normalized = trimSlash(path);
     // Prevent duplicates
-    if (currentPaths.some((cp) => cp.path.replace(/[\\/]+$/, "") === normalized)) {
+    if (currentPaths.some((cp) => trimSlash(cp.path) === normalized)) {
       return;
     }
     const entry: CustomClaudePath = { path: normalized, label };
@@ -371,10 +344,10 @@ export const createMetadataSlice: StateCreator<
   removeCustomClaudePath: async (path: string) => {
     const { userMetadata } = get();
     const currentPaths = userMetadata.settings.customClaudePaths ?? [];
-    const normalized = path.replace(/[\\/]+$/, "");
+    const normalized = trimSlash(path);
     await get().updateUserSettings({
       customClaudePaths: currentPaths.filter(
-        (cp) => cp.path.replace(/[\\/]+$/, "") !== normalized
+        (cp) => trimSlash(cp.path) !== normalized
       ),
     });
   },
@@ -382,10 +355,10 @@ export const createMetadataSlice: StateCreator<
   updateCustomClaudePathLabel: async (path: string, label: string) => {
     const { userMetadata } = get();
     const currentPaths = userMetadata.settings.customClaudePaths ?? [];
-    const normalized = path.replace(/[\\/]+$/, "");
+    const normalized = trimSlash(path);
     await get().updateUserSettings({
       customClaudePaths: currentPaths.map((cp) =>
-        cp.path.replace(/[\\/]+$/, "") === normalized
+        trimSlash(cp.path) === normalized
           ? { ...cp, label: label || undefined }
           : cp
       ),
@@ -393,30 +366,16 @@ export const createMetadataSlice: StateCreator<
   },
 
   setWslEnabled: async (enabled: boolean) => {
-    const current = get().userMetadata?.settings ?? {};
-    const rawWsl = current.wsl;
-    const wsl: WslSettings = {
-      enabled: rawWsl?.enabled ?? false,
-      excludedDistros: rawWsl?.excludedDistros ?? [],
-    };
+    const wsl = getWsl();
     await get().updateUserSettings({ wsl: { ...wsl, enabled } });
   },
 
   toggleWslDistro: async (distroName: string) => {
-    const current = get().userMetadata?.settings ?? {};
-    const rawWsl = current.wsl;
-    const wsl: WslSettings = {
-      enabled: rawWsl?.enabled ?? false,
-      excludedDistros: rawWsl?.excludedDistros ?? [],
-    };
+    const wsl = getWsl();
     const excluded = wsl.excludedDistros.includes(distroName)
       ? wsl.excludedDistros.filter((d: string) => d !== distroName)
       : [...wsl.excludedDistros, distroName];
     await get().updateUserSettings({ wsl: { ...wsl, excludedDistros: excluded } });
-  },
-
-  clearMetadataError: () => {
-    set({ metadataError: null });
   },
 
   isSessionFavorite: (sessionId: string): boolean =>

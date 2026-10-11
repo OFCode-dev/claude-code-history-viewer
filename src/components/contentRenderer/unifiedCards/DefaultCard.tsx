@@ -36,7 +36,7 @@ export const DefaultCard = memo(function DefaultCard({
   return (
     <Renderer
       className={styles.container}
-      hasError={toolResults.length > 0 && toolResults.some(isError)}
+      hasError={toolResults.some(isError)}
       expandKey={`unified-${(toolUse.id as string) || ""}`}
       autoExpand={inputMatchesSearch}
     >
