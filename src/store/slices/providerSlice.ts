@@ -25,7 +25,6 @@ export interface ProviderSliceState {
 export interface ProviderSliceActions {
   /** Returns true when detection completed and false when the previous state was preserved. */
   detectProviders: () => Promise<boolean>;
-  toggleProvider: (id: ProviderId) => void;
   setActiveProviders: (ids: ProviderId[]) => void;
 }
 
@@ -77,17 +76,6 @@ export const createProviderSlice: StateCreator<
     } finally {
       set({ isDetectingProviders: false });
     }
-  },
-
-  toggleProvider: (id: ProviderId) => {
-    set((state) => {
-      const current = state.activeProviders;
-      const next = current.includes(id)
-        ? current.filter((p) => p !== id)
-        : [...current, id];
-      // Ensure at least one provider is active
-      return { activeProviders: next.length > 0 ? next : current };
-    });
   },
 
   setActiveProviders: (ids: ProviderId[]) => {

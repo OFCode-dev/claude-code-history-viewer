@@ -61,8 +61,6 @@ export interface ArchiveSliceActions {
   loadExpiringSessions: (projectPath: string, thresholdDays?: number) => Promise<void>;
   exportSession: (path: string, format: 'json') => Promise<string>;
   setArchiveActiveTab: (tab: ArchiveViewTab) => void;
-  clearArchiveError: () => void;
-  resetArchive: () => void;
 }
 
 export type ArchiveSlice = ArchiveSliceState & ArchiveSliceActions;
@@ -93,6 +91,9 @@ const initialArchiveState: ArchiveSliceState['archive'] = {
 
 const READ_ONLY_ERROR = "Server is running in read-only mode";
 
+const errMsg = (error: unknown): string =>
+  error instanceof Error ? error.message : String(error);
+
 // ============================================================================
 // Slice Creator
 // ============================================================================
@@ -106,6 +107,16 @@ export const createArchiveSlice: StateCreator<
   let archiveSessionsRequestId = 0;
   let expiringSessionsRequestId = 0;
 
+  const patch = (fields: Partial<ArchiveSliceState['archive']>) =>
+    set((s) => ({ archive: { ...s.archive, ...fields } }));
+
+  const assertWritable = () => {
+    if (get().isServerReadOnly) {
+      patch({ error: READ_ONLY_ERROR });
+      throw new Error(READ_ONLY_ERROR);
+    }
+  };
+
   return {
     archive: { ...initialArchiveState },
 
@@ -113,41 +124,35 @@ export const createArchiveSlice: StateCreator<
       if (get().archive.isLoadingArchives) {
         return;
       }
-      set((s) => ({ archive: { ...s.archive, isLoadingArchives: true, error: null } }));
+      patch({ isLoadingArchives: true, error: null });
       try {
         const manifest = await archiveApi.listArchives();
-        set((s) => ({ archive: { ...s.archive, manifest, isLoadingArchives: false } }));
+        patch({ manifest, isLoadingArchives: false });
       } catch (error) {
-        const msg = error instanceof Error ? error.message : String(error);
-        set((s) => ({ archive: { ...s.archive, isLoadingArchives: false, error: msg } }));
+        const msg = errMsg(error);
+        patch({ isLoadingArchives: false, error: msg });
       }
     },
 
     createArchive: async (params) => {
-      if (get().isServerReadOnly) {
-        set((s) => ({ archive: { ...s.archive, error: READ_ONLY_ERROR } }));
-        throw new Error(READ_ONLY_ERROR);
-      }
-      set((s) => ({ archive: { ...s.archive, isCreatingArchive: true, error: null } }));
+      assertWritable();
+      patch({ isCreatingArchive: true, error: null });
       try {
         const entry = await archiveApi.createArchive(params);
         // Reload manifest to get updated list
         const manifest = await archiveApi.listArchives();
-        set((s) => ({ archive: { ...s.archive, manifest, isCreatingArchive: false } }));
+        patch({ manifest, isCreatingArchive: false });
         return entry;
       } catch (error) {
-        const msg = error instanceof Error ? error.message : String(error);
-        set((s) => ({ archive: { ...s.archive, isCreatingArchive: false, error: msg } }));
+        const msg = errMsg(error);
+        patch({ isCreatingArchive: false, error: msg });
         throw error;
       }
     },
 
     deleteArchive: async (id) => {
-      if (get().isServerReadOnly) {
-        set((s) => ({ archive: { ...s.archive, error: READ_ONLY_ERROR } }));
-        throw new Error(READ_ONLY_ERROR);
-      }
-      set((s) => ({ archive: { ...s.archive, isDeletingArchive: true, error: null } }));
+      assertWritable();
+      patch({ isDeletingArchive: true, error: null });
       try {
         await archiveApi.deleteArchive(id);
         const manifest = await archiveApi.listArchives();
@@ -165,18 +170,15 @@ export const createArchiveSlice: StateCreator<
           },
         }));
       } catch (error) {
-        const msg = error instanceof Error ? error.message : String(error);
-        set((s) => ({ archive: { ...s.archive, isDeletingArchive: false, error: msg } }));
+        const msg = errMsg(error);
+        patch({ isDeletingArchive: false, error: msg });
         throw error;
       }
     },
 
     renameArchive: async (id, name) => {
-      if (get().isServerReadOnly) {
-        set((s) => ({ archive: { ...s.archive, error: READ_ONLY_ERROR } }));
-        throw new Error(READ_ONLY_ERROR);
-      }
-      set((s) => ({ archive: { ...s.archive, isRenamingArchive: true, error: null } }));
+      assertWritable();
+      patch({ isRenamingArchive: true, error: null });
       try {
         const newId = await archiveApi.renameArchive(id, name);
         const manifest = await archiveApi.listArchives();
@@ -190,8 +192,8 @@ export const createArchiveSlice: StateCreator<
         }));
         return newId;
       } catch (error) {
-        const msg = error instanceof Error ? error.message : String(error);
-        set((s) => ({ archive: { ...s.archive, isRenamingArchive: false, error: msg } }));
+        const msg = errMsg(error);
+        patch({ isRenamingArchive: false, error: msg });
         throw error;
       }
     },
@@ -226,7 +228,7 @@ export const createArchiveSlice: StateCreator<
           };
         });
       } catch (error) {
-        const msg = error instanceof Error ? error.message : String(error);
+        const msg = errMsg(error);
         set((s) => {
           if (
             requestId !== archiveSessionsRequestId ||
@@ -246,13 +248,13 @@ export const createArchiveSlice: StateCreator<
     },
 
     loadDiskUsage: async () => {
-      set((s) => ({ archive: { ...s.archive, isLoadingDiskUsage: true, error: null } }));
+      patch({ isLoadingDiskUsage: true, error: null });
       try {
         const diskUsage = await archiveApi.getDiskUsage();
-        set((s) => ({ archive: { ...s.archive, diskUsage, isLoadingDiskUsage: false } }));
+        patch({ diskUsage, isLoadingDiskUsage: false });
       } catch (error) {
-        const msg = error instanceof Error ? error.message : String(error);
-        set((s) => ({ archive: { ...s.archive, isLoadingDiskUsage: false, error: msg } }));
+        const msg = errMsg(error);
+        patch({ isLoadingDiskUsage: false, error: msg });
       }
     },
 
@@ -285,7 +287,7 @@ export const createArchiveSlice: StateCreator<
           };
         });
       } catch (error) {
-        const msg = error instanceof Error ? error.message : String(error);
+        const msg = errMsg(error);
         set((s) => {
           if (requestId !== expiringSessionsRequestId) {
             return s;
@@ -302,37 +304,20 @@ export const createArchiveSlice: StateCreator<
     },
 
     exportSession: async (path, format) => {
-      set((s) => ({ archive: { ...s.archive, isExporting: true, error: null } }));
+      patch({ isExporting: true, error: null });
       try {
         const result = await archiveApi.exportSession(path, format);
-        set((s) => ({ archive: { ...s.archive, isExporting: false } }));
+        patch({ isExporting: false });
         return result.content;
       } catch (error) {
-        const msg = error instanceof Error ? error.message : String(error);
-        set((s) => ({ archive: { ...s.archive, isExporting: false, error: msg } }));
+        const msg = errMsg(error);
+        patch({ isExporting: false, error: msg });
         throw error;
       }
     },
 
     setArchiveActiveTab: (tab) => {
-      set((s) => ({ archive: { ...s.archive, activeTab: tab } }));
-    },
-
-    clearArchiveError: () => {
-      set((s) => ({
-        archive: {
-          ...s.archive,
-          error: null,
-          currentArchiveSessionsError: null,
-          expiringError: null,
-        },
-      }));
-    },
-
-    resetArchive: () => {
-      archiveSessionsRequestId += 1;
-      expiringSessionsRequestId += 1;
-      set({ archive: { ...initialArchiveState } });
+      patch({ activeTab: tab });
     },
   };
 };

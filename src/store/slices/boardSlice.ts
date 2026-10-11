@@ -1,6 +1,7 @@
 import type { StateCreator } from "zustand";
 import { api } from "@/services/api";
 import type { FullAppStore } from "./types";
+import { readBool, writeStr } from "../persist";
 import type {
     BoardSessionData,
     BoardSessionStats,
@@ -53,14 +54,7 @@ const initialBoardState: BoardSliceState = {
     selectedMessageId: null,
     isMarkdownPretty: true, // Default to pretty printing
     boardLoadError: null,
-    isTimelineExpanded: (() => {
-        try {
-            const stored = localStorage.getItem(TIMELINE_STORAGE_KEY);
-            return stored === "true";
-        } catch {
-            return false;
-        }
-    })(),
+    isTimelineExpanded: readBool(TIMELINE_STORAGE_KEY, false),
 };
 
 /**
@@ -294,11 +288,7 @@ export const createBoardSlice: StateCreator<
 
     toggleTimeline: () => set((state) => {
         const next = !state.isTimelineExpanded;
-        try {
-            localStorage.setItem(TIMELINE_STORAGE_KEY, String(next));
-        } catch {
-            // localStorage write failure is non-critical
-        }
+        writeStr(TIMELINE_STORAGE_KEY, String(next));
         return { isTimelineExpanded: next };
     }),
 

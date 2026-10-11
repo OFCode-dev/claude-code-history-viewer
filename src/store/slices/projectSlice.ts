@@ -135,14 +135,6 @@ const lookUpSessionBeyondPage = async (
 // Helper
 // ============================================================================
 
-const isTauriAvailable = () => {
-  try {
-    return typeof window !== "undefined" && typeof api === "function";
-  } catch {
-    return false;
-  }
-};
-
 const projectTimestamp = (project: ClaudeProject): number | null => {
   const timestamp = Date.parse(project.last_modified);
   return Number.isNaN(timestamp) ? null : timestamp;
@@ -240,12 +232,6 @@ async function autoRegisterConfigDir(get: () => FullAppStore): Promise<void> {
     const detected = await api<string | null>("detect_claude_config_dir");
     if (!detected) return;
 
-    const normalize = (p: string) => p.replace(/[\\/]+$/, "");
-    const normalizedDetected = normalize(detected);
-    const existing = get().userMetadata?.settings?.customClaudePaths ?? [];
-    const alreadyRegistered = existing.some((cp) => normalize(cp.path) === normalizedDetected);
-    if (alreadyRegistered) return;
-
     await get().addCustomClaudePath(detected, "CLAUDE_CONFIG_DIR");
   } catch {
     if (import.meta.env.DEV) {
@@ -270,12 +256,6 @@ export const createProjectSlice: StateCreator<
     set({ isLoading: true, error: null });
     try {
       await get().loadServerConfig();
-
-      if (!isTauriAvailable()) {
-        throw new Error(
-          "Tauri API를 사용할 수 없습니다. 데스크톱 앱에서 실행해주세요."
-        );
-      }
 
       // Load metadata before resolving the Claude path so an explicit provider
       // discovery choice can restore non-Claude projects on startup without
@@ -360,8 +340,6 @@ export const createProjectSlice: StateCreator<
       } else if (errorMessage.includes("PERMISSION_DENIED:")) {
         errorType = AppErrorType.PERMISSION_DENIED;
         message = errorMessage.split(":")[1] || errorMessage;
-      } else if (errorMessage.includes("Tauri API")) {
-        errorType = AppErrorType.TAURI_NOT_AVAILABLE;
       }
 
       set({ error: { type: errorType, message } });

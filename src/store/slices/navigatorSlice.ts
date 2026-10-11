@@ -1,6 +1,7 @@
 import type { StateCreator } from "zustand";
 import type { FullAppStore } from "./types";
 import { recallReadingPosition, type ReadingPosition } from "../readingPositions";
+import { readBool, writeStr } from "../persist";
 
 /** Prompts: one row per human prompt. All: every non-noise record. */
 export type NavigatorMode = "prompts" | "all";
@@ -54,30 +55,23 @@ export const createNavigatorSlice: StateCreator<
     [],
     NavigatorSlice
 > = (set) => ({
-    isNavigatorOpen: (() => {
-        try {
-            const stored = localStorage.getItem(STORAGE_KEY);
-            return stored === null ? true : stored === "true";
-        } catch {
-            return true;
-        }
-    })(),
+    isNavigatorOpen: readBool(STORAGE_KEY, true),
     navigatorMode: readStoredMode(),
     pendingPositionRestore: null,
 
     toggleNavigator: () => set((state) => {
         const next = !state.isNavigatorOpen;
-        try { localStorage.setItem(STORAGE_KEY, String(next)); } catch { /* ignore */ }
+        writeStr(STORAGE_KEY, String(next));
         return { isNavigatorOpen: next };
     }),
 
     setNavigatorOpen: (open) => {
-        try { localStorage.setItem(STORAGE_KEY, String(open)); } catch { /* ignore */ }
+        writeStr(STORAGE_KEY, String(open));
         set({ isNavigatorOpen: open });
     },
 
     setNavigatorMode: (mode) => {
-        try { localStorage.setItem(MODE_STORAGE_KEY, mode); } catch { /* ignore */ }
+        writeStr(MODE_STORAGE_KEY, mode);
         set({ navigatorMode: mode });
     },
 

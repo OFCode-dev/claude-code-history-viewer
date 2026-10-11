@@ -173,6 +173,26 @@ const areMessagesEquivalent = (
   });
 };
 
+/**
+ * Run an optional (conversation-only) token-stats fetch. A failure degrades to
+ * `null` with a warning toast, and is swallowed silently once the request is stale.
+ */
+const optionalFetch = <T>(
+  enabled: boolean,
+  isStale: () => boolean,
+  logLabel: string,
+  toastMessage: string,
+  fetcher: () => Promise<T>
+): Promise<T | null> =>
+  enabled
+    ? fetcher().catch((error) => {
+        if (isStale()) return null;
+        console.warn(logLabel, error);
+        toast.warning(toastMessage);
+        return null;
+      })
+    : Promise.resolve(null);
+
 const initialMessageState: MessageSliceState = {
   messages: [],
   pagination: { ...INITIAL_PAGINATION },
@@ -686,25 +706,18 @@ export const createMessageSlice: StateCreator<
       const breakdown = canLoadConversationBreakdown();
       const [stats, conversationStatsRaw] = await Promise.all([
         fetchSessionTokenStats(sessionPath, "billing_total", dateOptions),
-        breakdown
-          ? fetchSessionTokenStats(
+        optionalFetch(
+          breakdown,
+          () => requestId !== getRequestId("sessionTokenStats"),
+          "Failed to load conversation-only session stats:",
+          "Conversation-only session stats could not be loaded. Showing billing totals only.",
+          () =>
+            fetchSessionTokenStats(
               sessionPath,
               "conversation_only",
               dateOptions
-            ).catch((error) => {
-              if (requestId !== getRequestId("sessionTokenStats")) {
-                return null;
-              }
-              console.warn(
-                "Failed to load conversation-only session stats:",
-                error
-              );
-              toast.warning(
-                "Conversation-only session stats could not be loaded. Showing billing totals only."
-              );
-              return null;
-            })
-          : Promise.resolve(null),
+            )
+        ),
       ]);
       const conversationStats = breakdown ? conversationStatsRaw : stats;
       if (requestId !== getRequestId("sessionTokenStats")) return;
@@ -754,26 +767,19 @@ export const createMessageSlice: StateCreator<
           ...dateOptions,
           stats_mode: "billing_total",
         }),
-        breakdown
-          ? fetchProjectTokenStats(projectPath, {
+        optionalFetch(
+          breakdown,
+          () => requestId !== getRequestId("projectTokenStats"),
+          "Failed to load conversation-only project token stats:",
+          "Conversation-only project stats could not be loaded. Showing billing totals only.",
+          () =>
+            fetchProjectTokenStats(projectPath, {
               offset: 0,
               limit: TOKENS_STATS_PAGE_SIZE,
               ...dateOptions,
               stats_mode: "conversation_only",
-            }).catch((error) => {
-              if (requestId !== getRequestId("projectTokenStats")) {
-                return null;
-              }
-              console.warn(
-                "Failed to load conversation-only project token stats:",
-                error
-              );
-              toast.warning(
-                "Conversation-only project stats could not be loaded. Showing billing totals only."
-              );
-              return null;
             })
-          : Promise.resolve(null),
+        ),
         fetchProjectStatsSummary(projectPath, {
           ...dateOptions,
           stats_mode: "billing_total",
@@ -790,24 +796,17 @@ export const createMessageSlice: StateCreator<
           );
           return null;
         }),
-        breakdown
-          ? fetchProjectStatsSummary(projectPath, {
+        optionalFetch(
+          breakdown,
+          () => requestId !== getRequestId("projectTokenStats"),
+          "Failed to load conversation-only project summary:",
+          "Conversation-only project summary could not be loaded. Showing billing totals only.",
+          () =>
+            fetchProjectStatsSummary(projectPath, {
               ...dateOptions,
               stats_mode: "conversation_only",
-            }).catch((error) => {
-              if (requestId !== getRequestId("projectTokenStats")) {
-                return null;
-              }
-              console.warn(
-                "Failed to load conversation-only project summary:",
-                error
-              );
-              toast.warning(
-                "Conversation-only project summary could not be loaded. Showing billing totals only."
-              );
-              return null;
             })
-          : Promise.resolve(null),
+        ),
       ]);
       const conversationResponse = breakdown
         ? conversationResponseRaw
@@ -876,26 +875,19 @@ export const createMessageSlice: StateCreator<
           ...dateOptions,
           stats_mode: "billing_total",
         }),
-        breakdown
-          ? fetchProjectTokenStats(projectPath, {
+        optionalFetch(
+          breakdown,
+          () => snapshotId !== getRequestId("projectTokenStats"),
+          "Failed to load conversation-only project stats page:",
+          "Conversation-only project stats could not be loaded. Showing billing totals only.",
+          () =>
+            fetchProjectTokenStats(projectPath, {
               offset: nextOffset,
               limit: TOKENS_STATS_PAGE_SIZE,
               ...dateOptions,
               stats_mode: "conversation_only",
-            }).catch((error) => {
-              if (snapshotId !== getRequestId("projectTokenStats")) {
-                return null;
-              }
-              console.warn(
-                "Failed to load conversation-only project stats page:",
-                error
-              );
-              toast.warning(
-                "Conversation-only project stats could not be loaded. Showing billing totals only."
-              );
-              return null;
             })
-          : Promise.resolve(null),
+        ),
       ]);
       const conversationResponse = breakdown
         ? conversationResponseRaw

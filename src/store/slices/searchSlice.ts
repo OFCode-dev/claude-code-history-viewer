@@ -4,10 +4,7 @@
  * Handles global search and session search (KakaoTalk-style navigation).
  */
 
-import { api } from "@/services/api";
 import { toast } from "sonner";
-import type { ClaudeMessage, SearchFilters } from "../../types";
-import { AppErrorType } from "../../types";
 import type { StateCreator } from "zustand";
 import { searchMessagesAsync, buildSearchIndex, isSearchIndexReady, linearSearchMessages } from "../../utils/searchIndex";
 import {
@@ -17,7 +14,6 @@ import {
   type FullAppStore,
   createEmptySearchState,
 } from "./types";
-import { getWslSearchableProviderIds, hasNonDefaultProvider } from "../../utils/providers";
 import { filterSearchMatches } from "../../components/MessageViewer/helpers/searchMatchVisibility";
 
 // ============================================================================
@@ -25,18 +21,11 @@ import { filterSearchMatches } from "../../components/MessageViewer/helpers/sear
 // ============================================================================
 
 export interface SearchSliceState {
-  // Global search
-  searchQuery: string;
-  searchResults: ClaudeMessage[];
-  searchFilters: SearchFilters;
   // Session search
   sessionSearch: SearchState;
 }
 
 export interface SearchSliceActions {
-  // Global search
-  searchMessages: (query: string, filters?: SearchFilters) => Promise<void>;
-  setSearchFilters: (filters: SearchFilters) => void;
   // Session search
   setSessionSearchQuery: (query: string) => Promise<void> | void;
   /**
@@ -58,18 +47,7 @@ export type SearchSlice = SearchSliceState & SearchSliceActions;
 // ============================================================================
 
 const initialSearchState: SearchSliceState = {
-  searchQuery: "",
-  searchResults: [],
-  searchFilters: {},
-  sessionSearch: {
-    query: "",
-    matches: [],
-    currentMatchIndex: -1,
-    isSearching: false,
-    filterType: "content" as SearchFilterType,
-    hiddenMatchCount: 0,
-    results: [],
-  },
+  sessionSearch: createEmptySearchState("content"),
 };
 
 /**
@@ -177,18 +155,11 @@ export const createSearchSlice: StateCreator<
       if (!isStillLatest()) return;
 
       // Convert to SearchMatch format (filter valid indices)
-      const allMatches: SearchMatch[] = searchResults
-        .filter(
-          (result) =>
-            result.messageIndex >= 0 &&
-            result.messageIndex < searchableMessages.length
-        )
-        .map((result) => ({
-          messageUuid: result.messageUuid,
-          messageIndex: result.messageIndex,
-          matchIndex: result.matchIndex,
-          matchCount: result.matchCount,
-        }));
+      const allMatches: SearchMatch[] = searchResults.filter(
+        (result) =>
+          result.messageIndex >= 0 &&
+          result.messageIndex < searchableMessages.length
+      );
 
       // Matches in records the display filter hides cannot be navigated to;
       // keep them out of the list and report how many there are.
@@ -210,9 +181,6 @@ export const createSearchSlice: StateCreator<
           isSearching: false,
           filterType: state.sessionSearch.filterType,
           hiddenMatchCount,
-          results: matches
-            .map((m) => searchableMessages[m.messageIndex])
-            .filter((m): m is ClaudeMessage => m !== undefined),
         },
       }));
     } catch (error) {
@@ -230,7 +198,6 @@ export const createSearchSlice: StateCreator<
           isSearching: false,
           filterType: state.sessionSearch.filterType,
           hiddenMatchCount: 0,
-          results: [],
         },
       }));
     }
@@ -238,52 +205,6 @@ export const createSearchSlice: StateCreator<
 
   return {
   ...initialSearchState,
-
-  // Global search
-  searchMessages: async (query: string, filters: SearchFilters = {}) => {
-    const { claudePath, activeProviders } = get();
-    const hasNonClaudeProviders = hasNonDefaultProvider(activeProviders);
-    const customClaudePaths = get().userMetadata?.settings?.customClaudePaths;
-    const hasCustomPaths = customClaudePaths != null && customClaudePaths.length > 0;
-    const settings = get().userMetadata?.settings;
-    const wslEnabled = settings?.wsl?.enabled ?? false;
-    const hasAlternativeSource = hasNonClaudeProviders || hasCustomPaths || wslEnabled;
-    const nativeClaudePath = claudePath || undefined;
-    const wslProviders = wslEnabled ? getWslSearchableProviderIds(activeProviders) : undefined;
-
-    if (!query.trim() || (!claudePath && !hasAlternativeSource)) {
-      set({ searchResults: [], searchQuery: "" });
-      return;
-    }
-
-    set({ searchQuery: query });
-    try {
-      const results = (hasNonClaudeProviders || hasCustomPaths || wslEnabled)
-        ? await api<ClaudeMessage[]>("search_all_providers", {
-            claudePath: nativeClaudePath,
-            query,
-            activeProviders,
-            filters,
-            customClaudePaths: hasCustomPaths ? customClaudePaths : undefined,
-            wslEnabled,
-            wslProviders,
-            wslExcludedDistros: settings?.wsl?.excludedDistros ?? [],
-          })
-        : await api<ClaudeMessage[]>("search_messages", {
-            claudePath: nativeClaudePath,
-            query,
-            filters,
-          });
-      set({ searchResults: results });
-    } catch (error) {
-      console.error("Failed to search messages:", error);
-      get().setError({ type: AppErrorType.UNKNOWN, message: String(error) });
-    }
-  },
-
-  setSearchFilters: (filters: SearchFilters) => {
-    set({ searchFilters: filters });
-  },
 
   // Session search (KakaoTalk-style navigation)
   setSessionSearchQuery: (query: string) => runSessionSearch(query, null),

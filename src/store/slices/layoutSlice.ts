@@ -1,5 +1,6 @@
 import type { StateCreator } from "zustand";
 import type { FullAppStore } from "./types";
+import { readBool, writeStr } from "../persist";
 
 /** A short message for the app's polite live region. */
 export interface LayoutAnnouncement {
@@ -55,22 +56,6 @@ export const OBSOLETE_LAYOUT_KEYS: readonly string[] = [
   "reading-mode-hint-seen",
 ];
 
-function readFlag(key: string): boolean {
-  try {
-    return localStorage.getItem(key) === "true";
-  } catch {
-    return false;
-  }
-}
-
-function writeFlag(key: string, value: boolean): void {
-  try {
-    localStorage.setItem(key, String(value));
-  } catch {
-    /* storage unavailable: the flag simply does not survive a reload */
-  }
-}
-
 function forgetObsoleteLayoutKeys(): void {
   for (const key of OBSOLETE_LAYOUT_KEYS) {
     try {
@@ -108,17 +93,17 @@ export const createLayoutSlice: StateCreator<
   forgetObsoleteLayoutKeys();
 
   const setExplorerCollapsed = (collapsed: boolean) => {
-    writeFlag(EXPLORER_COLLAPSED_KEY, collapsed);
+    writeStr(EXPLORER_COLLAPSED_KEY, String(collapsed));
     set({ isExplorerCollapsed: collapsed });
   };
 
   const setSessionsPaneCollapsed = (collapsed: boolean) => {
-    writeFlag(SESSIONS_PANE_COLLAPSED_KEY, collapsed);
+    writeStr(SESSIONS_PANE_COLLAPSED_KEY, String(collapsed));
     set({ isSessionsPaneCollapsed: collapsed });
   };
 
   const setConversationToolsCollapsed = (collapsed: boolean) => {
-    writeFlag(CONVERSATION_TOOLS_COLLAPSED_KEY, collapsed);
+    writeStr(CONVERSATION_TOOLS_COLLAPSED_KEY, String(collapsed));
     set({ isConversationToolsCollapsed: collapsed });
   };
 
@@ -132,9 +117,9 @@ export const createLayoutSlice: StateCreator<
   let announcementId = 0;
 
   return {
-    isExplorerCollapsed: readFlag(EXPLORER_COLLAPSED_KEY),
-    isSessionsPaneCollapsed: readFlag(SESSIONS_PANE_COLLAPSED_KEY),
-    isConversationToolsCollapsed: readFlag(CONVERSATION_TOOLS_COLLAPSED_KEY),
+    isExplorerCollapsed: readBool(EXPLORER_COLLAPSED_KEY, false),
+    isSessionsPaneCollapsed: readBool(SESSIONS_PANE_COLLAPSED_KEY, false),
+    isConversationToolsCollapsed: readBool(CONVERSATION_TOOLS_COLLAPSED_KEY, false),
     layoutAnnouncement: null,
 
     setExplorerCollapsed,

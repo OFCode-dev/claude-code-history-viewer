@@ -123,7 +123,6 @@ export interface FilterSliceState {
 export interface FilterSliceActions {
     setDateFilter: (filter: DateFilter) => void;
     clearDateFilter: () => void;
-    setShowParallelTasksInNavigator: (enabled: boolean) => void;
     toggleShowParallelTasksInNavigator: () => void;
     toggleRole: (role: keyof MessageFilterRoles) => void;
     toggleContentType: (contentType: keyof MessageFilterContentTypes) => void;
@@ -159,10 +158,6 @@ export const createFilterSlice: StateCreator<
 
     clearDateFilter: () => {
         set({ dateFilter: { start: null, end: null } });
-    },
-
-    setShowParallelTasksInNavigator: (enabled) => {
-        set({ showParallelTasksInNavigator: enabled });
     },
 
     toggleShowParallelTasksInNavigator: () => {

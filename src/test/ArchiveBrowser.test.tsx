@@ -82,7 +82,6 @@ const { mockArchiveApi, mockStore } = vi.hoisted(() => ({
     renameArchive: vi.fn(async () => "archive-1"),
     loadArchiveSessions: vi.fn(async () => {}),
     loadDiskUsage: vi.fn(async () => {}),
-    clearArchiveError: vi.fn(),
     exportSession: vi.fn(async () => "{}"),
   },
 }));

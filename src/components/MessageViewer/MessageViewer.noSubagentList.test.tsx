@@ -64,7 +64,6 @@ const sessionSearch: SearchState = {
   isSearching: false,
   filterType: "content",
   hiddenMatchCount: 0,
-  results: [],
 };
 
 function setStoreState() {

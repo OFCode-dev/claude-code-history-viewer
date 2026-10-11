@@ -1,5 +1,6 @@
 import type { StateCreator } from "zustand";
 import type { FullAppStore } from "./types";
+import { readBool, writeStr } from "../persist";
 import type { RecentFileEdit } from "../../types";
 import { fetchRecentEdits } from "../../services/analyticsApi";
 
@@ -53,23 +54,6 @@ const readEnum = <T extends string>(
     return allowed.includes(stored as T) ? (stored as T) : fallback;
   } catch {
     return fallback;
-  }
-};
-
-const readBool = (key: string, fallback: boolean): boolean => {
-  try {
-    const stored = localStorage.getItem(key);
-    return stored === null ? fallback : stored === "true";
-  } catch {
-    return fallback;
-  }
-};
-
-const write = (key: string, value: string): void => {
-  try {
-    localStorage.setItem(key, value);
-  } catch {
-    // Persistence is best-effort; ignore quota/availability failures.
   }
 };
 
@@ -290,49 +274,49 @@ export const createRecentEditsPanelSlice: StateCreator<
   ...initialRecentEditsPanelState(),
 
   setRecentEditsMode: (mode) => {
-    write(STORAGE_KEYS.mode, mode);
+    writeStr(STORAGE_KEYS.mode, mode);
     set({ recentEditsMode: mode });
   },
 
   setRecentEditsDensity: (mode, density) => {
     if (mode === "docked") {
-      write(STORAGE_KEYS.densityDock, density);
+      writeStr(STORAGE_KEYS.densityDock, density);
       set({ recentEditsDensityDock: density });
       return;
     }
-    write(STORAGE_KEYS.densityPage, density);
+    writeStr(STORAGE_KEYS.densityPage, density);
     set({ recentEditsDensityPage: density });
   },
 
   setRecentEditsScope: (scope) => {
-    write(STORAGE_KEYS.scope, scope);
+    writeStr(STORAGE_KEYS.scope, scope);
     set({ recentEditsScope: scope });
   },
 
   setRecentEditsGrouping: (scope, grouping) => {
     if (scope === "session") {
-      write(STORAGE_KEYS.groupingSession, grouping);
+      writeStr(STORAGE_KEYS.groupingSession, grouping);
       set({ recentEditsGroupingSession: grouping });
       return;
     }
-    write(STORAGE_KEYS.groupingProject, grouping);
+    writeStr(STORAGE_KEYS.groupingProject, grouping);
     set({ recentEditsGroupingProject: grouping });
   },
 
   setRecentEditsMissingOnly: (missingOnly) => {
-    write(STORAGE_KEYS.missingOnly, String(missingOnly));
+    writeStr(STORAGE_KEYS.missingOnly, String(missingOnly));
     set({ recentEditsMissingOnly: missingOnly });
   },
 
   setRecentEditsDockOpen: (open) => {
-    write(STORAGE_KEYS.dockOpen, String(open));
+    writeStr(STORAGE_KEYS.dockOpen, String(open));
     set({ isRecentEditsDockOpen: open });
   },
 
   toggleRecentEditsDock: () =>
     set((state) => {
       const next = !state.isRecentEditsDockOpen;
-      write(STORAGE_KEYS.dockOpen, String(next));
+      writeStr(STORAGE_KEYS.dockOpen, String(next));
       return { isRecentEditsDockOpen: next };
     }),
 
