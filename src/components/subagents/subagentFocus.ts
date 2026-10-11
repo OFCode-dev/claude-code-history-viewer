@@ -9,9 +9,6 @@
 import type { SubagentSession } from "@/types";
 import { isFocusLost } from "@/utils/focus";
 
-// One implementation, shared with the "Back" focus handling.
-export { isFocusLost };
-
 /** Attribute on the context bar's "Back" button, the landing spot after entering a subagent. */
 export const SUBAGENT_BACK_ATTR = "data-subagent-back";
 

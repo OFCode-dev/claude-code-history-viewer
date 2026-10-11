@@ -238,68 +238,6 @@ export const layout = {
 } as const;
 
 /**
- * Composite layout classes for common patterns
- */
-export const layoutComposite = {
-  /** Standard renderer container */
-  container: `${layout.rounded} ${layout.containerPadding} border`,
-  /** Header row with icon and title */
-  headerRow: `flex items-center ${layout.iconSpacing} mb-2`,
-  /** Collapsible header button */
-  headerButton: `w-full flex items-center justify-between ${layout.headerPadding} text-left hover:bg-muted/50 transition-colors`,
-  /** Content area inside renderer */
-  contentArea: layout.contentPadding,
-  /** Code/pre block */
-  codeBlock: `${layout.smallText} ${layout.rounded} p-2 overflow-x-auto whitespace-pre-wrap ${layout.codeMaxHeight} font-mono`,
-  /** Scrollable command display (single-line) */
-  commandBlock: `${layout.smallText} ${layout.rounded} p-2 overflow-x-auto whitespace-pre ${layout.codeMaxHeight} font-mono`,
-  /** Badge/tag */
-  badge: `${layout.smallText} px-1.5 py-0.5 ${layout.rounded} font-mono`,
-} as const;
-
-/**
- * Common component styles
- */
-export const commonStyles = {
-  /** Code block container */
-  codeBlock: "rounded overflow-x-auto max-h-96 overflow-y-auto",
-
-  /** Code block header */
-  codeBlockHeader:
-    "flex justify-between items-center px-3 py-1 bg-secondary border-b border-border text-sm",
-
-  /** Inline code */
-  inlineCode: "text-xs px-2 py-1 rounded font-mono",
-
-  /** File path display */
-  filePath: "font-mono text-sm",
-
-  /** Section divider */
-  divider: "border-t border-border my-3",
-
-  /** Metadata row */
-  metaRow: "flex items-center space-x-2 text-xs text-muted-foreground",
-
-  /** Scrollable container */
-  scrollable: "max-h-96 overflow-y-auto",
-
-  /** Card-like container */
-  card: "p-3 rounded-lg border bg-card border-border",
-
-  /** Muted text */
-  muted: "text-muted-foreground",
-
-  /** Small text */
-  small: "text-xs",
-
-  /** Icon with text */
-  iconText: "flex items-center gap-2",
-
-  /** Badge */
-  badge: "px-2 py-0.5 rounded text-xs font-medium",
-} as const;
-
-/**
  * Prism theme configuration (shared across all code renderers)
  */
 export const codeTheme = {

@@ -2,7 +2,7 @@
  * Unified Loading Components
  *
  * A comprehensive set of loading UI components for consistent UX across the app.
- * Includes spinners, overlays, progress indicators, and state wrappers.
+ * Includes spinners, progress indicators, and state wrappers.
  */
 
 import * as React from "react";
@@ -162,85 +162,6 @@ const LoadingProgress = React.forwardRef<HTMLDivElement, LoadingProgressProps>(
   }
 );
 LoadingProgress.displayName = "LoadingProgress";
-
-// ============================================
-// LOADING OVERLAY
-// ============================================
-
-interface LoadingOverlayProps extends React.HTMLAttributes<HTMLDivElement> {
-  /** Loading state */
-  isLoading: boolean;
-  /** Overlay opacity */
-  opacity?: "light" | "medium" | "heavy";
-  /** Spinner size */
-  spinnerSize?: SpinnerSize;
-  /** Use sparkle variant */
-  withSparkle?: boolean;
-  /** Loading message */
-  message?: string;
-  /** Sub message */
-  subMessage?: string;
-  /** Show blur effect */
-  blur?: boolean;
-}
-
-const overlayOpacity: Record<string, string> = {
-  light: "bg-background/60",
-  medium: "bg-background/80",
-  heavy: "bg-background/95",
-};
-
-const LoadingOverlay = React.forwardRef<HTMLDivElement, LoadingOverlayProps>(
-  (
-    {
-      className,
-      children,
-      isLoading,
-      opacity = "medium",
-      spinnerSize = "lg",
-      withSparkle = true,
-      message,
-      subMessage,
-      blur = true,
-      ...props
-    },
-    ref
-  ) => {
-    return (
-      <div ref={ref} className={cn("relative", className)} {...props}>
-        {children}
-        {isLoading && (
-          <div
-            className={cn(
-              "absolute inset-0 z-50 flex items-center justify-center transition-all duration-300",
-              overlayOpacity[opacity],
-              blur && "backdrop-blur-sm"
-            )}
-          >
-            <div className="text-center space-y-3">
-              <LoadingSpinner
-                size={spinnerSize}
-                variant="accent"
-                withSparkle={withSparkle}
-              />
-              {message && (
-                <div>
-                  <p className="text-sm font-semibold text-foreground">{message}</p>
-                  {subMessage && (
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {subMessage}
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  }
-);
-LoadingOverlay.displayName = "LoadingOverlay";
 
 // ============================================
 // LOADING STATE WRAPPER
@@ -453,106 +374,13 @@ const LoadingState = React.forwardRef<HTMLDivElement, LoadingStateProps>(
 );
 LoadingState.displayName = "LoadingState";
 
-// ============================================
-// LOADING DOTS (Alternative spinner style)
-// ============================================
-
-interface LoadingDotsProps extends React.HTMLAttributes<HTMLDivElement> {
-  /** Size variant */
-  size?: "sm" | "md" | "lg";
-  /** Color variant */
-  variant?: SpinnerVariant;
-}
-
-const dotSizes: Record<string, string> = {
-  sm: "w-1 h-1",
-  md: "w-1.5 h-1.5",
-  lg: "w-2 h-2",
-};
-
-const dotGaps: Record<string, string> = {
-  sm: "gap-0.5",
-  md: "gap-1",
-  lg: "gap-1.5",
-};
-
-const LoadingDots = React.forwardRef<HTMLDivElement, LoadingDotsProps>(
-  ({ className, size = "md", variant = "accent", ...props }, ref) => {
-    const colorClass = spinnerVariants[variant];
-
-    return (
-      <div
-        ref={ref}
-        className={cn("flex items-center", dotGaps[size], className)}
-        {...props}
-      >
-        {[0, 1, 2].map((i) => (
-          <div
-            key={i}
-            className={cn(
-              "rounded-full animate-pulse",
-              dotSizes[size],
-              colorClass.replace("text-", "bg-")
-            )}
-            style={{
-              animationDelay: `${i * 150}ms`,
-              animationDuration: "1s",
-            }}
-          />
-        ))}
-      </div>
-    );
-  }
-);
-LoadingDots.displayName = "LoadingDots";
-
-// ============================================
-// LOADING BUTTON CONTENT
-// ============================================
-
-interface LoadingButtonContentProps {
-  /** Loading state */
-  isLoading: boolean;
-  /** Default content */
-  children: React.ReactNode;
-  /** Loading text (optional, shows spinner only if not provided) */
-  loadingText?: string;
-  /** Spinner size */
-  spinnerSize?: SpinnerSize;
-}
-
-const LoadingButtonContent: React.FC<LoadingButtonContentProps> = ({
-  isLoading,
-  children,
-  loadingText,
-  spinnerSize = "sm",
-}) => {
-  if (isLoading) {
-    return (
-      <span className="flex items-center gap-2">
-        <LoadingSpinner size={spinnerSize} variant="default" />
-        {loadingText && <span>{loadingText}</span>}
-      </span>
-    );
-  }
-
-  return <>{children}</>;
-};
-LoadingButtonContent.displayName = "LoadingButtonContent";
-
 export {
   LoadingSpinner,
   LoadingProgress,
-  LoadingOverlay,
   LoadingState,
-  LoadingDots,
-  LoadingButtonContent,
   type LoadingSpinnerProps,
   type LoadingProgressProps,
-  type LoadingOverlayProps,
   type LoadingStateProps,
-  type LoadingDotsProps,
-  type LoadingButtonContentProps,
   type SpinnerSize,
   type SpinnerVariant,
 };

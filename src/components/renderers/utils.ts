@@ -257,21 +257,6 @@ export function parseFilePath(filePath: string): {
 }
 
 /**
- * Truncate text with ellipsis
- */
-export function truncate(text: string, maxLength: number): string {
-  if (text.length <= maxLength) return text;
-  return text.substring(0, maxLength - 3) + "...";
-}
-
-/**
- * Format line count
- */
-export function formatLineCount(count: number): string {
-  return count === 1 ? "1 line" : `${count.toLocaleString()} lines`;
-}
-
-/**
  * Safely stringify unknown values for display
  */
 export function safeStringify(value: unknown, pretty = true): string {
@@ -280,18 +265,4 @@ export function safeStringify(value: unknown, pretty = true): string {
   } catch {
     return String(value);
   }
-}
-
-/**
- * Check if value is a plain object
- */
-export function isPlainObject(
-  value: unknown
-): value is Record<string, unknown> {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    !Array.isArray(value) &&
-    Object.prototype.toString.call(value) === "[object Object]"
-  );
 }
