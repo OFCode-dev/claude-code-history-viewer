@@ -217,6 +217,9 @@ export interface AppStoreState {
   revealed: import("./layoutSlice").RevealedPanel | null;
   layoutAnnouncement: import("./layoutSlice").LayoutAnnouncement | null;
 
+  // Minimap state
+  isMinimapOpen: boolean;
+
   // Recent Edits panel state
   recentEditsMode: import('./recentEditsPanelSlice').RecentEditsMode;
   recentEditsDensityPage: import('./recentEditsPanelSlice').RecentEditsDensity;
@@ -455,6 +458,10 @@ export interface AppStoreActions {
   setHoverReveal: (value: import("./layoutSlice").HoverRevealSetting) => void;
   announceLayout: (text: string) => void;
   clearLayoutAnnouncement: (id: number) => void;
+
+  // Minimap actions
+  toggleMinimap: () => void;
+  setMinimapOpen: (open: boolean) => void;
 
   // Recent Edits panel actions
   setRecentEditsMode: (mode: import('./recentEditsPanelSlice').RecentEditsMode) => void;

@@ -100,6 +100,8 @@ const TOKEN_UNSUPPORTED_MODEL_PATTERNS = [
   /^gemini-2\.5-flash-(?:native-audio|image)(?:-|$)/,
   /^gemini-.*-(?:tts|native-audio|audio|live|image|image-generation|video-generation)(?:-|$)/,
   /^gemini-omni-flash(?:-|$)/,
+  // Image generation; image output tokens bill differently from text output.
+  /^gemini-nano-banana(?:-|$)/,
   /^gemini-(?:3\.5-live-translate|3\.1-flash-live)(?:-|$)/,
   /^gpt-(?:4o(?:-mini)?|4\.1(?:-mini)?)-(?:audio|realtime|tts|transcribe|search-preview)(?:-|$)/,
   /^gpt-(?:realtime|image)(?:-|$)/,
@@ -112,11 +114,14 @@ const SOURCE_COST_ONLY_PROVIDER_IDS = new Set([
   "copilot",
   "cursor",
   "cursor-agent",
+  "kilo",
   "opencode",
 ]);
 
+// A bracketed suffix is a client-side context marker (Claude Code reports
+// `claude-opus-5-5[1m]`), not part of the billed model id.
 const normalizeModelName = (modelName: string): string =>
-  modelName.trim().toLowerCase().replace(/^models\//, "");
+  modelName.trim().toLowerCase().replace(/^models\//, "").replace(/\[[^\]]*\]$/, "");
 
 const matchesModelKey = (normalizedModelName: string, key: string): boolean => {
   // Gate on the final provider/model path segment so `openai/gpt-4.1-*` and

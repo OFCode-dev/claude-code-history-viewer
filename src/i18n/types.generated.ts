@@ -5,8 +5,8 @@
  * 직접 수정하지 마세요.
  *
  * 생성 명령: pnpm run generate:i18n-types
- * 생성 시간: 2026-10-10T12:24:18.125Z
- * 총 키 개수: 2117
+ * 생성 시간: 2026-10-11T04:39:44.172Z
+ * 총 키 개수: 2145
  * Namespace 수: 11
  */
 
@@ -40,7 +40,7 @@ export type I18nNamespace =
   | 'recentEdits';
 
 /**
- * common namespace의 번역 키 (238개)
+ * common namespace의 번역 키 (242개)
  * 파일: locales/{lang}/common.json
  */
 export type CommonKeys =
@@ -139,6 +139,7 @@ export type CommonKeys =
   | 'common.provider.gemini'
   | 'common.provider.goose'
   | 'common.provider.grok'
+  | 'common.provider.kilo'
   | 'common.provider.kimi'
   | 'common.provider.kiro'
   | 'common.provider.llm'
@@ -156,6 +157,7 @@ export type CommonKeys =
   | 'common.provider.zed'
   | 'common.refresh'
   | 'common.remove'
+  | 'common.reset'
   | 'common.restartApp'
   | 'common.retry'
   | 'common.save'
@@ -191,6 +193,8 @@ export type CommonKeys =
   | 'common.settings.title'
   | 'common.settings.tools'
   | 'common.settings.updateSettings'
+  | 'common.settings.view.showMinimap'
+  | 'common.settings.view.title'
   | 'common.show'
   | 'common.time.daysAgo_one'
   | 'common.time.daysAgo_other'
@@ -478,7 +482,7 @@ export type AnalyticsKeys =
   | 'analytics.weeklyActivity';
 
 /**
- * session namespace의 번역 키 (311개)
+ * session namespace의 번역 키 (315개)
  * 파일: locales/{lang}/session.json
  */
 export type SessionKeys =
@@ -618,6 +622,7 @@ export type SessionKeys =
   | 'session.deleteSession'
   | 'session.deleteSuccess'
   | 'session.deleteTitle'
+  | 'session.editCustomArguments'
   | 'session.export.button'
   | 'session.export.error'
   | 'session.export.exporting'
@@ -753,6 +758,8 @@ export type SessionKeys =
   | 'session.selection.partialNotice'
   | 'session.selection.resume'
   | 'session.selection.resumeConfirmButton'
+  | 'session.selection.resumeDangerousTitle'
+  | 'session.selection.resumeDangerousWarning'
   | 'session.selection.resumeDescription'
   | 'session.selection.resumeError'
   | 'session.selection.resumeMore'
@@ -767,6 +774,7 @@ export type SessionKeys =
   | 'session.summaryNotFound'
   | 'session.syncError'
   | 'session.title'
+  | 'session.withCustomArguments'
   | 'sessionPicker.cancelled'
   | 'sessionPicker.empty'
   | 'sessionPicker.subtitle'
@@ -795,7 +803,7 @@ export type SessionKeys =
   | 'subagent.workflowGroup';
 
 /**
- * settings namespace의 번역 키 (537개)
+ * settings namespace의 번역 키 (552개)
  * 파일: locales/{lang}/settings.json
  */
 export type SettingsKeys =
@@ -834,6 +842,21 @@ export type SettingsKeys =
   | 'settings.customDirectories.pathPlaceholder'
   | 'settings.customDirectories.remove'
   | 'settings.customDirectories.removeConfirm'
+  | 'settings.customDirectories.serverManaged'
+  | 'settings.sessionResume.description'
+  | 'settings.sessionResume.errorInvalid'
+  | 'settings.sessionResume.errorInvalidCharacters'
+  | 'settings.sessionResume.errorMaxTokens'
+  | 'settings.sessionResume.errorMetacharacters'
+  | 'settings.sessionResume.errorTokenTooLong'
+  | 'settings.sessionResume.livePreview'
+  | 'settings.sessionResume.noProviders'
+  | 'settings.sessionResume.placeholder'
+  | 'settings.sessionResume.resetSuccess'
+  | 'settings.sessionResume.saveFailed'
+  | 'settings.sessionResume.saved'
+  | 'settings.sessionResume.title'
+  | 'settings.sessionResume.warningDangerous'
   | 'settings.wsl.defaultBadge'
   | 'settings.wsl.description'
   | 'settings.wsl.detectError'
@@ -1457,7 +1480,7 @@ export type ErrorKeys =
   | 'error.viewDetails';
 
 /**
- * message namespace의 번역 키 (171개)
+ * message namespace의 번역 키 (176개)
  * 파일: locales/{lang}/message.json
  */
 export type MessageKeys =
@@ -1568,6 +1591,14 @@ export type MessageKeys =
   | 'navigator.emptyPrompt'
   | 'navigator.filter'
   | 'navigator.filterPrompts'
+  | 'navigator.kind.agentUpdate'
+  | 'navigator.kind.command'
+  | 'navigator.kind.context'
+  | 'navigator.kind.prompt'
+  | 'navigator.kind.reply'
+  | 'navigator.kind.summary'
+  | 'navigator.kind.system'
+  | 'navigator.kind.tool'
   | 'navigator.loadEarlier'
   | 'navigator.messageCount'
   | 'navigator.mode.all'
@@ -1587,11 +1618,8 @@ export type MessageKeys =
   | 'navigator.promptBar.you'
   | 'navigator.promptCount_one'
   | 'navigator.promptCount_other'
+  | 'navigator.promptJumpHint'
   | 'navigator.promptsHidden'
-  | 'navigator.role.assistant'
-  | 'navigator.role.summary'
-  | 'navigator.role.system'
-  | 'navigator.role.user'
   | 'navigator.seek.announce'
   | 'navigator.seek.announceNoTime'
   | 'navigator.seek.first'
@@ -2630,6 +2658,7 @@ export type TranslationKey =
   | 'common.provider.gemini'
   | 'common.provider.goose'
   | 'common.provider.grok'
+  | 'common.provider.kilo'
   | 'common.provider.kimi'
   | 'common.provider.kiro'
   | 'common.provider.llm'
@@ -2647,6 +2676,7 @@ export type TranslationKey =
   | 'common.provider.zed'
   | 'common.refresh'
   | 'common.remove'
+  | 'common.reset'
   | 'common.restartApp'
   | 'common.retry'
   | 'common.save'
@@ -2682,6 +2712,8 @@ export type TranslationKey =
   | 'common.settings.title'
   | 'common.settings.tools'
   | 'common.settings.updateSettings'
+  | 'common.settings.view.showMinimap'
+  | 'common.settings.view.title'
   | 'common.show'
   | 'common.time.daysAgo_one'
   | 'common.time.daysAgo_other'
@@ -3031,6 +3063,14 @@ export type TranslationKey =
   | 'navigator.emptyPrompt'
   | 'navigator.filter'
   | 'navigator.filterPrompts'
+  | 'navigator.kind.agentUpdate'
+  | 'navigator.kind.command'
+  | 'navigator.kind.context'
+  | 'navigator.kind.prompt'
+  | 'navigator.kind.reply'
+  | 'navigator.kind.summary'
+  | 'navigator.kind.system'
+  | 'navigator.kind.tool'
   | 'navigator.loadEarlier'
   | 'navigator.messageCount'
   | 'navigator.mode.all'
@@ -3050,11 +3090,8 @@ export type TranslationKey =
   | 'navigator.promptBar.you'
   | 'navigator.promptCount_one'
   | 'navigator.promptCount_other'
+  | 'navigator.promptJumpHint'
   | 'navigator.promptsHidden'
-  | 'navigator.role.assistant'
-  | 'navigator.role.summary'
-  | 'navigator.role.system'
-  | 'navigator.role.user'
   | 'navigator.seek.announce'
   | 'navigator.seek.announceNoTime'
   | 'navigator.seek.first'
@@ -3388,6 +3425,7 @@ export type TranslationKey =
   | 'session.deleteSession'
   | 'session.deleteSuccess'
   | 'session.deleteTitle'
+  | 'session.editCustomArguments'
   | 'session.export.button'
   | 'session.export.error'
   | 'session.export.exporting'
@@ -3523,6 +3561,8 @@ export type TranslationKey =
   | 'session.selection.partialNotice'
   | 'session.selection.resume'
   | 'session.selection.resumeConfirmButton'
+  | 'session.selection.resumeDangerousTitle'
+  | 'session.selection.resumeDangerousWarning'
   | 'session.selection.resumeDescription'
   | 'session.selection.resumeError'
   | 'session.selection.resumeMore'
@@ -3537,6 +3577,7 @@ export type TranslationKey =
   | 'session.summaryNotFound'
   | 'session.syncError'
   | 'session.title'
+  | 'session.withCustomArguments'
   | 'sessionPicker.cancelled'
   | 'sessionPicker.empty'
   | 'sessionPicker.subtitle'
@@ -3558,6 +3599,21 @@ export type TranslationKey =
   | 'settings.customDirectories.pathPlaceholder'
   | 'settings.customDirectories.remove'
   | 'settings.customDirectories.removeConfirm'
+  | 'settings.customDirectories.serverManaged'
+  | 'settings.sessionResume.description'
+  | 'settings.sessionResume.errorInvalid'
+  | 'settings.sessionResume.errorInvalidCharacters'
+  | 'settings.sessionResume.errorMaxTokens'
+  | 'settings.sessionResume.errorMetacharacters'
+  | 'settings.sessionResume.errorTokenTooLong'
+  | 'settings.sessionResume.livePreview'
+  | 'settings.sessionResume.noProviders'
+  | 'settings.sessionResume.placeholder'
+  | 'settings.sessionResume.resetSuccess'
+  | 'settings.sessionResume.saveFailed'
+  | 'settings.sessionResume.saved'
+  | 'settings.sessionResume.title'
+  | 'settings.sessionResume.warningDangerous'
   | 'settings.wsl.defaultBadge'
   | 'settings.wsl.description'
   | 'settings.wsl.detectError'

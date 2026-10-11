@@ -64,6 +64,10 @@ import {
   migrateLegacyFocusMode,
 } from "./slices/layoutSlice";
 import {
+  type MinimapSlice,
+  createMinimapSlice,
+} from "./slices/minimapSlice";
+import {
   type RecentEditsPanelSlice,
   createRecentEditsPanelSlice,
 } from "./slices/recentEditsPanelSlice";
@@ -113,6 +117,7 @@ export type AppStore = ProjectSlice &
   WatcherSlice &
   NavigatorSlice &
   LayoutSlice &
+  MinimapSlice &
   RecentEditsPanelSlice &
   ProviderSlice &
   ArchiveSlice &
@@ -142,6 +147,7 @@ export const useAppStore = create<AppStore>()((...args) => {
     ...createWatcherSlice(...args),
     ...createNavigatorSlice(...args),
     ...createLayoutSlice(...args),
+    ...createMinimapSlice(...args),
     ...createRecentEditsPanelSlice(...args),
     ...createProviderSlice(...args),
     ...createArchiveSlice(...args),

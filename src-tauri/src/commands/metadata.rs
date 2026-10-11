@@ -7,7 +7,6 @@ use crate::models::{ProjectMetadata, SessionMetadata, UserMetadata, UserSettings
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
 use tauri::State;
 
@@ -46,14 +45,56 @@ pub(crate) fn validate_project_metadata_key(project_path: &str) -> Result<(), St
 pub struct MetadataState {
     /// Cached metadata with mutex for thread-safe access
     pub metadata: Mutex<Option<UserMetadata>>,
+    /// Held across read → merge → disk write → cache update so concurrent
+    /// writers cannot overwrite each other's changes. Async so it may be held
+    /// across `.await`; readers only take the `metadata` lock.
+    pub(crate) write_lock: tauri::async_runtime::Mutex<()>,
 }
 
 impl Default for MetadataState {
     fn default() -> Self {
         Self {
             metadata: Mutex::new(None),
+            write_lock: tauri::async_runtime::Mutex::new(()),
         }
     }
+}
+
+/// Apply `mutate` to the current metadata, persist it, then update the cache,
+/// all under `write_lock`. Every metadata writer goes through here. The cache
+/// is only replaced once the disk write succeeded.
+pub(crate) async fn mutate_and_save<F>(
+    state: &MetadataState,
+    mutate: F,
+) -> Result<UserMetadata, String>
+where
+    F: FnOnce(&mut UserMetadata) + Send + 'static,
+{
+    let _write = state.write_lock.lock().await;
+    let cached = state
+        .metadata
+        .lock()
+        .map_err(|e| format!("Failed to lock metadata: {e}"))?
+        .clone();
+
+    let saved = tauri::async_runtime::spawn_blocking(move || {
+        // A cold cache (fresh server, a write racing the first load) merges
+        // into the file on disk instead of replacing it with this change only.
+        let mut metadata = match cached {
+            Some(metadata) => metadata,
+            None => read_metadata_from_disk()?,
+        };
+        mutate(&mut metadata);
+        save_metadata_to_disk(&metadata).map(|()| metadata)
+    })
+    .await
+    .map_err(|e| format!("Task join error: {e}"))??;
+
+    *state
+        .metadata
+        .lock()
+        .map_err(|e| format!("Failed to lock metadata: {e}"))? = Some(saved.clone());
+    Ok(saved)
 }
 
 /// Get the metadata folder path (~/.claude-history-viewer)
@@ -92,20 +133,12 @@ pub async fn get_metadata_folder_path() -> Result<String, String> {
 /// Creates default metadata if file doesn't exist
 #[tauri::command]
 pub async fn load_user_metadata(state: State<'_, MetadataState>) -> Result<UserMetadata, String> {
-    let path = get_user_data_path()?;
-
+    // A load racing a save must not put the pre-save file back in the cache.
+    let _write = state.write_lock.lock().await;
     // Perform blocking file I/O off the async runtime
-    let metadata = tauri::async_runtime::spawn_blocking(move || {
-        if path.exists() {
-            let content = fs::read_to_string(&path)
-                .map_err(|e| format!("Failed to read metadata file: {e}"))?;
-            serde_json::from_str(&content).map_err(|e| format!("Failed to parse metadata: {e}"))
-        } else {
-            Ok(UserMetadata::new())
-        }
-    })
-    .await
-    .map_err(|e| format!("Task join error: {e}"))??;
+    let metadata = tauri::async_runtime::spawn_blocking(read_metadata_from_disk)
+        .await
+        .map_err(|e| format!("Task join error: {e}"))??;
 
     // Cache the metadata (lock is quick, no need to spawn_blocking)
     let mut cached = state
@@ -115,6 +148,18 @@ pub async fn load_user_metadata(state: State<'_, MetadataState>) -> Result<UserM
     *cached = Some(metadata.clone());
 
     Ok(metadata)
+}
+
+/// Read `user-data.json`, or fresh metadata when there is no file yet (blocking).
+/// An unreadable or unparsable file is an error, so no caller overwrites it.
+pub(crate) fn read_metadata_from_disk() -> Result<UserMetadata, String> {
+    let path = get_user_data_path()?;
+    if !path.exists() {
+        return Ok(UserMetadata::new());
+    }
+    let content =
+        fs::read_to_string(&path).map_err(|e| format!("Failed to read metadata file: {e}"))?;
+    serde_json::from_str(&content).map_err(|e| format!("Failed to parse metadata: {e}"))
 }
 
 /// Internal helper to save metadata to disk (blocking)
@@ -140,60 +185,13 @@ pub(crate) fn save_metadata_to_disk(metadata: &UserMetadata) -> Result<(), Strin
     Ok(())
 }
 
-/// Order of metadata snapshots. Taken under the metadata lock where the
-/// snapshot is cloned, so a higher number is a later snapshot that already
-/// holds every earlier change.
-static SNAPSHOT_GENERATION: AtomicU64 = AtomicU64::new(0);
-
-/// Serializes disk writes and remembers the newest snapshot on disk.
-static LAST_SAVED_GENERATION: Mutex<u64> = Mutex::new(0);
-
-/// Number the snapshot about to be saved. Call while holding the metadata lock.
-pub(crate) fn next_snapshot_generation() -> u64 {
-    SNAPSHOT_GENERATION.fetch_add(1, Ordering::SeqCst) + 1
-}
-
-/// Save a snapshot unless a newer one already reached the disk.
-///
-/// Updates clone the metadata under the lock but write it after releasing
-/// it, so two quick updates (starring two sessions, a rename during a star)
-/// could finish out of order and leave the older snapshot on disk, or write
-/// the shared temp file at the same time.
-pub(crate) fn save_metadata_snapshot(
-    metadata: &UserMetadata,
-    generation: u64,
-) -> Result<(), String> {
-    let mut last_saved = LAST_SAVED_GENERATION
-        .lock()
-        .map_err(|e| format!("Failed to lock metadata saves: {e}"))?;
-    if generation <= *last_saved {
-        return Ok(());
-    }
-    save_metadata_to_disk(metadata)?;
-    *last_saved = generation;
-    Ok(())
-}
-
 /// Save user metadata to disk with atomic write
 #[tauri::command]
 pub async fn save_user_metadata(
     metadata: UserMetadata,
     state: State<'_, MetadataState>,
 ) -> Result<(), String> {
-    let generation = {
-        let mut cached = state
-            .metadata
-            .lock()
-            .map_err(|e| format!("Failed to lock metadata: {e}"))?;
-        *cached = Some(metadata.clone());
-        next_snapshot_generation()
-    };
-
-    // Perform blocking file I/O off the async runtime
-    tauri::async_runtime::spawn_blocking(move || save_metadata_snapshot(&metadata, generation))
-        .await
-        .map_err(|e| format!("Task join error: {e}"))??;
-
+    mutate_and_save(state.inner(), move |m| *m = metadata).await?;
     Ok(())
 }
 
@@ -204,34 +202,22 @@ pub async fn update_session_metadata(
     update: SessionMetadata,
     state: State<'_, MetadataState>,
 ) -> Result<UserMetadata, String> {
-    // Perform quick in-memory mutation while holding lock, then release
-    let (metadata_to_save, generation) = {
-        let mut cached = state
-            .metadata
-            .lock()
-            .map_err(|e| format!("Failed to lock metadata: {e}"))?;
+    update_session_metadata_in(state.inner(), session_id, update).await
+}
 
-        let metadata = cached.get_or_insert_with(UserMetadata::new);
-
-        // Update or insert session metadata
+pub(crate) async fn update_session_metadata_in(
+    state: &MetadataState,
+    session_id: String,
+    update: SessionMetadata,
+) -> Result<UserMetadata, String> {
+    mutate_and_save(state, move |metadata| {
         if update.is_empty() {
             metadata.sessions.remove(&session_id);
         } else {
             metadata.sessions.insert(session_id, update);
         }
-
-        (metadata.clone(), next_snapshot_generation())
-    }; // Lock released here
-
-    // Perform blocking file I/O off the async runtime
-    let metadata_clone = metadata_to_save.clone();
-    tauri::async_runtime::spawn_blocking(move || {
-        save_metadata_snapshot(&metadata_clone, generation)
     })
     .await
-    .map_err(|e| format!("Task join error: {e}"))??;
-
-    Ok(metadata_to_save)
 }
 
 /// Update metadata for a specific project
@@ -244,34 +230,14 @@ pub async fn update_project_metadata(
     // Validate that project path is absolute
     validate_project_metadata_key(&project_path)?;
 
-    // Perform quick in-memory mutation while holding lock, then release
-    let (metadata_to_save, generation) = {
-        let mut cached = state
-            .metadata
-            .lock()
-            .map_err(|e| format!("Failed to lock metadata: {e}"))?;
-
-        let metadata = cached.get_or_insert_with(UserMetadata::new);
-
-        // Update or insert project metadata
+    mutate_and_save(state.inner(), move |metadata| {
         if update.is_empty() {
             metadata.projects.remove(&project_path);
         } else {
             metadata.projects.insert(project_path, update);
         }
-
-        (metadata.clone(), next_snapshot_generation())
-    }; // Lock released here
-
-    // Perform blocking file I/O off the async runtime
-    let metadata_clone = metadata_to_save.clone();
-    tauri::async_runtime::spawn_blocking(move || {
-        save_metadata_snapshot(&metadata_clone, generation)
     })
     .await
-    .map_err(|e| format!("Task join error: {e}"))??;
-
-    Ok(metadata_to_save)
 }
 
 /// Update global user settings
@@ -280,28 +246,7 @@ pub async fn update_user_settings(
     settings: UserSettings,
     state: State<'_, MetadataState>,
 ) -> Result<UserMetadata, String> {
-    // Perform quick in-memory mutation while holding lock, then release
-    let (metadata_to_save, generation) = {
-        let mut cached = state
-            .metadata
-            .lock()
-            .map_err(|e| format!("Failed to lock metadata: {e}"))?;
-
-        let metadata = cached.get_or_insert_with(UserMetadata::new);
-        metadata.settings = settings;
-
-        (metadata.clone(), next_snapshot_generation())
-    }; // Lock released here
-
-    // Perform blocking file I/O off the async runtime
-    let metadata_clone = metadata_to_save.clone();
-    tauri::async_runtime::spawn_blocking(move || {
-        save_metadata_snapshot(&metadata_clone, generation)
-    })
-    .await
-    .map_err(|e| format!("Task join error: {e}"))??;
-
-    Ok(metadata_to_save)
+    mutate_and_save(state.inner(), move |metadata| metadata.settings = settings).await
 }
 
 /// Check if a project should be hidden based on metadata
@@ -416,25 +361,112 @@ mod tests {
         drop(temp);
     }
 
+    /// Concurrent updates to different sessions must all reach disk: each
+    /// writer's read-merge-write has to be serialized, or an older snapshot
+    /// overwrites a newer one.
     #[test]
-    fn test_older_snapshot_saved_late_does_not_overwrite_newer() {
+    fn concurrent_session_updates_are_all_persisted() {
+        const N: usize = 16;
         let (_guard, _temp) = setup_test_env();
+        let state = MetadataState::default();
+        let barrier = std::sync::Barrier::new(N);
 
-        let mut older = UserMetadata::new();
-        older.settings.hidden_patterns = vec!["older".to_string()];
-        let older_generation = next_snapshot_generation();
+        let results: Vec<Result<UserMetadata, String>> = std::thread::scope(|s| {
+            let handles: Vec<_> = (0..N)
+                .map(|i| {
+                    let (state, barrier) = (&state, &barrier);
+                    s.spawn(move || {
+                        let update = SessionMetadata {
+                            custom_name: Some(format!("name-{i}")),
+                            ..Default::default()
+                        };
+                        barrier.wait();
+                        tauri::async_runtime::block_on(update_session_metadata_in(
+                            state,
+                            format!("session-{i}"),
+                            update,
+                        ))
+                    })
+                })
+                .collect();
+            handles.into_iter().map(|h| h.join().unwrap()).collect()
+        });
 
-        let mut newer = older.clone();
-        newer.settings.hidden_patterns = vec!["newer".to_string()];
-        let newer_generation = next_snapshot_generation();
+        for r in &results {
+            assert!(r.is_ok(), "update failed: {r:?}");
+        }
+        let on_disk: UserMetadata =
+            serde_json::from_str(&fs::read_to_string(get_user_data_path().unwrap()).unwrap())
+                .unwrap();
+        assert_eq!(on_disk.sessions.len(), N, "disk lost updates");
+        let cached = state.metadata.lock().unwrap().clone().unwrap();
+        assert_eq!(cached.sessions.len(), N, "cache lost updates");
+    }
 
-        // The newer update reaches the disk first, the older one after it.
-        save_metadata_snapshot(&newer, newer_generation).unwrap();
-        save_metadata_snapshot(&older, older_generation).unwrap();
+    fn write_user_data(content: &str) {
+        ensure_metadata_folder().unwrap();
+        fs::write(get_user_data_path().unwrap(), content).unwrap();
+    }
 
-        let content = fs::read_to_string(get_user_data_path().unwrap()).unwrap();
-        let on_disk: UserMetadata = serde_json::from_str(&content).unwrap();
-        assert_eq!(on_disk.settings.hidden_patterns, vec!["newer".to_string()]);
+    /// A writer that runs before anything loaded the metadata (a fresh
+    /// `WebUI` server, a star clicked while the first load is in flight) must
+    /// merge into the file on disk, not replace it with only its own change.
+    #[test]
+    fn first_update_with_cold_cache_keeps_what_is_on_disk() {
+        let (_guard, _temp) = setup_test_env();
+        let mut existing = UserMetadata::new();
+        existing.sessions.insert(
+            "starred-earlier".to_string(),
+            SessionMetadata {
+                custom_name: Some("kept".to_string()),
+                ..Default::default()
+            },
+        );
+        write_user_data(&serde_json::to_string(&existing).unwrap());
+
+        let state = MetadataState::default();
+        let update = SessionMetadata {
+            custom_name: Some("new".to_string()),
+            ..Default::default()
+        };
+        tauri::async_runtime::block_on(update_session_metadata_in(
+            &state,
+            "starred-now".to_string(),
+            update,
+        ))
+        .unwrap();
+
+        let on_disk: UserMetadata =
+            serde_json::from_str(&fs::read_to_string(get_user_data_path().unwrap()).unwrap())
+                .unwrap();
+        assert!(
+            on_disk.sessions.contains_key("starred-earlier"),
+            "lost data"
+        );
+        assert!(on_disk.sessions.contains_key("starred-now"));
+    }
+
+    /// An unreadable file is reported, never silently replaced.
+    #[test]
+    fn first_update_with_cold_cache_leaves_unparsable_file_alone() {
+        let (_guard, _temp) = setup_test_env();
+        write_user_data("{ not json");
+
+        let state = MetadataState::default();
+        let result = tauri::async_runtime::block_on(update_session_metadata_in(
+            &state,
+            "s".to_string(),
+            SessionMetadata {
+                custom_name: Some("x".to_string()),
+                ..Default::default()
+            },
+        ));
+
+        assert!(result.is_err());
+        assert_eq!(
+            fs::read_to_string(get_user_data_path().unwrap()).unwrap(),
+            "{ not json"
+        );
     }
 
     #[test]

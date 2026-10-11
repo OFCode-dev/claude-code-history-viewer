@@ -26,11 +26,13 @@ import { formatPromptTime, jumpToPrompt } from "../../../utils/promptNavigation"
 interface StickyPromptBarProps {
   /** The list the conversation renders — the prompt text is read from it. */
   messages: ClaudeMessage[];
+  /** Space kept free on the right (the session minimap strip), in px. */
+  rightInset?: number;
 }
 
 const PREVIEW_MAX_LENGTH = 220;
 
-export const StickyPromptBar: React.FC<StickyPromptBarProps> = React.memo(({ messages }) => {
+export const StickyPromptBar: React.FC<StickyPromptBarProps> = React.memo(({ messages, rightInset = 0 }) => {
   const { t } = useTranslation();
   const isVisible = useViewportAnchorStore(selectIsPromptBarVisible);
   const activeUuid = useViewportAnchorStore((s) => s.activePromptUuid);
@@ -68,6 +70,7 @@ export const StickyPromptBar: React.FC<StickyPromptBarProps> = React.memo(({ mes
         "bg-card/95 backdrop-blur-sm border-b border-border/60 shadow-sm",
         "animate-in fade-in slide-in-from-top-1 duration-150"
       )}
+      style={rightInset ? { right: rightInset } : undefined}
     >
       <button
         type="button"

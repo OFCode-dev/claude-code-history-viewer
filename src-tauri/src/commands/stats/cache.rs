@@ -54,16 +54,18 @@
 //! (`opencode://` …) and carry no `(size, mtime)` identity.
 
 use super::{
-    build_model_stats, dedup_usage_key, extract_token_usage, extract_token_usage_from_global_entry,
-    full_usage_growth, merge_model_context_usage, parse_global_stats_entry_simd,
-    parse_raw_log_entry_simd, parse_timestamp_utc, should_include_stats_entry,
-    token_usage_has_token_fields, track_skill_and_subagent_usage,
+    capture_session_title, dedup_usage_key, extract_token_usage,
+    extract_token_usage_from_global_entry, full_usage_growth, merge_model_context_usage,
+    parse_global_stats_entry_simd, parse_raw_log_entry_simd, parse_timestamp_utc,
+    should_include_stats_entry, token_usage_has_token_fields, track_skill_and_subagent_usage,
     track_skill_and_subagent_usage_from_global_entry, track_tool_usage,
     track_tool_usage_from_global_entry, usage_context_tokens, usage_growth, ModelContextUsageMap,
     ModelUsageAggregate, ProjectSessionFileStats, SeenUsage, SessionComparisonStats,
-    SessionFileStats, StatsMode, StatsProvider, UsageGrowth, UNKNOWN_MODEL_NAME,
+    SessionFileStats, SessionTokenAccum, StatsMode, StatsProvider, UsageGrowth, UNKNOWN_MODEL_NAME,
 };
-use crate::models::{ClaudeMessage, DailyStats, SessionTokenStats, TokenUsage, ToolUsageStats};
+#[cfg(test)]
+use crate::models::SessionTokenStats;
+use crate::models::{ClaudeMessage, DailyStats, TokenUsage};
 use crate::utils::find_line_ranges;
 use chrono::{DateTime, Datelike, Timelike, Utc};
 use memmap2::Mmap;
@@ -136,7 +138,7 @@ pub(super) struct FileAggregate {
     /// Rows whose timestamp does not parse; included only when no date filter
     /// is active (mirrors `is_within_date_limits(None, ..)`).
     undated: DayBucket,
-    /// Last summary-row text in file order (filter-independent).
+    /// Session title (filter-independent): last `ai-title`, else last summary row.
     summary: Option<String>,
     /// A deduped usage key was first seen in one bucket and repeated in
     /// another; filtered composition would misattribute its tokens.
@@ -570,19 +572,17 @@ pub(super) fn build_message_file_aggregate(
     let mut first_cost_bucket_by_key: HashMap<String, Option<String>> = HashMap::new();
     let mut day_timestamps: HashMap<String, Vec<DateTime<Utc>>> = HashMap::new();
     let mut row_seq = 0u64;
+    let mut ai_title: Option<String> = None;
+    let mut summary: Option<String> = None;
 
     for (start, end) in find_line_ranges(&mmap) {
         let mut line_bytes = mmap[start..end].to_vec();
         let Some(log_entry) = parse_raw_log_entry_simd(&mut line_bytes) else {
             continue;
         };
-        // Summary text is captured before ClaudeMessage::try_from rejects
+        // Title text is captured before ClaudeMessage::try_from consumes
         // the row, mirroring scan_session_token_stats (filter-independent).
-        if log_entry.message_type == "summary" {
-            if let Some(summary) = &log_entry.summary {
-                aggregate.summary = Some(summary.clone());
-            }
-        }
+        capture_session_title(&log_entry, &mut ai_title, &mut summary);
         let Ok(message) = ClaudeMessage::try_from(log_entry) else {
             continue;
         };
@@ -657,6 +657,7 @@ pub(super) fn build_message_file_aggregate(
     }
 
     finalize_runs(&mut aggregate, day_timestamps);
+    aggregate.summary = ai_title.or(summary);
     Some(aggregate)
 }
 
@@ -711,7 +712,7 @@ fn included_buckets<'a>(
     })
 }
 
-fn merge_counter_map(
+pub(super) fn merge_counter_map(
     target: &mut HashMap<String, (u32, u32)>,
     source: &HashMap<String, (u32, u32)>,
 ) {
@@ -722,7 +723,7 @@ fn merge_counter_map(
     }
 }
 
-fn merge_model_map(
+pub(super) fn merge_model_map(
     target: &mut HashMap<String, ModelUsageAggregate>,
     source: &HashMap<String, ModelUsageAggregate>,
 ) {
@@ -943,13 +944,28 @@ pub(super) fn compose_project(
     Composed::Ready(Some(stats))
 }
 
-/// Compose session token stats from the cached aggregate.
+/// Compose session token stats from the cached aggregate (cache equivalence
+/// tests compare this with the full scan).
+#[cfg(test)]
 pub(super) fn compose_session_token(
     aggregate: &FileAggregate,
     project_name: String,
     s_limit: Option<&DateTime<Utc>>,
     e_limit: Option<&DateTime<Utc>>,
 ) -> Composed<Option<SessionTokenStats>> {
+    match compose_session_token_accum(aggregate, s_limit, e_limit) {
+        Composed::Ready(accum) => Composed::Ready(accum.map(|a| a.into_stats(project_name))),
+        Composed::NeedsFullScan => Composed::NeedsFullScan,
+    }
+}
+
+/// [`compose_session_token`] before finalisation, so it can be merged with
+/// the other transcripts of the same session (#577).
+pub(super) fn compose_session_token_accum(
+    aggregate: &FileAggregate,
+    s_limit: Option<&DateTime<Utc>>,
+    e_limit: Option<&DateTime<Utc>>,
+) -> Composed<Option<SessionTokenAccum>> {
     let Some(selection) = included_buckets(aggregate, s_limit, e_limit) else {
         return Composed::NeedsFullScan;
     };
@@ -958,19 +974,11 @@ pub(super) fn compose_session_token(
         return Composed::Ready(None);
     };
 
-    let mut total_input_tokens = 0u64;
-    let mut total_output_tokens = 0u64;
-    let mut total_cache_creation_tokens = 0u64;
-    let mut total_cache_read_tokens = 0u64;
-    let mut total_reasoning_tokens = 0u64;
-    let mut message_count = 0usize;
-    let mut tool_usage: HashMap<String, (u32, u32)> = HashMap::new();
-    let mut model_usage: HashMap<String, ModelUsageAggregate> = HashMap::new();
-    let mut model_context_usage: ModelContextUsageMap = HashMap::new();
-    let mut model_costs: HashMap<String, f64> = HashMap::new();
-    let mut first: Option<(DateTime<Utc>, &String)> = None;
-    let mut last: Option<(DateTime<Utc>, &String)> = None;
-
+    let mut accum = SessionTokenAccum {
+        session_id: session_id.to_string(),
+        summary: aggregate.summary.clone(),
+        ..SessionTokenAccum::default()
+    };
     let undated_iter = selection
         .include_undated
         .then_some(&aggregate.undated)
@@ -981,79 +989,30 @@ pub(super) fn compose_session_token(
         .map(|(_, bucket)| *bucket)
         .chain(undated_iter)
     {
-        message_count += bucket.message_count as usize;
-        total_input_tokens += bucket.input_tokens;
-        total_output_tokens += bucket.output_tokens;
-        total_cache_creation_tokens += bucket.cache_creation_tokens;
-        total_cache_read_tokens += bucket.cache_read_tokens;
-        total_reasoning_tokens += bucket.reasoning_tokens;
-        merge_counter_map(&mut tool_usage, &bucket.tool_usage);
-        merge_model_map(&mut model_usage, &bucket.model_usage);
-        merge_model_context_usage(&mut model_context_usage, &bucket.model_context_usage);
+        accum.message_count += bucket.message_count as usize;
+        accum.input_tokens += bucket.input_tokens;
+        accum.output_tokens += bucket.output_tokens;
+        accum.cache_creation_tokens += bucket.cache_creation_tokens;
+        accum.cache_read_tokens += bucket.cache_read_tokens;
+        accum.reasoning_tokens += bucket.reasoning_tokens;
+        merge_counter_map(&mut accum.tool_usage, &bucket.tool_usage);
+        merge_model_map(&mut accum.model_usage, &bucket.model_usage);
+        merge_model_context_usage(&mut accum.model_context_usage, &bucket.model_context_usage);
         for (model, cost) in &bucket.model_costs {
-            *model_costs.entry(model.clone()).or_insert(0.0) += cost;
+            *accum.model_costs.entry(model.clone()).or_insert(0.0) += cost;
         }
-
         if let (Some(ts), Some(raw)) = (bucket.first_ts, bucket.first_ts_raw.as_ref()) {
-            if first.map_or(true, |(current, _)| ts < current) {
-                first = Some((ts, raw));
-            }
+            accum.observe_first(ts, raw);
         }
         if let (Some(ts), Some(raw)) = (bucket.last_ts, bucket.last_ts_raw.as_ref()) {
-            if last.map_or(true, |(current, _)| ts > current) {
-                last = Some((ts, raw));
-            }
+            accum.observe_last(ts, raw);
         }
     }
 
-    if message_count == 0 {
+    if accum.message_count == 0 {
         return Composed::Ready(None);
     }
-
-    let total_tokens = total_input_tokens
-        + total_output_tokens
-        + total_cache_creation_tokens
-        + total_cache_read_tokens
-        + total_reasoning_tokens;
-
-    Composed::Ready(Some(SessionTokenStats {
-        session_id: session_id.to_string(),
-        project_name,
-        total_input_tokens,
-        total_output_tokens,
-        total_cache_creation_tokens,
-        total_cache_read_tokens,
-        total_reasoning_tokens,
-        total_tokens,
-        message_count,
-        first_message_time: first
-            .map(|(_, raw)| raw.clone())
-            .unwrap_or_else(|| "unknown".to_string()),
-        last_message_time: last
-            .map(|(_, raw)| raw.clone())
-            .unwrap_or_else(|| "unknown".to_string()),
-        summary: aggregate.summary.clone(),
-        model_distribution: build_model_stats(
-            StatsProvider::Claude,
-            model_usage,
-            model_context_usage,
-            model_costs,
-        ),
-        // The scan path emits the map unsorted; keep that shape.
-        most_used_tools: tool_usage
-            .into_iter()
-            .map(|(name, (usage, success))| ToolUsageStats {
-                tool_name: name,
-                usage_count: usage,
-                success_rate: if usage > 0 {
-                    (success as f32 / usage as f32) * 100.0
-                } else {
-                    0.0
-                },
-                avg_execution_time: None,
-            })
-            .collect(),
-    }))
+    Composed::Ready(Some(accum))
 }
 
 /// Compose session comparison stats from the cached aggregate.
@@ -1157,7 +1116,7 @@ mod tests {
         scan_session_token_stats,
     };
     use super::*;
-    use crate::models::TokenDistribution;
+    use crate::models::{TokenDistribution, ToolUsageStats};
     use std::fs::{File, OpenOptions};
     use std::io::Write;
     use tempfile::TempDir;
@@ -1602,6 +1561,51 @@ mod tests {
         let scanned_token = scan_session_token_stats(&file, mode, None, None).expect("token scan");
         assert_eq!(scanned_token.total_output_tokens, 95 + 7);
         assert_token_stats_eq(&composed_token, &scanned_token);
+    }
+
+    /// Session title in stats (#601): the last Claude Code `ai-title` record
+    /// outranks a legacy `summary` row, in both the cold scan and the cache.
+    fn assert_stats_summary(lines: &[String], expected: &str) {
+        let temp_dir = TempDir::new().expect("temp dir");
+        let file = temp_dir.path().join("demo-project").join("s1.jsonl");
+        fs::create_dir_all(file.parent().unwrap()).expect("project dir");
+        write_session(&file, lines);
+        let mode = StatsMode::BillingTotal;
+
+        let scanned = scan_session_token_stats(&file, mode, None, None).expect("scan");
+        assert_eq!(scanned.summary.as_deref(), Some(expected), "cold scan");
+
+        let aggregate = build_message_file_aggregate(&file, mode).expect("aggregate");
+        assert_eq!(
+            aggregate.summary.as_deref(),
+            Some(expected),
+            "cached aggregate"
+        );
+    }
+
+    #[test]
+    fn test_stats_summary_prefers_ai_title_over_legacy_summary() {
+        assert_stats_summary(
+            &[
+                r#"{"type":"summary","summary":"Legacy summary","leafUuid":"u1"}"#.to_string(),
+                asst_line("u1", "m1", "2025-03-01T10:00:00Z", 10, 1, ""),
+                r#"{"type":"ai-title","aiTitle":"Fix login bug","sessionId":"s1"}"#.to_string(),
+            ],
+            "Fix login bug",
+        );
+    }
+
+    #[test]
+    fn test_stats_summary_last_ai_title_wins() {
+        assert_stats_summary(
+            &[
+                r#"{"type":"ai-title","aiTitle":"First title","sessionId":"s1"}"#.to_string(),
+                asst_line("u1", "m1", "2025-03-01T10:00:00Z", 10, 1, ""),
+                r#"{"type":"ai-title","aiTitle":"Second title","sessionId":"s1"}"#.to_string(),
+                r#"{"type":"summary","summary":"Legacy summary","leafUuid":"u1"}"#.to_string(),
+            ],
+            "Second title",
+        );
     }
 
     #[test]

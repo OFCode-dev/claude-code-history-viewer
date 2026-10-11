@@ -6,6 +6,7 @@ import {
   findSiblingTreeItemIndexes,
   findTypeaheadMatchIndex,
   getNextTreeItemIndex,
+  getTreeNavigationKey,
 } from "@/components/ProjectTree/treeKeyboard";
 
 describe("getNextTreeItemIndex", () => {
@@ -88,5 +89,21 @@ describe("tree hierarchy helpers", () => {
     expect(findSiblingTreeItemIndexes(levels, 2)).toEqual([5]);
     expect(findSiblingTreeItemIndexes(levels, 1)).toEqual([0, 6]);
     expect(findSiblingTreeItemIndexes(levels, 7)).toEqual([]);
+  });
+});
+
+describe("getTreeNavigationKey", () => {
+  it("returns the navigation key for plain arrows, Home and End", () => {
+    expect(getTreeNavigationKey({ key: "ArrowDown", altKey: false })).toBe("ArrowDown");
+    expect(getTreeNavigationKey({ key: "End", altKey: false })).toBe("End");
+  });
+
+  it("leaves Alt+Arrow to the message list's prompt jump", () => {
+    expect(getTreeNavigationKey({ key: "ArrowUp", altKey: true })).toBeNull();
+    expect(getTreeNavigationKey({ key: "ArrowDown", altKey: true })).toBeNull();
+  });
+
+  it("ignores other keys", () => {
+    expect(getTreeNavigationKey({ key: "ArrowLeft", altKey: false })).toBeNull();
   });
 });

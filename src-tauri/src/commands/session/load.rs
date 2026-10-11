@@ -65,8 +65,8 @@ struct SessionMetadataCache {
 // Bumped 10 -> 11: a verifiable folder name now takes priority over the JSONL
 // `cwd` for the project name (handles sessions moved between project folders);
 // stale caches must be invalidated to recompute project_name.
-// Bumped 11 -> 12: Claude Code's generated `ai-title` now names sessions that
-// were never renamed, and title records no longer count as messages.
+// Bumped 11 -> 12: Claude Code `ai-title` records now set the session title
+// (and are no longer counted as messages); stale caches must be invalidated.
 const CACHE_VERSION: u32 = 12;
 const DEFAULT_SESSION_PAGE_LIMIT: usize = 250;
 const MAX_SESSION_PAGE_LIMIT: usize = 500;
@@ -387,6 +387,13 @@ fn extract_session_metadata_internal(
                     continue;
                 }
 
+                if entry.message_type == "ai-title" {
+                    if let Some(title) = try_extract_ai_title(entry.ai_title.as_deref()) {
+                        ai_title = Some(title);
+                    }
+                    continue;
+                }
+
                 // Extract rename name from system/local_command messages before skipping
                 if entry.message_type == "system" {
                     if let Some(name) = try_extract_rename(&entry) {
@@ -401,16 +408,6 @@ fn extract_session_metadata_internal(
                         try_extract_custom_title(&entry.message_type, entry.custom_title.as_deref())
                     {
                         rename_name = Some(name);
-                    }
-                    continue;
-                }
-
-                // Claude Code's generated title; each new record replaces the last
-                if entry.message_type == "ai-title" {
-                    if let Some(title) =
-                        try_extract_ai_title(&entry.message_type, entry.ai_title.as_deref())
-                    {
-                        ai_title = Some(title);
                     }
                     continue;
                 }
@@ -546,6 +543,13 @@ fn extract_session_metadata_internal(
                 continue;
             }
 
+            if classifier.message_type == "ai-title" {
+                if let Some(title) = try_extract_ai_title(classifier.ai_title.as_deref()) {
+                    ai_title = Some(title);
+                }
+                continue;
+            }
+
             // Extract rename from system messages (using fast string check before full parse)
             if classifier.message_type == "system" {
                 if line.contains("Session renamed to: ") {
@@ -565,15 +569,6 @@ fn extract_session_metadata_internal(
                     classifier.custom_title.as_deref(),
                 ) {
                     rename_name = Some(name);
-                }
-                continue;
-            }
-
-            if classifier.message_type == "ai-title" {
-                if let Some(title) =
-                    try_extract_ai_title(&classifier.message_type, classifier.ai_title.as_deref())
-                {
-                    ai_title = Some(title);
                 }
                 continue;
             }
@@ -775,17 +770,10 @@ fn try_extract_custom_title(message_type: &str, custom_title: Option<&str>) -> O
     Some(name.to_string())
 }
 
-/// Title from an `ai-title` record (`{"type":"ai-title","aiTitle":…}`), which
-/// Claude Code 2.x writes to name sessions the user never renamed.
-fn try_extract_ai_title(message_type: &str, ai_title: Option<&str>) -> Option<String> {
-    if message_type != "ai-title" {
-        return None;
-    }
+/// Extract Claude Code's auto-generated session title from an `ai-title` record.
+pub(crate) fn try_extract_ai_title(ai_title: Option<&str>) -> Option<String> {
     let title = ai_title?.trim();
-    if title.is_empty() {
-        return None;
-    }
-    Some(title.to_string())
+    (!title.is_empty()).then(|| title.to_string())
 }
 
 /// Derive a project display name from a real working-directory path (its leaf).
@@ -1407,6 +1395,96 @@ fn load_project_sessions_page_blocking(
         next_offset,
         has_more,
     })
+}
+
+/// Look up one Claude session by its file path, without scanning the project.
+///
+/// The session list only reloads its first page, so a selected session further
+/// down needs another way to tell "still there" from "deleted". This reads the
+/// one file: the metadata cache entry when it is still fresh, otherwise a parse
+/// of that file alone. The cache is only read, never written.
+///
+/// `Ok(None)` means the file is gone or has no displayable messages (after the
+/// sidechain filter, as in the list). The continuation-chain hiding the list
+/// applies needs a project scan, so it is not applied here.
+///
+/// `project_path` is trusted the same way the page loader trusts it; paths are
+/// confined to it, not to known Claude roots.
+pub fn find_project_session_by_path(
+    project_path: &str,
+    file_path: &str,
+    exclude_sidechain: Option<bool>,
+) -> Result<Option<ClaudeSession>, String> {
+    let project_path = project_path.trim();
+    if project_path.is_empty() {
+        return Err("project_path is required".to_string());
+    }
+    let project_root = Path::new(project_path);
+    if !project_root.is_absolute() {
+        return Err("project_path must be an absolute path".to_string());
+    }
+    let path = PathBuf::from(file_path);
+    if !path.is_absolute() || path.extension().and_then(|e| e.to_str()) != Some("jsonl") {
+        return Err("file_path must be an absolute .jsonl path".to_string());
+    }
+    let canonical_project_root = project_root
+        .canonicalize()
+        .map_err(|error| format!("Failed to resolve project_path: {error}"))?;
+
+    // Containment first, before touching the file itself: every path outside
+    // the project gets this one error whether or not it exists, so the lookup
+    // is not an existence oracle for arbitrary paths.
+    let outside = || "file_path is outside the project".to_string();
+    let parent_inside = path
+        .parent()
+        .and_then(|parent| parent.canonicalize().ok())
+        .is_some_and(|parent| parent.starts_with(&canonical_project_root));
+    if !parent_inside {
+        return Err(outside());
+    }
+
+    // A missing file is the one expected failure: the session was deleted.
+    let metadata = match fs::symlink_metadata(&path) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => return Err(format!("Failed to read session file: {error}")),
+    };
+    if metadata.file_type().is_symlink() {
+        return Err("Session file cannot be a symlink".to_string());
+    }
+    let canonical_path = path
+        .canonicalize()
+        .map_err(|error| format!("Failed to resolve file_path: {error}"))?;
+    if !canonical_path.starts_with(&canonical_project_root) {
+        return Err(outside());
+    }
+
+    // Same cache key form as the page loader (the caller's path, not the
+    // canonical one).
+    let path_str = path.to_string_lossy().to_string();
+    let (current_mtime, current_size, _) = metadata_sort_snapshot(&path);
+    let cached = load_cache(project_path)
+        .entries
+        .remove(&path_str)
+        .filter(|c| Some(c.modified_time) == current_mtime && c.file_size == current_size);
+    let (session, sidechain_count) = match cached {
+        Some(cached) => (cached.session, cached.sidechain_count),
+        None => match extract_session_metadata_from_file(&path) {
+            Some(result) => (Some(result.session), result.sidechain_count),
+            None => (None, 0),
+        },
+    };
+
+    // Same filter as the page loader (a sidechain-only session is dropped when
+    // sidechains are excluded). No superseded set: that needs a project scan.
+    Ok(session.and_then(|session| {
+        session_with_sidechain_filter(
+            session,
+            sidechain_count,
+            exclude_sidechain.unwrap_or(false),
+            &std::collections::HashSet::new(),
+        )
+    }))
 }
 
 /// Load every session in a project.
@@ -2140,6 +2218,41 @@ fn opencode_subagents(session_path: &str) -> Vec<SubagentSession> {
         .collect()
 }
 
+/// Subagent rows for a `kilo://<project_id>/<session_id>` parent. Kilo Code's
+/// OpenCode-core store keeps the same child-rows-in-`SQLite` shape as
+/// `OpenCode`, addressed with the `kilo://` scheme.
+fn kilo_subagents(session_path: &str) -> Vec<SubagentSession> {
+    let Some(rest) = session_path.strip_prefix("kilo://") else {
+        return Vec::new();
+    };
+    let Some((project_id, session_id)) = rest.split_once('/') else {
+        return Vec::new();
+    };
+    if !crate::utils::is_safe_storage_id(project_id)
+        || !crate::utils::is_safe_storage_id(session_id)
+    {
+        return Vec::new();
+    }
+
+    crate::providers::kilo::load_child_sessions(project_id, session_id)
+        .into_iter()
+        .map(|child| SubagentSession {
+            file_path: format!("kilo://{project_id}/{}", child.id),
+            agent_id: child.id,
+            message_count: child.message_count,
+            file_size: 0,
+            first_message_time: Some(child.created_at),
+            last_message_time: Some(child.updated_at),
+            summary: (!child.title.trim().is_empty()).then_some(child.title),
+            tool_use_id: None,
+            workflow_run_id: None,
+            description: None,
+            agent_type: None,
+            model: None,
+        })
+        .collect()
+}
+
 /// Returns subagent sessions for a given parent session file.
 #[tauri::command]
 pub async fn get_session_subagents(session_path: String) -> Result<Vec<SubagentSession>, String> {
@@ -2150,6 +2263,10 @@ pub async fn get_session_subagents(session_path: String) -> Result<Vec<SubagentS
     // find and the absolute-path check would reject the URI outright (#560).
     if session_path.starts_with("opencode://") {
         return Ok(opencode_subagents(&session_path));
+    }
+
+    if session_path.starts_with("kilo://") {
+        return Ok(kilo_subagents(&session_path));
     }
 
     let path = PathBuf::from(&session_path);
@@ -2699,6 +2816,143 @@ mod tests {
 
     fn create_sample_summary_message(summary: &str) -> String {
         format!(r#"{{"type":"summary","summary":"{summary}","leafUuid":"leaf-123"}}"#)
+    }
+
+    fn create_sample_ai_title_message(session_id: &str, title: &str) -> String {
+        format!(r#"{{"type":"ai-title","aiTitle":"{title}","sessionId":"{session_id}"}}"#)
+    }
+
+    async fn load_single_session(content: &str) -> ClaudeSession {
+        let temp_dir = TempDir::new().unwrap();
+        std::fs::write(temp_dir.path().join("test.jsonl"), content).unwrap();
+        let mut sessions =
+            load_project_sessions(temp_dir.path().to_string_lossy().to_string(), None)
+                .await
+                .unwrap();
+        assert_eq!(sessions.len(), 1);
+        sessions.remove(0)
+    }
+
+    #[tokio::test]
+    async fn test_load_session_messages_excludes_ai_title() {
+        let temp_dir = TempDir::new().unwrap();
+        let content = format!(
+            "{}\n{}\n{}\n",
+            create_sample_user_message("uuid-1", "session-1", "Hello"),
+            create_sample_ai_title_message("session-1", "AI title"),
+            create_sample_assistant_message("uuid-2", "session-1", "Hi!"),
+        );
+        let file_path = create_test_jsonl_file(&temp_dir, "test.jsonl", &content);
+
+        let messages = load_session_messages(file_path.to_string_lossy().to_string())
+            .await
+            .unwrap();
+        let types: Vec<&str> = messages.iter().map(|m| m.message_type.as_str()).collect();
+        assert_eq!(types, vec!["user", "assistant"]);
+    }
+
+    #[tokio::test]
+    async fn test_ai_title_beats_first_user_message_and_is_not_counted() {
+        // ai-title after metadata is complete (fast-counting phase), repeated as Claude Code does.
+        let content = format!(
+            "{}\n{}\n{}\n{}\n",
+            create_sample_user_message("uuid-1", "session-1", "Hello"),
+            create_sample_assistant_message("uuid-2", "session-1", "Hi!"),
+            create_sample_ai_title_message("session-1", "Fix login bug"),
+            create_sample_ai_title_message("session-1", "Fix login bug"),
+        );
+        let session = load_single_session(&content).await;
+        assert_eq!(session.summary, Some("Fix login bug".to_string()));
+        assert_eq!(session.message_count, 2);
+        assert!(!session.is_renamed);
+    }
+
+    #[tokio::test]
+    async fn test_ai_title_in_metadata_phase_beats_legacy_summary() {
+        let content = format!(
+            "{}\n{}\n{}\n",
+            create_sample_summary_message("Legacy summary"),
+            create_sample_ai_title_message("session-1", "AI title"),
+            create_sample_user_message("uuid-1", "session-1", "Hello"),
+        );
+        let session = load_single_session(&content).await;
+        assert_eq!(session.summary, Some("AI title".to_string()));
+        assert_eq!(session.message_count, 1);
+    }
+
+    #[tokio::test]
+    async fn test_last_ai_title_wins() {
+        let content = format!(
+            "{}\n{}\n{}\n",
+            create_sample_ai_title_message("session-1", "First title"),
+            create_sample_user_message("uuid-1", "session-1", "Hello"),
+            create_sample_ai_title_message("session-1", "Second title"),
+        );
+        let session = load_single_session(&content).await;
+        assert_eq!(session.summary, Some("Second title".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_custom_rename_beats_ai_title() {
+        let content = format!(
+            "{}\n{}\n{}\n",
+            create_sample_user_message("uuid-1", "session-1", "Hello"),
+            r#"{"type":"custom-title","customTitle":"My name","sessionId":"session-1"}"#,
+            create_sample_ai_title_message("session-1", "AI title"),
+        );
+        let session = load_single_session(&content).await;
+        assert_eq!(session.summary, Some("My name".to_string()));
+        assert!(session.is_renamed);
+    }
+
+    #[tokio::test]
+    async fn test_ai_title_appended_after_cache_replaces_fallback_title() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("test.jsonl");
+        std::fs::write(
+            &file_path,
+            format!(
+                "{}\n",
+                create_sample_user_message("uuid-1", "session-1", "Hello")
+            ),
+        )
+        .unwrap();
+        let project = temp_dir.path().to_string_lossy().to_string();
+
+        let first = load_project_sessions(project.clone(), None).await.unwrap();
+        assert_eq!(first[0].summary, Some("Hello".to_string()));
+
+        // Incremental parse picks up an appended ai-title
+        let mut file = std::fs::OpenOptions::new()
+            .append(true)
+            .open(&file_path)
+            .unwrap();
+        writeln!(
+            file,
+            "{}",
+            create_sample_ai_title_message("session-1", "AI title")
+        )
+        .unwrap();
+        drop(file);
+        let second = load_project_sessions(project.clone(), None).await.unwrap();
+        assert_eq!(second[0].summary, Some("AI title".to_string()));
+        assert_eq!(second[0].message_count, 1);
+
+        // An unrelated append keeps the cached ai-title
+        let mut file = std::fs::OpenOptions::new()
+            .append(true)
+            .open(&file_path)
+            .unwrap();
+        writeln!(
+            file,
+            "{}",
+            create_sample_assistant_message("uuid-2", "session-1", "More")
+        )
+        .unwrap();
+        drop(file);
+        let third = load_project_sessions(project, None).await.unwrap();
+        assert_eq!(third[0].summary, Some("AI title".to_string()));
+        assert_eq!(third[0].message_count, 2);
     }
 
     #[tokio::test]
@@ -3398,6 +3652,189 @@ mod tests {
         assert!(!second_page.has_more);
     }
 
+    #[test]
+    fn test_find_project_session_by_path_returns_the_session() {
+        let temp_dir = TempDir::new().unwrap();
+        create_test_jsonl_file(
+            &temp_dir,
+            "other.jsonl",
+            &format!(
+                "{}\n",
+                create_sample_user_message("uuid-o", "session-other", "Other")
+            ),
+        );
+        let target = create_test_jsonl_file(
+            &temp_dir,
+            "target.jsonl",
+            &format!(
+                "{}\n",
+                create_sample_user_message("uuid-t", "session-target", "Hi")
+            ),
+        );
+
+        let session = find_project_session_by_path(
+            &temp_dir.path().to_string_lossy(),
+            &target.to_string_lossy(),
+            None,
+        )
+        .unwrap()
+        .expect("session should be found");
+
+        assert_eq!(session.actual_session_id, "session-target");
+        assert_eq!(session.file_path, target.to_string_lossy());
+        assert_eq!(session.message_count, 1);
+    }
+
+    #[test]
+    fn test_find_project_session_by_path_reports_a_deleted_file_as_none() {
+        let temp_dir = TempDir::new().unwrap();
+        let gone = temp_dir.path().join("gone.jsonl");
+
+        let result = find_project_session_by_path(
+            &temp_dir.path().to_string_lossy(),
+            &gone.to_string_lossy(),
+            None,
+        );
+
+        assert!(
+            matches!(result, Ok(None)),
+            "expected Ok(None), got {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_find_project_session_by_path_rejects_paths_outside_the_project() {
+        let temp_dir = TempDir::new().unwrap();
+        let outside_dir = TempDir::new().unwrap();
+        let outside = create_test_jsonl_file(
+            &outside_dir,
+            "outside.jsonl",
+            &format!(
+                "{}\n",
+                create_sample_user_message("uuid-x", "session-x", "X")
+            ),
+        );
+        let project = temp_dir.path().to_string_lossy().to_string();
+
+        assert!(find_project_session_by_path(&project, &outside.to_string_lossy(), None).is_err());
+        assert!(find_project_session_by_path(&project, "relative/a.jsonl", None).is_err());
+        assert!(
+            find_project_session_by_path("relative", &outside.to_string_lossy(), None).is_err()
+        );
+        let traversal = temp_dir.path().join("..").join(
+            outside
+                .strip_prefix(outside_dir.path().parent().unwrap())
+                .unwrap(),
+        );
+        assert!(
+            find_project_session_by_path(&project, &traversal.to_string_lossy(), None).is_err()
+        );
+    }
+
+    #[test]
+    fn test_find_project_session_by_path_gives_one_error_for_any_outside_path() {
+        // Existing or missing, an outside path must get the same answer, so
+        // the lookup can't be used to probe the filesystem.
+        let temp_dir = TempDir::new().unwrap();
+        let outside_dir = TempDir::new().unwrap();
+        let existing = create_test_jsonl_file(
+            &outside_dir,
+            "outside.jsonl",
+            &format!(
+                "{}\n",
+                create_sample_user_message("uuid-x", "session-x", "X")
+            ),
+        );
+        let missing = outside_dir.path().join("missing.jsonl");
+        let missing_dir = outside_dir.path().join("no-such-dir").join("a.jsonl");
+        let project = temp_dir.path().to_string_lossy().to_string();
+
+        for path in [&existing, &missing, &missing_dir] {
+            assert_eq!(
+                find_project_session_by_path(&project, &path.to_string_lossy(), None).unwrap_err(),
+                "file_path is outside the project",
+                "path: {}",
+                path.display()
+            );
+        }
+    }
+
+    #[test]
+    fn test_find_project_session_by_path_drops_a_session_the_sidechain_filter_empties() {
+        // Matches the page loader, which drops sessions whose every message
+        // is a sidechain when sidechains are excluded.
+        let temp_dir = TempDir::new().unwrap();
+        let file = create_test_jsonl_file(
+            &temp_dir,
+            "sidechain.jsonl",
+            r#"{"uuid":"uuid-1","sessionId":"session-1","timestamp":"2025-06-26T10:00:00Z","type":"user","message":{"role":"user","content":"Side"},"isSidechain":true}
+"#,
+        );
+        let project = temp_dir.path().to_string_lossy().to_string();
+        let file = file.to_string_lossy().to_string();
+
+        assert!(matches!(
+            find_project_session_by_path(&project, &file, Some(true)),
+            Ok(None)
+        ));
+        assert!(matches!(
+            find_project_session_by_path(&project, &file, Some(false)),
+            Ok(Some(_))
+        ));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_find_project_session_by_path_symlink_outside_gets_the_outside_error() {
+        let temp_dir = TempDir::new().unwrap();
+        let outside_dir = TempDir::new().unwrap();
+        let target = create_test_jsonl_file(
+            &outside_dir,
+            "target.jsonl",
+            &format!(
+                "{}\n",
+                create_sample_user_message("uuid-x", "session-x", "X")
+            ),
+        );
+        let link = outside_dir.path().join("link.jsonl");
+        std::os::unix::fs::symlink(&target, &link).unwrap();
+
+        assert_eq!(
+            find_project_session_by_path(
+                &temp_dir.path().to_string_lossy(),
+                &link.to_string_lossy(),
+                None
+            )
+            .unwrap_err(),
+            "file_path is outside the project"
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_find_project_session_by_path_rejects_a_symlink_escape() {
+        let temp_dir = TempDir::new().unwrap();
+        let outside_dir = TempDir::new().unwrap();
+        let outside = create_test_jsonl_file(
+            &outside_dir,
+            "outside.jsonl",
+            &format!(
+                "{}\n",
+                create_sample_user_message("uuid-x", "session-x", "X")
+            ),
+        );
+        let link = temp_dir.path().join("linked.jsonl");
+        std::os::unix::fs::symlink(&outside, &link).unwrap();
+
+        let result = find_project_session_by_path(
+            &temp_dir.path().to_string_lossy(),
+            &link.to_string_lossy(),
+            None,
+        );
+
+        assert!(result.is_err());
+    }
+
     #[cfg(unix)]
     #[tokio::test]
     async fn test_load_project_sessions_page_ignores_symlinked_jsonl_outside_project() {
@@ -3542,7 +3979,7 @@ mod tests {
         let messages = result.unwrap();
         assert_eq!(messages.len(), 1);
         // Should have a generated UUID
-        assert!(!messages[0].uuid.is_empty());
+        assert_ne!(messages[0].uuid, "");
         assert!(messages[0].uuid.contains("-line-"));
     }
 
@@ -4193,7 +4630,7 @@ mod tests {
 
     /// Claude Code 2.x names sessions itself with `ai-title` records and
     /// rewrites them as the conversation evolves.
-    fn create_sample_ai_title_message(title: &str) -> String {
+    fn ai_title_line(title: &str) -> String {
         format!(r#"{{"type":"ai-title","aiTitle":"{title}","sessionId":"session-1"}}"#)
     }
 
@@ -4204,7 +4641,7 @@ mod tests {
         let content = format!(
             "{}\n{}\n{}\n",
             create_sample_user_message("uuid-1", "session-1", "Hello"),
-            create_sample_ai_title_message("Fix login redirect"),
+            ai_title_line("Fix login redirect"),
             create_sample_assistant_message("uuid-2", "session-1", "Hi there!")
         );
         std::fs::write(temp_dir.path().join("test.jsonl"), content).unwrap();
@@ -4230,7 +4667,7 @@ mod tests {
             "{}\n{}\n{}\n{}\n",
             create_sample_user_message("uuid-1", "session-1", "Hello"),
             create_sample_custom_title_message("release-prep"),
-            create_sample_ai_title_message("Prepare the release notes"),
+            ai_title_line("Prepare the release notes"),
             create_sample_assistant_message("uuid-2", "session-1", "Hi there!")
         );
         std::fs::write(temp_dir.path().join("test.jsonl"), content).unwrap();
@@ -4250,9 +4687,9 @@ mod tests {
         let content = format!(
             "{}\n{}\n{}\n{}\n",
             create_sample_user_message("uuid-1", "session-1", "Hello"),
-            create_sample_ai_title_message("First guess"),
+            ai_title_line("First guess"),
             create_sample_assistant_message("uuid-2", "session-1", "Hi there!"),
-            create_sample_ai_title_message("Refined title")
+            ai_title_line("Refined title")
         );
         std::fs::write(temp_dir.path().join("test.jsonl"), content).unwrap();
 
@@ -4270,7 +4707,7 @@ mod tests {
             "{}\n{}\n{}\n",
             create_sample_user_message("uuid-1", "session-1", "Hello world"),
             create_sample_assistant_message("uuid-2", "session-1", "Hi there!"),
-            create_sample_ai_title_message("   ")
+            ai_title_line("   ")
         );
         std::fs::write(temp_dir.path().join("test.jsonl"), content).unwrap();
 
@@ -4304,10 +4741,7 @@ mod tests {
                 )
             ));
         }
-        content.push_str(&format!(
-            "{}\n",
-            create_sample_ai_title_message("Late generated title")
-        ));
+        content.push_str(&format!("{}\n", ai_title_line("Late generated title")));
         std::fs::write(temp_dir.path().join("test.jsonl"), content).unwrap();
 
         let result = load_project_sessions(temp_dir.path().to_string_lossy().to_string(), None)
@@ -4326,7 +4760,7 @@ mod tests {
         let content = format!(
             "{}\n{}\n",
             create_sample_user_message("uuid-1", "session-1", "Message 1"),
-            create_sample_ai_title_message("Generated title")
+            ai_title_line("Generated title")
         );
         std::fs::write(&file_path, &content).unwrap();
         let project = temp_dir.path().to_string_lossy().to_string();
@@ -4364,7 +4798,7 @@ mod tests {
         let content = format!(
             "{}\n{}\n{}\n{}\n",
             create_sample_user_message("uuid-1", "session-1", "Hello"),
-            create_sample_ai_title_message("Generated title"),
+            ai_title_line("Generated title"),
             create_sample_custom_title_message("my-name"),
             create_sample_assistant_message("uuid-2", "session-1", "Hi there!")
         );
@@ -4380,12 +4814,11 @@ mod tests {
     #[test]
     fn test_try_extract_ai_title() {
         assert_eq!(
-            try_extract_ai_title("ai-title", Some("  Tidy the parser  ")),
+            try_extract_ai_title(Some("  Tidy the parser  ")),
             Some("Tidy the parser".to_string())
         );
-        assert_eq!(try_extract_ai_title("custom-title", Some("x")), None);
-        assert_eq!(try_extract_ai_title("ai-title", None), None);
-        assert_eq!(try_extract_ai_title("ai-title", Some("  ")), None);
+        assert_eq!(try_extract_ai_title(None), None);
+        assert_eq!(try_extract_ai_title(Some("  ")), None);
     }
 
     #[test]

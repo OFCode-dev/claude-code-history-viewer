@@ -17,6 +17,7 @@ import type { MessageViewerProps } from "./types";
 import { VirtualizedMessageRow } from "./components/VirtualizedMessageRow";
 import { FloatingDateOverlay } from "./components/FloatingDateOverlay";
 import { StickyPromptBar } from "./components/StickyPromptBar";
+import { SessionMinimap, MINIMAP_WIDTH_PX } from "./components/SessionMinimap";
 import { CaptureModeToolbar } from "./components/CaptureModeToolbar";
 import { FilterToolbar } from "./components/FilterToolbar";
 import { FilterHiddenNotice } from "./components/FilterHiddenNotice";
@@ -46,6 +47,7 @@ import {
   applyMessageDisplayFilter,
 } from "./helpers";
 import { useAppStore } from "../../store/useAppStore";
+import { useMinimapVisible } from "../../hooks/useMinimapVisible";
 import { useExpandRegistry } from "../../store/expandRegistryStore";
 import { useExport } from "../../hooks/useExport";
 import {
@@ -118,6 +120,11 @@ export const MessageViewer: React.FC<MessageViewerProps> = ({
     isLoadingMessages,
     setActiveSessionNearBottom,
   } = useAppStore();
+
+  // Session minimap: combines the settings switch, Capture Mode, and the md
+  // breakpoint into one gate (see useMinimapVisible). Drives both whether the
+  // strip mounts and whether the list gets right-padded for it.
+  const isMinimapVisible = useMinimapVisible();
 
   const isInSubagent = parentSessionStack.length > 0;
   const hasParallelTasks = useMemo(
@@ -879,6 +886,11 @@ export const MessageViewer: React.FC<MessageViewerProps> = ({
     />
   );
 
+  // One condition for the strip, the wrapper's padding, and the scroll buttons'
+  // offset: the list's own render guard plus the visibility gate (switch /
+  // Capture Mode / md breakpoint), so no gutter is reserved for an unmounted strip.
+  const showMinimapStrip = flattenedMessages.length > 0 && scrollElementReady && isMinimapVisible;
+
   return (
     <div className="relative flex-1 h-full flex flex-col overflow-clip">
       <AutoHideRegion
@@ -1107,10 +1119,17 @@ export const MessageViewer: React.FC<MessageViewerProps> = ({
       {/* SubAgent: context bar (back, label, previous/next sibling) */}
       <SubagentContextBar />
 
-      <div className="relative flex-1 min-h-0" data-transcript-area="">
+      <div
+        className="relative flex-1 min-h-0"
+        data-transcript-area=""
+        style={showMinimapStrip ? { paddingRight: MINIMAP_WIDTH_PX } : undefined}
+      >
         {/* Current prompt while reading inside a long turn */}
         {flattenedMessages.length > 0 && scrollElementReady && (
-          <StickyPromptBar messages={displayMessages} />
+          <StickyPromptBar
+            messages={displayMessages}
+            rightInset={showMinimapStrip ? MINIMAP_WIDTH_PX : 0}
+          />
         )}
 
         {/* Floating date overlay — outside scroll container to stay fixed */}
@@ -1118,6 +1137,17 @@ export const MessageViewer: React.FC<MessageViewerProps> = ({
           <FloatingDateOverlay
             virtualRows={virtualRows}
             flattenedMessages={flattenedMessages}
+          />
+        )}
+
+        {/* Session minimap strip — see `showMinimapStrip`. */}
+        {showMinimapStrip && (
+          <SessionMinimap
+            virtualizer={virtualizer}
+            flattenedMessages={flattenedMessages}
+            virtualRows={virtualRows}
+            totalSize={totalSize}
+            getScrollElement={getScrollElement}
           />
         )}
 
@@ -1308,8 +1338,13 @@ export const MessageViewer: React.FC<MessageViewerProps> = ({
 
         </OverlayScrollbarsComponent>
 
-        {/* Floating scroll buttons — bottom-right of message area */}
-        <div className="absolute bottom-4 right-4 flex flex-col gap-2 z-30">
+        {/* Floating scroll buttons — bottom-right of message area, kept left
+            of the minimap strip when it is shown. */}
+        <div
+          data-testid="message-scroll-buttons"
+          className="absolute bottom-4 right-4 flex flex-col gap-2 z-30"
+          style={showMinimapStrip ? { right: MINIMAP_WIDTH_PX + 16 } : undefined}
+        >
           {/* Scroll to top */}
           {showScrollToTop && (
             <button

@@ -11,6 +11,8 @@ import {
   filterMessagesByCategory,
   getMessageUuidsByCategory,
 } from "../MessageViewer/helpers";
+import { getPromptJumpKeysLabel } from "../MessageViewer/helpers/promptJump";
+import { getKindLabelKey } from "./kindLabels";
 import { NavigatorEntry } from "./NavigatorEntry";
 import { NavigatorModeToggle } from "./NavigatorModeToggle";
 import { NavigatorPromptRow } from "./NavigatorPromptRow";
@@ -69,6 +71,8 @@ export const MessageNavigator: React.FC<MessageNavigatorProps> = ({
 }) => {
   const { t } = useTranslation();
   const keyboardHelpId = `${asideId}-keyboard-help`;
+  // The shortcut acts on the message list, so the panel only describes it.
+  const promptJumpHint = t("navigator.promptJumpHint", { keys: getPromptJumpKeysLabel() });
   const scrollElementRef = useRef<HTMLDivElement>(null);
   const rowRefs = useRef(new Map<string, HTMLButtonElement>());
   const isPointerInsideRef = useRef(false);
@@ -127,15 +131,16 @@ export const MessageNavigator: React.FC<MessageNavigatorProps> = ({
   );
   const allEntries = useNavigatorEntries(navigatorMessages);
 
+  // All mode's local filter matches what each row displays: preview + kind label
   const entries = useMemo(() => {
     const lower = filterText.trim().toLowerCase();
     if (!lower) return allEntries;
     return allEntries.filter(
       (e) =>
         e.preview.toLowerCase().includes(lower) ||
-        e.role.toLowerCase().includes(lower)
+        t(getKindLabelKey(e.kind)).toLowerCase().includes(lower)
     );
-  }, [allEntries, filterText]);
+  }, [allEntries, filterText, t]);
 
   // Prompts mode: human prompts with their spawned subagents
   const promptEntries = useMemo(
@@ -618,9 +623,14 @@ export const MessageNavigator: React.FC<MessageNavigatorProps> = ({
       <p id={keyboardHelpId} className="sr-only">
         {isPromptsMode
           ? t("navigator.a11y.promptsKeyboardHelp")
-          : t(
-              "navigator.a11y.keyboardHelp",
-              "Keyboard: use arrow keys to move between messages, Home and End to jump, and Enter or Space to open the focused message."
+          : (
+              <>
+                {t(
+                  "navigator.a11y.keyboardHelp",
+                  "Keyboard: use arrow keys to move between messages, Home and End to jump, and Enter or Space to open the focused message."
+                )}{" "}
+                {promptJumpHint}
+              </>
             )}
       </p>
     </aside>

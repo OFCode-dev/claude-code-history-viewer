@@ -148,6 +148,8 @@ export const ExplorerTreeView: React.FC<ExplorerTreeViewProps> = ({
         ref={treeRef}
         role="tree"
         aria-label={treeLabel}
+        // Alt+Up/Down pressed here still reaches the global prompt jump.
+        data-prompt-jump-passthrough=""
         aria-describedby={describedBy}
         onKeyDown={onTreeKeyDown}
         onFocusCapture={onTreeFocus}

@@ -126,9 +126,14 @@ pub async fn validate_custom_claude_dir(path: String) -> Result<bool, String> {
 /// configuration directory (has a `projects/` subfolder). Returns `None` otherwise.
 #[tauri::command]
 pub async fn detect_claude_config_dir() -> Result<Option<String>, String> {
+    Ok(claude_config_dir())
+}
+
+/// Synchronous body of [`detect_claude_config_dir`].
+pub(crate) fn claude_config_dir() -> Option<String> {
     let raw = match std::env::var("CLAUDE_CONFIG_DIR") {
         Ok(val) if !val.trim().is_empty() => val.trim().to_string(),
-        _ => return Ok(None),
+        _ => return None,
     };
 
     // Expand ~ to home directory (only exact "~" or "~/..." patterns)
@@ -148,13 +153,12 @@ pub async fn detect_claude_config_dir() -> Result<Option<String>, String> {
 
     let path = PathBuf::from(&expanded);
     if !path.is_absolute() {
-        return Ok(None);
+        return None;
     }
 
-    match crate::utils::validate_custom_claude_path(&path) {
-        Ok(_) => Ok(Some(expanded)),
-        Err(_) => Ok(None),
-    }
+    crate::utils::validate_custom_claude_path(&path)
+        .ok()
+        .map(|_| expanded)
 }
 
 /// Scan the Claude storage directory for projects.
@@ -177,7 +181,7 @@ pub async fn scan_projects(claude_path: String) -> Result<Vec<ClaudeProject>, St
 /// Infallible: an unreadable project directory is skipped rather than failing
 /// the scan. The command's `Result` is the IPC contract and stays; the
 /// `#[tauri::command]` attribute was hiding this from clippy.
-fn scan_projects_blocking(claude_path: String) -> Vec<ClaudeProject> {
+pub(crate) fn scan_projects_blocking(claude_path: String) -> Vec<ClaudeProject> {
     #[cfg(debug_assertions)]
     let start_time = std::time::Instant::now();
     let projects_path = PathBuf::from(&claude_path).join("projects");

@@ -8,7 +8,7 @@ import {
   findSiblingTreeItemIndexes,
   findTypeaheadMatchIndex,
   getNextTreeItemIndex,
-  type TreeNavigationKey,
+  getTreeNavigationKey,
 } from "../treeKeyboard";
 
 interface UseTreeNavigationArgs {
@@ -192,17 +192,10 @@ export function useTreeNavigation({
         return;
       }
 
-      if (
-        event.key === "ArrowDown" ||
-        event.key === "ArrowUp" ||
-        event.key === "Home" ||
-        event.key === "End"
-      ) {
-        const nextIndex = getNextTreeItemIndex(
-          currentIndex,
-          treeItems.length,
-          event.key as TreeNavigationKey
-        );
+      // Alt+Up/Down is left to the global previous/next prompt shortcut.
+      const navigationKey = getTreeNavigationKey(event);
+      if (navigationKey) {
+        const nextIndex = getNextTreeItemIndex(currentIndex, treeItems.length, navigationKey);
         if (nextIndex !== currentIndex && nextIndex >= 0) focusItem(nextIndex);
       }
     },

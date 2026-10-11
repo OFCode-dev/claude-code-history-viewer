@@ -192,6 +192,186 @@ describe("MessageNavigator accessibility", () => {
     fireEvent.click(toggle);
     expect(toggleShowParallelTasksMock).toHaveBeenCalledOnce();
   });
+  it("previews an agent update by its summary instead of its IDs", () => {
+    render(
+      <MessageNavigator
+        messages={[
+          {
+            uuid: "agent-update",
+            type: "user",
+            content: '<task-notification><task-id>ad2512cc64c5db295</task-id><tool-use-id>toolu_01ATyz</tool-use-id><status>completed</status><summary>Agent "W6 upgrade" finished</summary></task-notification>',
+            timestamp: "2026-02-27T10:02:00Z",
+          } as never,
+        ]}
+        width={260}
+        isResizing={false}
+        onResizeStart={vi.fn()}
+        isCollapsed={false}
+        onToggleCollapse={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText('Agent "W6 upgrade" finished')).toBeInTheDocument();
+    expect(screen.queryByText(/ad2512cc64c5db295/)).not.toBeInTheDocument();
+    expect(screen.getByRole("option")).toHaveAttribute("aria-label", "navigator.a11y.entryLabel");
+  });
+
+  it("marks a failed agent update in the destructive color", () => {
+    render(
+      <MessageNavigator
+        messages={[
+          {
+            uuid: "failed-update",
+            type: "user",
+            content: '<task-notification><task-id>agent-2</task-id><status>failed</status><summary>Agent "Batch B" failed</summary></task-notification>',
+            timestamp: "2026-02-27T10:04:00Z",
+          } as never,
+        ]}
+        width={260}
+        isResizing={false}
+        onResizeStart={vi.fn()}
+        isCollapsed={false}
+        onToggleCollapse={vi.fn()}
+      />
+    );
+
+    const icon = screen.getByRole("option").querySelector("svg");
+    expect(icon).toHaveClass("text-destructive");
+  });
+
+  it("filters rows by the kind label they display, not the stored role", () => {
+    render(
+      <MessageNavigator
+        messages={[
+          {
+            uuid: "prompt",
+            type: "user",
+            content: "Scrub for pii",
+            timestamp: "2026-02-27T10:00:00Z",
+          } as never,
+          {
+            uuid: "agent-update",
+            type: "user",
+            content: "<task-notification><task-id>bg-4</task-id><status>completed</status><summary>Batch A finished</summary></task-notification>",
+            timestamp: "2026-02-27T10:01:00Z",
+          } as never,
+        ]}
+        width={260}
+        isResizing={false}
+        onResizeStart={vi.fn()}
+        isCollapsed={false}
+        onToggleCollapse={vi.fn()}
+      />
+    );
+
+    const filterInput = screen.getByRole("textbox");
+
+    // The i18n mock returns keys, so the agent-update label is "navigator.kind.agentUpdate".
+    fireEvent.change(filterInput, { target: { value: "agent" } });
+    expect(screen.getAllByRole("option")).toHaveLength(1);
+    expect(screen.getByText("Batch A finished")).toBeInTheDocument();
+
+    // Both rows are stored as role "user", but neither displays that word.
+    fireEvent.change(filterInput, { target: { value: "user" } });
+    expect(screen.queryAllByRole("option")).toHaveLength(0);
+  });
+
+  it("marks a stopped agent update in the destructive color", () => {
+    render(
+      <MessageNavigator
+        messages={[
+          {
+            uuid: "stopped-update",
+            type: "user",
+            content: "<task-notification><task-id>bg-3</task-id><status>stopped</status><summary>Background shell command didn't finish before the previous session ended</summary></task-notification>",
+            timestamp: "2026-02-27T10:05:00Z",
+          } as never,
+        ]}
+        width={260}
+        isResizing={false}
+        onResizeStart={vi.fn()}
+        isCollapsed={false}
+        onToggleCollapse={vi.fn()}
+      />
+    );
+
+    const icon = screen.getByRole("option").querySelector("svg");
+    expect(icon).toHaveClass("text-destructive");
+  });
+
+  it("marks an agent update failed when a later notification in it failed", () => {
+    render(
+      <MessageNavigator
+        messages={[
+          {
+            uuid: "mixed-update",
+            type: "user",
+            content: [
+              "<task-notification><task-id>bg-5</task-id><status>completed</status><summary>Batch A finished</summary></task-notification>",
+              "<task-notification><task-id>bg-6</task-id><status>failed</status><summary>Batch B failed</summary></task-notification>",
+            ].join("\n"),
+            timestamp: "2026-02-27T10:06:00Z",
+          } as never,
+        ]}
+        width={260}
+        isResizing={false}
+        onResizeStart={vi.fn()}
+        isCollapsed={false}
+        onToggleCollapse={vi.fn()}
+      />
+    );
+
+    // The preview keeps the first notification's summary.
+    expect(screen.getByText("Batch A finished")).toBeInTheDocument();
+    const icon = screen.getByRole("option").querySelector("svg");
+    expect(icon).toHaveClass("text-destructive");
+  });
+
+  it("leaves Alt+Arrow to the global prompt shortcut in All mode", () => {
+    render(
+      <MessageNavigator
+        messages={[
+          { uuid: "message-1", type: "user", content: "First", timestamp: "2026-02-27T10:00:00Z" } as never,
+          { uuid: "message-2", type: "assistant", content: "Second", timestamp: "2026-02-27T10:01:00Z" } as never,
+          { uuid: "message-3", type: "assistant", content: "Third", timestamp: "2026-02-27T10:02:00Z" } as never,
+        ]}
+        width={260}
+        isResizing={false}
+        onResizeStart={vi.fn()}
+        isCollapsed={false}
+        onToggleCollapse={vi.fn()}
+      />
+    );
+
+    const currentEntry = screen.getAllByRole("option")[1];
+    act(() => {
+      currentEntry.focus();
+    });
+    // fireEvent returns false when a handler called preventDefault().
+    const notPrevented = fireEvent.keyDown(currentEntry, { key: "ArrowDown", altKey: true });
+
+    expect(notPrevented).toBe(true);
+    expect(screen.getAllByRole("option")[1]).toHaveAttribute("tabindex", "0");
+  });
+
+  it("names the prompt-jump shortcut in All mode's keyboard help", () => {
+    render(
+      <MessageNavigator
+        messages={[
+          { uuid: "prompt", type: "user", content: "Scrub for pii", timestamp: "2026-02-27T10:00:00Z" } as never,
+        ]}
+        width={260}
+        isResizing={false}
+        onResizeStart={vi.fn()}
+        isCollapsed={false}
+        onToggleCollapse={vi.fn()}
+      />
+    );
+
+    expect(document.getElementById("message-navigator-keyboard-help")?.textContent)
+      .toContain("navigator.promptJumpHint");
+  });
+
   it("gives each All-mode option its position in the whole list", () => {
     visibleRange.current = { startIndex: 2, endIndex: 2 };
     render(

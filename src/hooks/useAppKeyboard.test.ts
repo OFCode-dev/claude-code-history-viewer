@@ -2,8 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { renderHook } from "@testing-library/react";
 import type { ClaudeMessage } from "@/types";
 
+const { openModalMock } = vi.hoisted(() => ({ openModalMock: vi.fn() }));
+
 vi.mock("@/contexts/modal", () => ({
-  useModal: () => ({ openModal: vi.fn() }),
+  useModal: () => ({ openModal: openModalMock }),
 }));
 
 vi.mock("@/contexts/platform", () => ({
@@ -154,5 +156,29 @@ describe("useAppKeyboard prompt jumps", () => {
 
     expect(navigateToMessage).toHaveBeenCalledWith("p2", { history: "replace" });
     list.remove();
+  });
+});
+
+describe("useAppKeyboard global search", () => {
+  afterEach(() => {
+    openModalMock.mockReset();
+  });
+
+  it("opens global search on Mod+K", () => {
+    renderHook(() => useAppKeyboard());
+
+    const event = press("k", { ctrlKey: true });
+
+    expect(openModalMock).toHaveBeenCalledWith("globalSearch");
+    expect(event.defaultPrevented).toBe(true);
+  });
+
+  it("stops listening after unmount", () => {
+    const { unmount } = renderHook(() => useAppKeyboard());
+    unmount();
+
+    press("k", { ctrlKey: true });
+
+    expect(openModalMock).not.toHaveBeenCalled();
   });
 });

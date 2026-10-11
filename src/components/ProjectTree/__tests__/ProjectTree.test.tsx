@@ -590,6 +590,21 @@ describe("ProjectTree keyboard", () => {
     expect(row(KEYS.lab)).toHaveAttribute("aria-expanded", "true");
     expect(row(KEYS.research)).toHaveAttribute("aria-expanded", "true");
   });
+
+  it("leaves Alt+Up/Down to the global prompt shortcut", () => {
+    renderTree();
+    act(() => row(KEYS.app)!.focus());
+
+    // fireEvent returns false when a handler called preventDefault().
+    const notPrevented = fireEvent.keyDown(document.activeElement as HTMLElement, {
+      key: "ArrowDown",
+      altKey: true,
+    });
+
+    expect(notPrevented).toBe(true);
+    expect(document.activeElement).toBe(row(KEYS.app));
+    expect(screen.getByRole("tree")).toHaveAttribute("data-prompt-jump-passthrough");
+  });
 });
 
 describe("ProjectTree reveal requests", () => {
