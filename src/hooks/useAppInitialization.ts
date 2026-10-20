@@ -4,6 +4,7 @@ import { useLanguageStore } from "@/store/useLanguageStore";
 import { type SupportedLanguage } from "@/i18n";
 import { useTranslation } from "react-i18next";
 import { useFileWatcher } from "./useFileWatcher";
+import { readAloudHandle } from "@/services/readAloud";
 
 /**
  * App initialization side effects:
@@ -29,6 +30,8 @@ export function useAppInitialization(deps: {
   const handleSessionChanged = useCallback(
     (event: { projectPath: string; sessionPath: string }) => {
       triggerSessionRefresh(event.projectPath, event.sessionPath);
+      // Read-aloud fast path; the controller ignores pokes for other files.
+      readAloudHandle.poke(event.sessionPath);
     },
     [triggerSessionRefresh]
   );

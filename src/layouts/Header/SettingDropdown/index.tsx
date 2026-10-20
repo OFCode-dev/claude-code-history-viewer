@@ -21,6 +21,7 @@ import { FilterMenuGroup } from "./FilterMenuGroup";
 import { ViewMenuGroup } from "./ViewMenuGroup";
 import { FontMenuGroup } from "./FontMenuGroup";
 import { AccessibilityMenuGroup } from "./AccessibilityMenuGroup";
+import { ReadAloudMenuGroup } from "./ReadAloudMenuGroup";
 
 interface SettingDropdownProps {
   updater: UseUpdaterReturn;
@@ -103,6 +104,9 @@ export const SettingDropdown = ({
 
           <DropdownMenuSeparator />
           <AccessibilityMenuGroup />
+
+          <DropdownMenuSeparator />
+          <ReadAloudMenuGroup />
 
           <DropdownMenuSeparator />
           <ThemeMenuGroup />

@@ -12,6 +12,14 @@ export const readBool = (key: string, fallback: boolean): boolean => {
   }
 };
 
+export const readStr = (key: string, fallback: string): string => {
+  try {
+    return localStorage.getItem(key) ?? fallback;
+  } catch {
+    return fallback;
+  }
+};
+
 export const writeStr = (key: string, value: string): void => {
   try {
     localStorage.setItem(key, value);

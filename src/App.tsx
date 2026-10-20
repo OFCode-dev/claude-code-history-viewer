@@ -6,6 +6,7 @@ import { useAnalytics } from "./hooks/analytics";
 import { useUpdater } from "./hooks/useUpdater";
 import { useResizablePanel } from "./hooks/useResizablePanel";
 import { useAppKeyboard } from "./hooks/useAppKeyboard";
+import { useReadAloud } from "./hooks/useReadAloud";
 import { useAppInitialization } from "./hooks/useAppInitialization";
 import { useLiveStatusMessage } from "./hooks/useLiveStatusMessage";
 import { useExternalLinks } from "./hooks/useExternalLinks";
@@ -90,6 +91,7 @@ function App() {
 
   // Side-effect hooks (no return value)
   useAppKeyboard();
+  useReadAloud();
   useExternalLinks();
   useAppInitialization({ isMessagesView: computed.isMessagesView });
 

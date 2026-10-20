@@ -296,6 +296,13 @@ pub struct PaginatedParams {
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct ReadSessionTailParams {
+    pub session_path: String,
+    pub from_offset: Option<u64>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct MessageCountParams {
     pub session_path: String,
     pub exclude_sidechain: Option<bool>,
@@ -681,6 +688,15 @@ handler_json!(
             p.exclude_sidechain,
         )
         .await
+    }
+);
+
+handler_json!(
+    read_session_tail,
+    ReadSessionTailParams,
+    |p: ReadSessionTailParams| async move {
+        require_history_path(&p.session_path)?;
+        commands::session::read_session_tail(p.session_path, p.from_offset).await
     }
 );
 
@@ -1598,6 +1614,22 @@ mod tests {
         let res = load_session_messages(Json(SessionPathParam { session_path })).await;
 
         assert!(res.is_err(), "out-of-root session file was served");
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn read_session_tail_rejects_file_outside_history_roots() {
+        let _home = crate::test_utils::SandboxHome::new();
+        let (_outside, project_path) = outside_project();
+        let session_path = format!("{project_path}/session.jsonl");
+
+        let res = read_session_tail(Json(ReadSessionTailParams {
+            session_path,
+            from_offset: None,
+        }))
+        .await;
+
+        assert!(res.is_err(), "out-of-root session file was tailed");
     }
 
     fn metadata_state() -> Arc<AppState> {

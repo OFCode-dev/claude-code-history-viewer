@@ -108,6 +108,10 @@ vi.mock("../layouts/Header/SettingDropdown/AccessibilityMenuGroup", () => ({
   AccessibilityMenuGroup: () => <div data-testid="accessibility-group" />,
 }));
 
+vi.mock("../layouts/Header/SettingDropdown/ReadAloudMenuGroup", () => ({
+  ReadAloudMenuGroup: () => <div data-testid="read-aloud-group" />,
+}));
+
 const defaultSettings: UpdateSettings = {
   autoCheck: true,
   checkInterval: "startup",

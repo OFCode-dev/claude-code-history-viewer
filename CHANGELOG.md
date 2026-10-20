@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Read aloud** (Claude Code sessions): a header toggle that speaks each new reply shortly after Claude writes it, including thinking (switchable) with code and tables announced by a short cue. Only content that arrives after you turn it on is read, and it follows the main session you have open. When replies pile up it speeds up to catch up (or skips older replies, or reads everything; your choice in the settings menu → Read aloud). The voice matches each reply's language automatically or can be fixed, and only voices installed on your device are used, so session text never leaves it.
+
 ## [1.32.0] - 2026-10-11
 
 ### Added

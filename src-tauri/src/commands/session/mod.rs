@@ -15,6 +15,7 @@ mod queued_prompt;
 mod rename;
 mod resume;
 mod search;
+mod tail;
 
 // Re-export all commands
 pub use chain::{resolve_session_chain, superseded_chain_paths};
@@ -24,6 +25,7 @@ pub use load::*;
 pub use rename::*;
 pub use resume::*;
 pub use search::*;
+pub use tail::*;
 
 /// Split a provider URI into its scheme and remainder, or `None` if the value
 /// is an ordinary path.
