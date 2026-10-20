@@ -23,21 +23,71 @@ import {
 const COMMAND_RE = /^[a-zA-Z0-9_]+$/;
 
 /**
+ * Thrown when the WebUI rejects a request with 401 and no retry is left.
+ * Callers that poll (e.g. read-aloud) stop on it instead of retrying.
+ */
+export class AuthRequiredError extends Error {
+  constructor(message = "Authentication required") {
+    super(message);
+    this.name = "AuthRequiredError";
+  }
+}
+
+export interface ApiOptions {
+  /** Aborts the request. Desktop `invoke()` cannot be cancelled; its result is then ignored. */
+  signal?: AbortSignal;
+}
+
+const abortReason = (signal: AbortSignal): unknown =>
+  signal.reason ?? new DOMException("Aborted", "AbortError");
+
+/** Reject as soon as `signal` aborts, even if `promise` never settles. */
+function raceAbort<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
+  if (signal.aborted) return Promise.reject(abortReason(signal));
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => reject(abortReason(signal));
+    signal.addEventListener("abort", onAbort, { once: true });
+    const cleanup = () => signal.removeEventListener("abort", onAbort);
+    promise.then(
+      (value) => {
+        cleanup();
+        resolve(value);
+      },
+      (error: unknown) => {
+        cleanup();
+        reject(error);
+      },
+    );
+  });
+}
+
+/**
  * Call a backend command regardless of runtime environment.
  *
  * @param command  Tauri command name (also used as the REST endpoint name)
  * @param args     Optional arguments object (serialised as JSON body in web mode)
- * @param _retried Internal flag to prevent infinite retry on 401
+ * @param options  Optional request options (abort signal)
  * @returns        The deserialised response from the backend
  */
-export async function api<T>(
+export function api<T>(
   command: string,
   args?: Record<string, unknown>,
-  _retried = false,
+  options: ApiOptions = {},
+): Promise<T> {
+  return request<T>(command, args, options, false);
+}
+
+/** @param retried Internal flag to prevent infinite retry on 401 */
+async function request<T>(
+  command: string,
+  args: Record<string, unknown> | undefined,
+  { signal }: ApiOptions,
+  retried: boolean,
 ): Promise<T> {
   if (isTauri()) {
     const { invoke } = await import("@tauri-apps/api/core");
-    return args != null ? invoke<T>(command, args) : invoke<T>(command);
+    const call = args != null ? invoke<T>(command, args) : invoke<T>(command);
+    return signal ? raceAbort(call, signal) : call;
   }
 
   if (!COMMAND_RE.test(command)) {
@@ -60,23 +110,24 @@ export async function api<T>(
     headers,
     credentials: "same-origin",
     body: JSON.stringify(args ?? {}),
+    signal,
   });
 
   // On 401, try to extract token from URL params and retry once.
   // If no token is available, redirect to force re-authentication.
-  if (response.status === 401 && !_retried) {
+  if (response.status === 401 && !retried) {
     const params = new URLSearchParams(window.location.search);
     const urlToken = params.get("token");
     if (urlToken) {
       setAuthToken(urlToken);
-      return api<T>(command, args, true);
+      return request<T>(command, args, { signal }, true);
     }
 
     // Avoid redirect loops when already on an auth error page.
     if (params.get("auth_error") === "1") {
       clearAuthToken();
       await clearAuthCookie();
-      throw new Error("Authentication required.");
+      throw new AuthRequiredError("Authentication required.");
     }
 
     // Clear stale token and redirect once to an explicit auth-error URL.
@@ -87,7 +138,7 @@ export async function api<T>(
     window.location.replace(
       query ? `${window.location.pathname}?${query}` : window.location.pathname,
     );
-    throw new Error("Authentication required");
+    throw new AuthRequiredError();
   }
 
   if (!response.ok) {
@@ -101,7 +152,8 @@ export async function api<T>(
     }
     // Log full error for debugging, show sanitized message to user
     console.error(`API error [${command}]:`, errorBody);
-    throw new Error(message);
+    // A 401 here is the retried request: nothing is left to try.
+    throw response.status === 401 ? new AuthRequiredError(message) : new Error(message);
   }
 
   return response.json() as Promise<T>;
