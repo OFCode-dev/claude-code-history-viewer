@@ -24,6 +24,7 @@ import { HeaderBreadcrumb } from "./HeaderBreadcrumb";
 import { HeaderFavoriteButton } from "./HeaderFavoriteButton";
 import { HistoryNavButtons } from "./HistoryNavButtons";
 import { ReadingModeButton } from "./ReadingModeButton";
+import { ReadAloudControls } from "./ReadAloudControls";
 
 interface HeaderProps {
   analyticsActions: UseAnalyticsReturn["actions"];
@@ -277,6 +278,8 @@ export const Header = ({ analyticsActions, analyticsComputed, updater }: HeaderP
         )}
 
         <ReadingModeButton className="hidden md:inline-flex" />
+        {/* Visible on every viewport, unlike reading mode. */}
+        <ReadAloudControls />
 
         {/* Refresh — rescans projects and reloads the selected session, so a
             second per-session refresh button is redundant. */}

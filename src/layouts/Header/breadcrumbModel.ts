@@ -128,7 +128,7 @@ function oneLine(text: string): string {
   return text.replace(/\s+/g, " ").trim();
 }
 
-function sessionLabel(
+export function sessionLabel(
   session: ClaudeSession,
   untitledSession: (shortId: string) => string,
   sessionName?: (session: ClaudeSession) => string | undefined,
