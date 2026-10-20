@@ -96,6 +96,7 @@ const READ_ONLY_ALLOWED_API_PATHS: &[&str] = &[
     "/load_user_metadata",
     "/open_github_issues",
     "/read_restore_target",
+    "/read_session_tail",
     "/read_text_file",
     "/scan_all_projects",
     "/scan_projects",
@@ -216,6 +217,7 @@ pub fn build_router(
             "/load_session_messages_paginated",
             post(h::load_session_messages_paginated),
         )
+        .route("/read_session_tail", post(h::read_session_tail))
         .route(
             "/get_session_message_count",
             post(h::get_session_message_count),
